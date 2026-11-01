@@ -328,7 +328,7 @@ export default function FlightMap(props: FlightMapProps) {
         paint: {
           "icon-color": ["get", "color"],
           "icon-halo-color": ["case", ["get", "sel"], "#f5b83d", "rgba(5,10,18,0.85)"],
-          "icon-halo-width": ["case", ["get", "sel"], 2.2, 1.2],
+          "icon-halo-width": ["case", ["get", "sel"], 0.8, 1],
         },
       });
     }
