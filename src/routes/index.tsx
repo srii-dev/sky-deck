@@ -179,7 +179,7 @@ function SkyDeck() {
           />
         </div>
 
-        <div className="pointer-events-auto flex items-center gap-2 md:ml-auto">
+        <div className="pointer-events-auto flex flex-wrap items-center gap-2 md:ml-auto">
           <div className="glass-panel flex h-11 items-center rounded-md px-1">
             <ToggleGroup
               type="single"
@@ -275,7 +275,7 @@ function SkyDeck() {
 
       {/* Emergency alert */}
       {emergencies.length > 0 && (
-        <div className="pointer-events-none absolute inset-x-0 top-[124px] z-30 flex justify-center px-3 md:top-[72px]">
+        <div className="pointer-events-none absolute inset-x-0 top-[176px] z-30 flex justify-center px-3 md:top-[72px]">
           <EmergencyBanner aircraft={emergencies} onPick={pickAircraft} />
         </div>
       )}
