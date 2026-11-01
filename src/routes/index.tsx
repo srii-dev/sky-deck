@@ -13,7 +13,6 @@ import { EmergencyBanner } from "@/components/skydeck/EmergencyBanner";
 import { AltitudeLegend } from "@/components/skydeck/AltitudeLegend";
 import type { Basemap, FlyTarget, Viewport } from "@/components/skydeck/map-config";
 import { useAircraftFeed } from "@/hooks/use-aircraft-feed";
-import { useIsMobile } from "@/hooks/use-mobile";
 import {
   activeFilterCount,
   DEFAULT_FILTERS,
@@ -33,12 +32,14 @@ export const Route = createFileRoute("/")({
       { title: `${APP_NAME} — ${APP_TAGLINE}` },
       {
         name: "description",
-        content: "Track live aircraft on a 3D map with altitude-colored trails, search, filters and emergency squawk alerts.",
+        content:
+          "Track live aircraft on a 3D map with altitude-colored trails, search, filters and emergency squawk alerts.",
       },
       { property: "og:title", content: `${APP_NAME} — ${APP_TAGLINE}` },
       {
         property: "og:description",
-        content: "Live ADS-B aircraft on a 3D terrain map with trails, filters and emergency alerts.",
+        content:
+          "Live ADS-B aircraft on a 3D terrain map with trails, filters and emergency alerts.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -56,7 +57,6 @@ function MapFallback() {
 }
 
 function SkyDeck() {
-  const isMobile = useIsMobile();
   const [viewport, setViewport] = useState<Viewport | null>(null);
   const [selectedHex, setSelectedHex] = useState<string | null>(null);
   const [basemap, setBasemap] = useState<Basemap>("dark");
@@ -102,7 +102,10 @@ function SkyDeck() {
     () => feed.aircraft.filter((a) => a.hex === selectedHex || passesFilters(a, filters)),
     [feed.aircraft, filters, selectedHex],
   );
-  const emergencies = useMemo(() => feed.aircraft.filter((a) => isEmergency(a.squawk)), [feed.aircraft]);
+  const emergencies = useMemo(
+    () => feed.aircraft.filter((a) => isEmergency(a.squawk)),
+    [feed.aircraft],
+  );
   const selected = useMemo(
     () => feed.aircraft.find((a) => a.hex === selectedHex) ?? null,
     [feed.aircraft, selectedHex],
@@ -202,7 +205,9 @@ function SkyDeck() {
               title="3D terrain"
             >
               <Mountain />
-              <span className="hidden font-display text-xs uppercase tracking-wider lg:inline">Terrain</span>
+              <span className="hidden font-display text-xs uppercase tracking-wider lg:inline">
+                Terrain
+              </span>
             </Button>
             <Button
               variant="hud"
@@ -214,7 +219,9 @@ function SkyDeck() {
               title="Show selected trail in 3D"
             >
               <Box />
-              <span className="hidden font-display text-xs uppercase tracking-wider lg:inline">3D trail</span>
+              <span className="hidden font-display text-xs uppercase tracking-wider lg:inline">
+                3D trail
+              </span>
             </Button>
           </div>
           <div className="glass-panel flex h-11 items-center rounded-md px-1">
@@ -239,7 +246,13 @@ function SkyDeck() {
           </div>
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant="panel" size="icon" className="relative h-11 w-11" aria-label="Filters" data-active={filterCount > 0}>
+              <Button
+                variant="panel"
+                size="icon"
+                className="relative h-11 w-11"
+                aria-label="Filters"
+                data-active={filterCount > 0}
+              >
                 <SlidersHorizontal />
                 {filterCount > 0 && (
                   <span className="data-value absolute -right-1 -top-1 flex size-4 items-center justify-center rounded-full bg-primary text-[10px] text-primary-foreground">
@@ -249,7 +262,12 @@ function SkyDeck() {
               </Button>
             </PopoverTrigger>
             <PopoverContent align="end" className="glass-panel w-80">
-              <FiltersPanel filters={filters} onChange={setFilters} aircraft={feed.aircraft} units={units} />
+              <FiltersPanel
+                filters={filters}
+                onChange={setFilters}
+                aircraft={feed.aircraft}
+                units={units}
+              />
             </PopoverContent>
           </Popover>
         </div>
@@ -264,15 +282,19 @@ function SkyDeck() {
 
       {feed.error && (
         <div className="pointer-events-none absolute inset-x-0 bottom-16 z-20 flex justify-center">
-          <div className="glass-panel rounded-md px-3 py-1.5 text-xs text-warning">{feed.error}</div>
+          <div className="glass-panel rounded-md px-3 py-1.5 text-xs text-warning">
+            {feed.error}
+          </div>
         </div>
       )}
 
-      {!(isMobile && selected) && (
-        <div className="pointer-events-none absolute bottom-3 left-3 z-20">
+      {
+        <div
+          className={`pointer-events-none absolute bottom-3 left-3 z-20 ${selected ? "hidden md:block" : ""}`}
+        >
           <AltitudeLegend units={units} />
         </div>
-      )}
+      }
 
       {selected && (
         <AircraftPanel
@@ -284,7 +306,6 @@ function SkyDeck() {
           follow={follow}
           onFollow={setFollow}
           onClose={() => onSelect(null)}
-          isMobile={isMobile}
         />
       )}
     </main>
