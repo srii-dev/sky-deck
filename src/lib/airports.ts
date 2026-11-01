@@ -150,7 +150,7 @@ export function searchAirports(q: string, limit = 5): Airport[] {
     (a) =>
       a.iata.toLowerCase().startsWith(s) ||
       a.icao.toLowerCase().startsWith(s) ||
-      a.city.toLowerCase().startsWith(s) ||
-      a.name.toLowerCase().includes(s),
+      (s.length >= 3 && a.city.toLowerCase().startsWith(s)) ||
+      (s.length >= 4 && a.name.toLowerCase().includes(s)),
   ).slice(0, limit);
 }

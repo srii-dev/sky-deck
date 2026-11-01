@@ -435,8 +435,9 @@ export default function FlightMap(props: FlightMapProps) {
         /* ignore */
       }
     };
-    map.on("load", emitViewport);
     map.on("moveend", emitViewport);
+    // Fetch immediately; don't wait for every terrain tile ("load") to arrive.
+    emitViewport();
 
     map.on("click", (e) => {
       if (!map.getLayer("sd-aircraft")) return;
