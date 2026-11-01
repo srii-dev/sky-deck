@@ -51,8 +51,14 @@ const str = (v: unknown): string | null => {
   return s.length ? s : null;
 };
 
+type RawKeys =
+  | "alt_baro" | "alt_geom" | "baro_rate" | "category" | "desc" | "flight" | "geom_rate" | "gs" | "hex"
+  | "lat" | "lon" | "mag_heading" | "r" | "seen" | "seen_pos" | "squawk" | "t" | "track" | "true_heading"
+  | "ownOp" | "iata" | "icao" | "location" | "name";
+type Raw = Partial<Record<RawKeys, unknown>>;
+
 // readsb / tar1090 aircraft JSON → Aircraft
-function fromReadsb(ac: Record<string, unknown>): Aircraft | null {
+function fromReadsb(ac: Raw): Aircraft | null {
   const lat = num(ac.lat);
   const lon = num(ac.lon);
   if (lat == null || lon == null) return null;
@@ -84,7 +90,7 @@ function parseReadsb(json: unknown): Aircraft[] {
     [];
   const out: Aircraft[] = [];
   for (const raw of list) {
-    const a = fromReadsb(raw as Record<string, unknown>);
+    const a = fromReadsb(raw as Raw);
     if (a && a.hex) out.push(a);
   }
   return out;
@@ -205,7 +211,7 @@ export const searchAircraft = createServerFn({ method: "GET" })
 
 const routeInput = z.object({ callsign: z.string().trim().min(3).max(10) });
 
-function toAirport(a: Record<string, unknown>): RouteAirport | null {
+function toAirport(a: Raw): RouteAirport | null {
   const lat = num(a.lat);
   const lon = num(a.lon);
   if (lat == null || lon == null) return null;
@@ -231,11 +237,11 @@ export const getFlightRoute = createServerFn({ method: "GET" })
       const json = (await getJson(
         `https://vrs-standing-data.adsb.lol/routes/${cs.slice(0, 2)}/${cs}.json`,
         5000,
-      )) as { _airports?: Record<string, unknown>[] };
+      )) as { _airports?: Raw[] };
       const airports = (json._airports ?? []).map(toAirport).filter((a): a is RouteAirport => !!a);
-      if (airports.length >= 2) {
-        value = { origin: airports[0], destination: airports[airports.length - 1] };
-      }
+      const origin = airports[0];
+      const destination = airports[airports.length - 1];
+      if (airports.length >= 2 && origin && destination) value = { origin, destination };
     } catch {
       value = null;
     }

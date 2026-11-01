@@ -117,6 +117,7 @@ function trailFeatures(trail: TrailPoint[]) {
   for (let i = 1; i < trail.length; i++) {
     const p = trail[i - 1];
     const q = trail[i];
+    if (!p || !q) continue;
     if (Math.abs(p.lat - q.lat) < 1e-7 && Math.abs(p.lon - q.lon) < 1e-7) continue;
     const altFt = q.onGround ? 0 : (q.altFt ?? 0);
     const color = altitudeColor(q.altFt, q.onGround);
@@ -447,7 +448,7 @@ export default function FlightMap(props: FlightMapProps) {
         ],
         { layers: ["sd-aircraft"] },
       );
-      const hex = feats[0]?.properties?.hex as string | undefined;
+      const hex = feats[0]?.properties?.["hex"] as string | undefined;
       propsRef.current.onSelect(hex ?? null);
     });
     map.on("mousemove", (e) => {
