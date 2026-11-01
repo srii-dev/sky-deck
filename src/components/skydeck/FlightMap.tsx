@@ -577,5 +577,9 @@ export default function FlightMap(props: FlightMapProps) {
     if (map && props.trail3d && map.getPitch() < 40) map.easeTo({ pitch: 60, duration: 800 });
   }, [props.trail3d]);
 
-  return <div ref={containerRef} className="absolute inset-0" aria-label="Live flight map" role="region" />;
+  return (
+    <div className="absolute inset-0" role="region" aria-label="Live flight map">
+      <div ref={containerRef} className="h-full w-full" />
+    </div>
+  );
 }
