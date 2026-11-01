@@ -141,7 +141,7 @@ const feedInput = z.object({
 });
 
 export const getAircraftFeed = createServerFn({ method: "GET" })
-  .inputValidator((d: unknown) => feedInput.parse(d))
+  .validator((d: unknown) => feedInput.parse(d))
   .handler(async ({ data }): Promise<FeedResponse> => {
     const lat = Math.round(data.lat * 20) / 20;
     const lon = Math.round(data.lon * 20) / 20;
@@ -190,7 +190,7 @@ export const getAircraftFeed = createServerFn({ method: "GET" })
 const searchInput = z.object({ q: z.string().trim().min(2).max(12) });
 
 export const searchAircraft = createServerFn({ method: "GET" })
-  .inputValidator((d: unknown) => searchInput.parse(d))
+  .validator((d: unknown) => searchInput.parse(d))
   .handler(async ({ data }): Promise<{ aircraft: Aircraft[]; error?: string }> => {
     const q = data.q.toUpperCase().replace(/[^A-Z0-9-]/g, "");
     const attempts: string[] = [];
@@ -226,7 +226,7 @@ function toAirport(a: Raw): RouteAirport | null {
 }
 
 export const getFlightRoute = createServerFn({ method: "GET" })
-  .inputValidator((d: unknown) => routeInput.parse(d))
+  .validator((d: unknown) => routeInput.parse(d))
   .handler(async ({ data }): Promise<FlightRoute | null> => {
     const cs = data.callsign.toUpperCase().replace(/[^A-Z0-9]/g, "");
     if (cs.length < 3) return null;
