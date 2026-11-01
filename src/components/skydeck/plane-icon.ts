@@ -23,7 +23,7 @@ export function buildPlaneSdf(): { width: number; height: number; data: Uint8Arr
   ctx.fill();
   const src = ctx.getImageData(0, 0, SIZE, SIZE).data;
   const inside = new Uint8Array(SIZE * SIZE);
-  for (let i = 0; i < SIZE * SIZE; i++) inside[i] = src[i * 4 + 3] > 127 ? 1 : 0;
+  for (let i = 0; i < SIZE * SIZE; i++) inside[i] = (src[i * 4 + 3] ?? 0) > 127 ? 1 : 0;
 
   const out = new Uint8Array(SIZE * SIZE * 4);
   for (let y = 0; y < SIZE; y++) {

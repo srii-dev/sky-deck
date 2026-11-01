@@ -117,6 +117,7 @@ function trailFeatures(trail: TrailPoint[]) {
   for (let i = 1; i < trail.length; i++) {
     const p = trail[i - 1];
     const q = trail[i];
+    if (!p || !q) continue;
     if (Math.abs(p.lat - q.lat) < 1e-7 && Math.abs(p.lon - q.lon) < 1e-7) continue;
     const altFt = q.onGround ? 0 : (q.altFt ?? 0);
     const color = altitudeColor(q.altFt, q.onGround);
@@ -327,7 +328,7 @@ export default function FlightMap(props: FlightMapProps) {
         paint: {
           "icon-color": ["get", "color"],
           "icon-halo-color": ["case", ["get", "sel"], "#f5b83d", "rgba(5,10,18,0.85)"],
-          "icon-halo-width": ["case", ["get", "sel"], 2.2, 1.2],
+          "icon-halo-width": ["case", ["get", "sel"], 0.8, 1],
         },
       });
     }
@@ -406,6 +407,7 @@ export default function FlightMap(props: FlightMapProps) {
       attributionControl: { compact: true },
     });
     mapRef.current = map;
+    if (import.meta.env.DEV) (window as unknown as { __skydeckMap?: MLMap }).__skydeckMap = map;
     map.addControl(new NavigationControl({ visualizePitch: true, showCompass: true }), "bottom-right");
     map.addControl(new ScaleControl({ unit: "nautical" }), "bottom-right");
 
@@ -434,8 +436,9 @@ export default function FlightMap(props: FlightMapProps) {
         /* ignore */
       }
     };
-    map.on("load", emitViewport);
     map.on("moveend", emitViewport);
+    // Fetch immediately; don't wait for every terrain tile ("load") to arrive.
+    emitViewport();
 
     map.on("click", (e) => {
       if (!map.getLayer("sd-aircraft")) return;
@@ -447,7 +450,7 @@ export default function FlightMap(props: FlightMapProps) {
         ],
         { layers: ["sd-aircraft"] },
       );
-      const hex = feats[0]?.properties?.hex as string | undefined;
+      const hex = feats[0]?.properties?.["hex"] as string | undefined;
       propsRef.current.onSelect(hex ?? null);
     });
     map.on("mousemove", (e) => {
@@ -576,5 +579,9 @@ export default function FlightMap(props: FlightMapProps) {
     if (map && props.trail3d && map.getPitch() < 40) map.easeTo({ pitch: 60, duration: 800 });
   }, [props.trail3d]);
 
-  return <div ref={containerRef} className="absolute inset-0" aria-label="Live flight map" role="region" />;
+  return (
+    <div className="absolute inset-0" role="region" aria-label="Live flight map">
+      <div ref={containerRef} className="h-full w-full" />
+    </div>
+  );
 }

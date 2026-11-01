@@ -61,7 +61,8 @@ export function useAircraftFeed(viewport: Viewport | null, selectedHex: string |
       }
     }
     for (const [hex, pts] of h) {
-      if (now - pts[pts.length - 1].t > FORGET_AFTER_MS) h.delete(hex);
+      const lastPt = pts[pts.length - 1];
+      if (!lastPt || now - lastPt.t > FORGET_AFTER_MS) h.delete(hex);
     }
     setHistoryVersion((v) => v + 1);
   }, [aircraft]);

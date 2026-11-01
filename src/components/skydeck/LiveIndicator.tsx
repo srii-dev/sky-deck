@@ -28,10 +28,10 @@ export function LiveIndicator({ fetchedAt, error, isFetching, shown, total, sour
         <span className={cn("size-2 rounded-full bg-current", !stale && "live-dot")} />
         <span className="font-display text-xs font-semibold uppercase tracking-[0.2em]">{label}</span>
       </span>
-      <span className="data-value text-[11px] text-muted-foreground">
+      <span className="data-value whitespace-nowrap text-[11px] text-muted-foreground">
         {age == null ? "—" : isFetching && age > 6 ? "updating…" : `${age}s ago`}
       </span>
-      <span className="data-value hidden text-[11px] text-muted-foreground sm:inline">
+      <span className="data-value hidden whitespace-nowrap text-[11px] text-muted-foreground sm:inline">
         {shown === total ? `${total} ac` : `${shown}/${total} ac`}
       </span>
     </div>

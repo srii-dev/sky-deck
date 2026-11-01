@@ -64,7 +64,7 @@ export function FiltersPanel({ filters, onChange, aircraft, units }: Props) {
           max={ALT_FILTER_MAX}
           step={1000}
           value={[filters.altMin, filters.altMax]}
-          onValueChange={([lo, hi]) => set({ altMin: lo, altMax: hi })}
+          onValueChange={([lo = 0, hi = ALT_FILTER_MAX]) => set({ altMin: lo, altMax: hi })}
           aria-label="Altitude range"
         />
       </div>

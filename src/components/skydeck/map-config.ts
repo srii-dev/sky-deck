@@ -12,7 +12,7 @@ export interface FlyTarget {
   id: number;
   lat: number;
   lon: number;
-  zoom?: number;
+  zoom?: number | undefined;
 }
 
 export interface TrailPoint {

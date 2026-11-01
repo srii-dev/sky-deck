@@ -72,7 +72,7 @@ export function flightStatus(a: Pick<Aircraft, "onGround" | "vRate">): FlightSta
 export function airlineCode(callsign: string | null): string | null {
   if (!callsign) return null;
   const m = /^([A-Z]{3})\d/.exec(callsign.trim().toUpperCase());
-  return m ? m[1] : null;
+  return m?.[1] ?? null;
 }
 
 export interface Filters {
@@ -136,17 +136,18 @@ function hexToRgb(h: string): [number, number, number] {
 export function altitudeColor(altFt: number | null, onGround = false): string {
   if (onGround || altFt == null) return GROUND_COLOR;
   const stops = ALTITUDE_STOPS;
-  if (altFt <= stops[0][0]) return stops[0][1];
+  const first = stops[0]!;
+  if (altFt <= first[0]) return first[1];
   for (let i = 1; i < stops.length; i++) {
-    const [a1, c1] = stops[i];
+    const [a1, c1] = stops[i]!;
     if (altFt <= a1) {
-      const [a0, c0] = stops[i - 1];
+      const [a0, c0] = stops[i - 1]!;
       const t = (altFt - a0) / (a1 - a0);
       const p = hexToRgb(c0);
       const q = hexToRgb(c1);
-      const mix = p.map((v, k) => Math.round(v + (q[k] - v) * t));
+      const mix = p.map((v, k) => Math.round(v + ((q[k] ?? v) - v) * t));
       return `rgb(${mix[0]},${mix[1]},${mix[2]})`;
     }
   }
-  return stops[stops.length - 1][1];
+  return stops[stops.length - 1]![1];
 }

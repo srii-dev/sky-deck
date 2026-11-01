@@ -38,5 +38,5 @@ export function fmtHeading(deg: number | null): string {
 export function compassPoint(deg: number | null): string {
   if (deg == null) return "";
   const pts = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
-  return pts[Math.round((((deg % 360) + 360) % 360) / 45) % 8];
+  return pts[Math.round((((deg % 360) + 360) % 360) / 45) % 8] ?? "";
 }

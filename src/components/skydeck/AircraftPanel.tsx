@@ -16,7 +16,14 @@ import {
   type Aircraft,
 } from "@/lib/aircraft";
 import { airlineName } from "@/lib/airlines";
-import { compassPoint, fmtAltitude, fmtHeading, fmtSpeed, fmtVerticalRate, type UnitSystem } from "@/lib/units";
+import {
+  compassPoint,
+  fmtAltitude,
+  fmtHeading,
+  fmtSpeed,
+  fmtVerticalRate,
+  type UnitSystem,
+} from "@/lib/units";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -27,12 +34,24 @@ interface Props {
   follow: boolean;
   onFollow: (v: boolean) => void;
   onClose: () => void;
-  isMobile: boolean;
 }
 
-const STATUS_LABEL = { ground: "On ground", climbing: "Climbing", descending: "Descending", cruising: "Cruising" };
+const STATUS_LABEL = {
+  ground: "On ground",
+  climbing: "Climbing",
+  descending: "Descending",
+  cruising: "Cruising",
+};
 
-function Cell({ label, children, className }: { label: string; children: ReactNode; className?: string }) {
+function Cell({
+  label,
+  children,
+  className,
+}: {
+  label: string;
+  children: ReactNode;
+  className?: string;
+}) {
   return (
     <div className={cn("rounded-md border border-border/60 bg-background/40 px-3 py-2", className)}>
       <div className="hud-label mb-1">{label}</div>
@@ -42,7 +61,7 @@ function Cell({ label, children, className }: { label: string; children: ReactNo
 }
 
 export function AircraftPanel(props: Props) {
-  const { aircraft: a, isMobile } = props;
+  const { aircraft: a } = props;
   const [expanded, setExpanded] = useState(false);
   const status = flightStatus(a);
   const emg = isEmergency(a.squawk);
@@ -56,7 +75,7 @@ export function AircraftPanel(props: Props) {
     staleTime: 30 * 60 * 1000,
   });
 
-  const header = (
+  const header = (isMobile: boolean) => (
     <div className="flex items-start gap-3">
       <div
         className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-md border border-border bg-background/60"
@@ -113,7 +132,9 @@ export function AircraftPanel(props: Props) {
               <div className="data-value text-xl font-semibold text-primary">
                 {r.origin.iata ?? r.origin.icao}
               </div>
-              <div className="truncate text-xs text-muted-foreground">{r.origin.location ?? r.origin.name}</div>
+              <div className="truncate text-xs text-muted-foreground">
+                {r.origin.location ?? r.origin.name}
+              </div>
             </div>
             <ArrowRight className="size-4 shrink-0 text-muted-foreground" />
             <div className="min-w-0 flex-1 text-right">
@@ -146,7 +167,8 @@ export function AircraftPanel(props: Props) {
           </span>
         </Cell>
         <Cell label="Heading">
-          {fmtHeading(a.track)} <span className="text-muted-foreground">{compassPoint(a.track)}</span>
+          {fmtHeading(a.track)}{" "}
+          <span className="text-muted-foreground">{compassPoint(a.track)}</span>
         </Cell>
         <Cell label="Squawk" className={cn(emg && "border-destructive bg-destructive/15")}>
           <span className={cn(emg && "text-destructive")}>{a.squawk ?? "—"}</span>
@@ -176,39 +198,38 @@ export function AircraftPanel(props: Props) {
     </div>
   );
 
-  if (isMobile) {
-    return (
+  return (
+    <>
       <section
         aria-label="Aircraft details"
-        className="glass-panel pointer-events-auto fixed inset-x-0 bottom-0 z-40 flex max-h-[70vh] flex-col rounded-t-xl pb-[env(safe-area-inset-bottom)]"
+        className="glass-panel pointer-events-auto fixed inset-x-0 bottom-0 z-40 flex max-h-[70vh] flex-col rounded-t-xl pb-[env(safe-area-inset-bottom)] md:hidden"
       >
         <button
           aria-label="Toggle details"
           onClick={() => setExpanded((v) => !v)}
           className="mx-auto mt-2 h-1.5 w-12 rounded-full bg-muted-foreground/40"
         />
-        <div className="px-4 pb-3 pt-3">{header}</div>
+        <div className="px-4 pb-3 pt-3">{header(true)}</div>
         {!expanded && (
           <div className="grid grid-cols-3 gap-2 px-4 pb-4">
             <Cell label="Alt">{a.onGround ? "GND" : fmtAltitude(a.altFt, props.units)}</Cell>
             <Cell label="Speed">{fmtSpeed(a.gs, props.units)}</Cell>
             <Cell label="Route">
-              {r ? `${r.origin.iata ?? r.origin.icao}–${r.destination.iata ?? r.destination.icao}` : "—"}
+              {r
+                ? `${r.origin.iata ?? r.origin.icao}–${r.destination.iata ?? r.destination.icao}`
+                : "—"}
             </Cell>
           </div>
         )}
         {expanded && <div className="overflow-y-auto px-4 pb-5">{body}</div>}
       </section>
-    );
-  }
-
-  return (
-    <aside
-      aria-label="Aircraft details"
-      className="glass-panel scanline pointer-events-auto absolute bottom-4 right-14 top-[76px] z-30 flex w-[360px] flex-col overflow-hidden rounded-lg"
-    >
-      <div className="border-b border-border/60 p-4">{header}</div>
-      <div className="flex-1 overflow-y-auto p-4">{body}</div>
-    </aside>
+      <aside
+        aria-label="Aircraft details"
+        className="glass-panel scanline pointer-events-auto absolute bottom-4 right-14 top-[76px] z-30 hidden w-[360px] flex-col overflow-hidden rounded-lg md:flex"
+      >
+        <div className="border-b border-border/60 p-4">{header(false)}</div>
+        <div className="flex-1 overflow-y-auto p-4">{body}</div>
+      </aside>
+    </>
   );
 }
