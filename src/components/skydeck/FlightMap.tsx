@@ -407,6 +407,7 @@ export default function FlightMap(props: FlightMapProps) {
       attributionControl: { compact: true },
     });
     mapRef.current = map;
+    if (import.meta.env.DEV) (window as unknown as { __skydeckMap?: MLMap }).__skydeckMap = map;
     map.addControl(new NavigationControl({ visualizePitch: true, showCompass: true }), "bottom-right");
     map.addControl(new ScaleControl({ unit: "nautical" }), "bottom-right");
 
