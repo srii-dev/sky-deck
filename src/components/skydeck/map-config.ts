@@ -6,6 +6,8 @@ export interface Viewport {
   lat: number;
   lon: number;
   radiusNm: number;
+  /** Visible map bounds (longitudes may be unwrapped past ±180). */
+  bounds?: { north: number; south: number; east: number; west: number } | undefined;
 }
 
 export interface FlyTarget {

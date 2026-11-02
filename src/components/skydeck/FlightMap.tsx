@@ -457,6 +457,7 @@ export default function FlightMap(props: FlightMapProps) {
         lat: c.lat,
         lon: ((((c.lng + 180) % 360) + 360) % 360) - 180,
         radiusNm: Math.max(5, Math.min(250, r)),
+        bounds: { north: ne.lat, south: sw.lat, east: ne.lng, west: sw.lng },
       });
       try {
         localStorage.setItem(
