@@ -176,6 +176,7 @@ export function AircraftPanel(props: Props) {
         <Cell label="ICAO hex">{a.hex.toUpperCase()}</Cell>
         <Cell label="Registration">{a.registration ?? "—"}</Cell>
         <Cell label="Type">{a.type ?? "—"}</Cell>
+        <Cell label="Category" className="col-span-2">{a.kindLabel}</Cell>
       </div>
 
       <div className="space-y-3 rounded-md border border-border/60 bg-background/40 px-3 py-3">
