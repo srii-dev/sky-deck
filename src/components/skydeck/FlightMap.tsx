@@ -192,7 +192,6 @@ export default function FlightMap(props: FlightMapProps) {
   const installOverlays = () => {
     const map = mapRef.current;
     if (!map) return;
-    const p = propsRef.current;
 
     if (!map.hasImage("sd-plane")) {
       const img = buildPlaneSdf();
@@ -203,67 +202,6 @@ export default function FlightMap(props: FlightMapProps) {
       const m = mapRef.current;
       if (m && m.isStyleLoaded()) addKindImages(m);
     });
-
-    if (!map.getSource("sd-dem")) {
-      map.addSource("sd-dem", {
-        type: "raster-dem",
-        tiles: [TERRARIUM],
-        encoding: "terrarium",
-        tileSize: 256,
-        maxzoom: 14,
-        attribution: DEM_ATTRIB,
-      });
-    }
-    if (!map.getSource("sd-dem-hs")) {
-      map.addSource("sd-dem-hs", {
-        type: "raster-dem",
-        tiles: [TERRARIUM],
-        encoding: "terrarium",
-        tileSize: 256,
-        maxzoom: 14,
-      });
-    }
-
-    const firstSymbol = map.getStyle().layers?.find((l) => l.type === "symbol")?.id;
-
-    if (!map.getLayer("sd-hillshade") && p.basemap !== "satellite") {
-      map.addLayer(
-        {
-          id: "sd-hillshade",
-          type: "hillshade",
-          source: "sd-dem-hs",
-          paint: {
-            "hillshade-exaggeration": p.basemap === "dark" ? 0.35 : 0.25,
-            "hillshade-shadow-color": p.basemap === "dark" ? "#000000" : "#5a6470",
-            "hillshade-highlight-color": p.basemap === "dark" ? "#2a3a4a" : "#ffffff",
-          },
-        },
-        firstSymbol,
-      );
-    }
-
-    if (!map.getSource("openmaptiles")) {
-      map.addSource("openmaptiles", { type: "vector", url: OFM_VECTOR });
-    }
-    if (!map.getLayer("sd-buildings")) {
-      map.addLayer(
-        {
-          id: "sd-buildings",
-          type: "fill-extrusion",
-          source: "openmaptiles",
-          "source-layer": "building",
-          minzoom: 13,
-          paint: {
-            "fill-extrusion-color":
-              p.basemap === "dark" ? "#2b3644" : p.basemap === "light" ? "#d9dde2" : "#c9ced6",
-            "fill-extrusion-height": ["coalesce", ["get", "render_height"], 8],
-            "fill-extrusion-base": ["coalesce", ["get", "render_min_height"], 0],
-            "fill-extrusion-opacity": ["interpolate", ["linear"], ["zoom"], 13, 0, 14.5, 0.85],
-          },
-        },
-        firstSymbol,
-      );
-    }
 
     if (!map.getSource("sd-trail")) map.addSource("sd-trail", { type: "geojson", data: empty() });
     if (!map.getSource("sd-trail-ribbon")) map.addSource("sd-trail-ribbon", { type: "geojson", data: empty() });
@@ -387,9 +325,86 @@ export default function FlightMap(props: FlightMapProps) {
       });
     }
 
-    applyTerrain();
     applyTrail();
     styleReadyRef.current = true;
+  };
+
+  // Below basemap labels when those sit under the trails, and always below trails and aircraft.
+  const terrainBeforeId = (map: MLMap): string | undefined => {
+    const layers = map.getStyle().layers ?? [];
+    let idx = -1;
+    for (let i = 0; i < layers.length; i++) {
+      const layer = layers[i];
+      if (!layer) continue;
+      const basemapSymbol = layer.type === "symbol" && !layer.id.startsWith("sd-");
+      if (layer.id === "sd-trail-line" || basemapSymbol) idx = idx < 0 ? i : Math.min(idx, i);
+    }
+    return idx >= 0 ? layers[idx]?.id : undefined;
+  };
+
+  const installDeferredScene = () => {
+    const map = mapRef.current;
+    if (!map || !map.isStyleLoaded()) return;
+    const p = propsRef.current;
+    const before = terrainBeforeId(map);
+
+    if (!map.getSource("sd-dem")) {
+      map.addSource("sd-dem", {
+        type: "raster-dem",
+        tiles: [TERRARIUM],
+        encoding: "terrarium",
+        tileSize: 256,
+        maxzoom: 14,
+        attribution: DEM_ATTRIB,
+      });
+    }
+    if (!map.getSource("sd-dem-hs")) {
+      map.addSource("sd-dem-hs", {
+        type: "raster-dem",
+        tiles: [TERRARIUM],
+        encoding: "terrarium",
+        tileSize: 256,
+        maxzoom: 14,
+      });
+    }
+    if (!map.getLayer("sd-hillshade") && p.basemap !== "satellite") {
+      map.addLayer(
+        {
+          id: "sd-hillshade",
+          type: "hillshade",
+          source: "sd-dem-hs",
+          paint: {
+            "hillshade-exaggeration": p.basemap === "dark" ? 0.35 : 0.25,
+            "hillshade-shadow-color": p.basemap === "dark" ? "#000000" : "#5a6470",
+            "hillshade-highlight-color": p.basemap === "dark" ? "#2a3a4a" : "#ffffff",
+          },
+        },
+        before,
+      );
+    }
+    if (!map.getSource("openmaptiles")) {
+      map.addSource("openmaptiles", { type: "vector", url: OFM_VECTOR });
+    }
+    if (!map.getLayer("sd-buildings")) {
+      map.addLayer(
+        {
+          id: "sd-buildings",
+          type: "fill-extrusion",
+          source: "openmaptiles",
+          "source-layer": "building",
+          minzoom: 13,
+          paint: {
+            "fill-extrusion-color":
+              p.basemap === "dark" ? "#2b3644" : p.basemap === "light" ? "#d9dde2" : "#c9ced6",
+            "fill-extrusion-height": ["coalesce", ["get", "render_height"], 8],
+            "fill-extrusion-base": ["coalesce", ["get", "render_min_height"], 0],
+            "fill-extrusion-opacity": ["interpolate", ["linear"], ["zoom"], 13, 0, 14.5, 0.85],
+          },
+        },
+        before,
+      );
+    }
+    applyTerrain();
   };
 
   const applyTerrain = () => {
@@ -442,9 +457,28 @@ export default function FlightMap(props: FlightMapProps) {
     map.addControl(new NavigationControl({ visualizePitch: true, showCompass: true }), "bottom-right");
     map.addControl(new ScaleControl({ unit: "nautical" }), "bottom-right");
 
+    let terrainGen = 0;
+    let terrainTimer: ReturnType<typeof setTimeout> | undefined;
+    const scheduleDeferredScene = () => {
+      const gen = ++terrainGen;
+      if (terrainTimer) clearTimeout(terrainTimer);
+      let installed = false;
+      const run = () => {
+        if (installed || gen !== terrainGen) return;
+        const current = mapRef.current;
+        if (!current?.isStyleLoaded()) return;
+        installed = true;
+        if (terrainTimer) clearTimeout(terrainTimer);
+        installDeferredScene();
+      };
+      map.once("idle", run);
+      terrainTimer = setTimeout(run, 3000);
+    };
+
     map.on("style.load", () => {
       styleReadyRef.current = false;
       installOverlays();
+      scheduleDeferredScene();
     });
 
     const emitViewport = () => {
@@ -539,6 +573,8 @@ export default function FlightMap(props: FlightMapProps) {
 
     return () => {
       cancelAnimationFrame(raf);
+      if (terrainTimer) clearTimeout(terrainTimer);
+      terrainGen += 1;
       map.remove();
       mapRef.current = null;
     };

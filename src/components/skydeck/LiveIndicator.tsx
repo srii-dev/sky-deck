@@ -20,7 +20,7 @@ export function LiveIndicator({ fetchedAt, error, isFetching, shown, total, sour
 
   const age = fetchedAt && now ? Math.max(0, Math.round((now - fetchedAt) / 1000)) : null;
   const stale = age == null || age > 25 || !!error;
-  const label = fetchedAt == null ? "Connecting" : stale ? "Delayed" : "Live";
+  const label = fetchedAt == null ? "Loading aircraft..." : stale ? "Delayed" : "Live";
 
   return (
     <div className="flex items-center gap-3" title={source ? `Data: ${source}` : undefined}>
