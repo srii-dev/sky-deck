@@ -38,7 +38,7 @@ async function getJson(url: string, timeoutMs = 6000): Promise<unknown> {
       headers: { "User-Agent": UA, Accept: "application/json" },
       signal: ctrl.signal,
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) throw Object.assign(new Error(`HTTP ${res.status}`), { status: res.status });
     return await res.json();
   } finally {
     clearTimeout(t);
@@ -142,6 +142,23 @@ function parseOpenSky(json: unknown): Aircraft[] {
 
 const NM_PER_DEG_LAT = 60;
 
+// Per-source back-off after rate limiting (429) or errors; skipped sources fall through to the next.
+const BACKOFF_BASE_MS = 10_000;
+const BACKOFF_MAX_MS = 120_000;
+const sourceBackoff = new Map<string, { until: number; strikes: number }>();
+function coolingDown(name: string): boolean {
+  const b = sourceBackoff.get(name);
+  return !!b && Date.now() < b.until;
+}
+function strike(name: string, rateLimited: boolean) {
+  const prev = sourceBackoff.get(name);
+  const strikes = (prev?.strikes ?? 0) + 1;
+  // Plain errors back off gently; 429s back off hard.
+  const base = rateLimited ? BACKOFF_BASE_MS : BACKOFF_BASE_MS / 4;
+  const wait = Math.min(BACKOFF_MAX_MS, base * 2 ** (strikes - 1));
+  sourceBackoff.set(name, { until: Date.now() + wait, strikes });
+}
+
 const feedInput = z.object({
   lat: z.number().min(-90).max(90),
   lon: z.number().min(-180).max(180),
@@ -180,19 +197,28 @@ export const getAircraftFeed = createServerFn({ method: "GET" })
       ],
     ];
 
+    let busy = false;
     for (const [name, run] of sources) {
+      if (coolingDown(name)) {
+        busy = true;
+        continue;
+      }
       try {
         const aircraft = await run();
-        const value: FeedResponse = { aircraft, source: name, fetchedAt: Date.now() };
+        sourceBackoff.delete(name);
+        const value: FeedResponse = { aircraft, source: name, fetchedAt: Date.now(), ...(busy ? { busy } : {}) };
         prune(feedCache, FEED_TTL_MS, 200);
         feedCache.set(key, { at: Date.now(), value });
         return value;
       } catch (err) {
+        const status = (err as { status?: number }).status;
+        busy = true;
+        strike(name, status === 429);
         console.warn(`[adsb] ${name} failed:`, err instanceof Error ? err.message : err);
       }
     }
-    if (hit) return { ...hit.value, error: "Live sources unavailable — showing last data" };
-    return { aircraft: [], source: "none", fetchedAt: Date.now(), error: "Live sources unavailable" };
+    if (hit) return { ...hit.value, busy: true, error: "Data provider busy" };
+    return { aircraft: [], source: "none", fetchedAt: Date.now(), busy: true, error: "Data provider busy" };
   });
 
 const searchInput = z.object({ q: z.string().trim().min(2).max(12) });

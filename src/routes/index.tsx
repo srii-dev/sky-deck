@@ -281,11 +281,16 @@ function SkyDeck() {
         </div>
       )}
 
-      {feed.error && (
-        <div className="pointer-events-none absolute inset-x-0 bottom-16 z-20 flex justify-center">
-          <div className="glass-panel rounded-md px-3 py-1.5 text-xs text-warning">
-            {feed.error}
-          </div>
+      {(feed.error || feed.partial) && (
+        <div className="pointer-events-none absolute inset-x-0 bottom-16 z-20 flex flex-col items-center gap-1.5">
+          {feed.error && (
+            <div className="glass-panel rounded-md px-3 py-1.5 text-xs text-warning">{feed.error}</div>
+          )}
+          {feed.partial && (
+            <div className="glass-panel rounded-md px-3 py-1.5 text-xs text-muted-foreground">
+              Showing part of this view. Zoom in for full coverage.
+            </div>
+          )}
         </div>
       )}
 
