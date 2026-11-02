@@ -5,7 +5,7 @@ import { fmtAltitude, fmtSpeed, fmtVerticalRate } from "@/lib/units";
 const base: Aircraft = {
   hex: "abc123", callsign: "UAL130", registration: "N24973", type: "B789", description: null,
   operator: null, lat: 0, lon: 0, altFt: 35000, onGround: false, gs: 450, track: 90, vRate: 0,
-  squawk: "1200", category: "A5", seenPos: 0,
+  squawk: "1200", category: "A5", kind: "widebody", kindLabel: "Heavy jet", seenPos: 0,
 };
 
 describe("emergency squawks", () => {

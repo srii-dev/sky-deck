@@ -17,3 +17,4 @@
 - Only free, keyless tile sources (OpenFreeMap, Esri imagery, AWS Terrarium DEM) are used.
 - Responsive variants (desktop side panel vs mobile bottom sheet) switch with CSS breakpoints, not JS, so SSR and first paint match.
 - App name lives in `src/config/brand.ts`.
+- Aircraft category (`kind`/`kindLabel`) is assigned server-side in `adsb.functions.ts` via `classifyAircraft` (`src/lib/aircraft-kind.ts`), so map icons, the panel and future features read one stored value.

@@ -1,4 +1,5 @@
 // Shared, browser-safe aircraft types and helpers.
+import type { AircraftKind } from "./aircraft-kind";
 
 export interface Aircraft {
   hex: string;
@@ -20,6 +21,10 @@ export interface Aircraft {
   vRate: number | null;
   squawk: string | null;
   category: string | null;
+  /** Icon/category bucket from emitter category or type code (see aircraft-kind.ts). */
+  kind: AircraftKind;
+  /** Human-readable category name, e.g. "Heavy jet". */
+  kindLabel: string;
   /** Seconds since last position report. */
   seenPos: number;
 }

@@ -12,7 +12,9 @@ import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 import type { FeatureCollection, Feature, Point, LineString, Polygon } from "geojson";
 
 import { altitudeColor, EMERGENCY_COLOR, isEmergency, type Aircraft } from "@/lib/aircraft";
-import { buildPlaneSdf } from "./plane-icon";
+import { keepUprightWithoutHeading } from "@/lib/aircraft-kind";
+import { buildPlaneSdf, buildSvgSdf } from "./plane-icon";
+import { LEGEND_KINDS, svgMarkup } from "./aircraft-icons";
 import { DEFAULT_VIEW, type Basemap, type FlyTarget, type TrailPoint, type Viewport } from "./map-config";
 
 setWorkerUrl(workerUrl);
@@ -88,6 +90,25 @@ function haversineNm(lat1: number, lon1: number, lat2: number, lon2: number): nu
   const dLon = (lon2 - lon1) * toR;
   const s = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * toR) * Math.cos(lat2 * toR) * Math.sin(dLon / 2) ** 2;
   return 2 * R * Math.asin(Math.sqrt(s));
+}
+
+// Category icon SDFs, rasterised once per session and re-added after each style change.
+type SdfImage = { width: number; height: number; data: Uint8Array };
+const kindImages = new Map<string, SdfImage>();
+let kindImagesLoading: Promise<void> | null = null;
+function loadKindImages(): Promise<void> {
+  kindImagesLoading ??= Promise.all(
+    LEGEND_KINDS.map(async (k) => {
+      const img = await buildSvgSdf(svgMarkup(k));
+      if (img) kindImages.set(`sd-kind-${k}`, img);
+    }),
+  ).then(() => undefined);
+  return kindImagesLoading;
+}
+function addKindImages(map: MLMap) {
+  for (const [id, img] of kindImages) {
+    if (!map.hasImage(id)) map.addImage(id, img, { sdf: true, pixelRatio: 2 });
+  }
 }
 
 const empty = (): FeatureCollection => ({ type: "FeatureCollection", features: [] });
@@ -177,6 +198,11 @@ export default function FlightMap(props: FlightMapProps) {
       const img = buildPlaneSdf();
       if (img) map.addImage("sd-plane", img, { sdf: true, pixelRatio: 2 });
     }
+    addKindImages(map);
+    void loadKindImages().then(() => {
+      const m = mapRef.current;
+      if (m && m.isStyleLoaded()) addKindImages(m);
+    });
 
     if (!map.getSource("sd-dem")) {
       map.addSource("sd-dem", {
@@ -306,7 +332,12 @@ export default function FlightMap(props: FlightMapProps) {
         type: "symbol",
         source: "sd-aircraft",
         layout: {
-          "icon-image": "sd-plane",
+          // Category icon when known and loaded; otherwise the generic plane.
+          "icon-image": [
+            "coalesce",
+            ["image", ["concat", "sd-kind-", ["get", "kind"]]],
+            ["image", "sd-plane"],
+          ],
           "icon-rotate": ["get", "track"],
           "icon-rotation-alignment": "map",
           "icon-pitch-alignment": "map",
@@ -487,7 +518,9 @@ export default function FlightMap(props: FlightMapProps) {
           properties: {
             hex,
             cs: tr.a.callsign,
-            track: tr.a.track ?? 0,
+            kind: tr.a.kind,
+            track:
+              tr.a.track == null && keepUprightWithoutHeading(tr.a.kind) ? 0 : (tr.a.track ?? 0),
             color: tr.emg ? EMERGENCY_COLOR : tr.color,
             alt: tr.a.altFt ?? 0,
             sel: isSel,

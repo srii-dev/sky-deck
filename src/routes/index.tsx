@@ -11,6 +11,7 @@ import { FiltersPanel } from "@/components/skydeck/FiltersPanel";
 import { AircraftPanel } from "@/components/skydeck/AircraftPanel";
 import { EmergencyBanner } from "@/components/skydeck/EmergencyBanner";
 import { AltitudeLegend } from "@/components/skydeck/AltitudeLegend";
+import { AircraftTypesLegend } from "@/components/skydeck/AircraftTypesLegend";
 import type { Basemap, FlyTarget, Viewport } from "@/components/skydeck/map-config";
 import { useAircraftFeed } from "@/hooks/use-aircraft-feed";
 import {
@@ -292,6 +293,9 @@ function SkyDeck() {
         <div
           className={`pointer-events-none absolute bottom-3 left-3 z-20 ${selected ? "hidden md:block" : ""}`}
         >
+          <div className="mb-2 hidden md:block">
+            <AircraftTypesLegend />
+          </div>
           <AltitudeLegend units={units} />
         </div>
       }
