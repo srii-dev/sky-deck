@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import type { Aircraft, FeedResponse, FlightRoute, RouteAirport } from "./aircraft";
+import { classifyAircraft } from "./aircraft-kind";
 
 /*
  * Server-side proxy for free community ADS-B sources.
@@ -64,11 +65,14 @@ function fromReadsb(ac: Raw): Aircraft | null {
   if (lat == null || lon == null) return null;
   const onGround = ac.alt_baro === "ground";
   const altFt = onGround ? 0 : (num(ac.alt_baro) ?? num(ac.alt_geom));
+  const category = str(ac.category);
+  const type = str(ac.t);
+  const k = classifyAircraft(category, type);
   return {
     hex: String(ac.hex ?? "").replace("~", "").toLowerCase(),
     callsign: str(ac.flight),
     registration: str(ac.r),
-    type: str(ac.t),
+    type,
     description: str(ac.desc),
     operator: str(ac.ownOp),
     lat,
@@ -79,7 +83,9 @@ function fromReadsb(ac: Raw): Aircraft | null {
     track: num(ac.track) ?? num(ac.true_heading) ?? num(ac.mag_heading),
     vRate: num(ac.baro_rate) ?? num(ac.geom_rate),
     squawk: str(ac.squawk),
-    category: str(ac.category),
+    category,
+    kind: k.kind,
+    kindLabel: k.label,
     seenPos: num(ac.seen_pos) ?? num(ac.seen) ?? 0,
   };
 }
@@ -126,6 +132,8 @@ function parseOpenSky(json: unknown): Aircraft[] {
       vRate: vr != null ? vr * M_TO_FT * 60 : null,
       squawk: str(s[14]),
       category: null,
+      kind: "generic",
+      kindLabel: "Aircraft",
       seenPos: lastContact != null ? Math.max(0, Date.now() / 1000 - lastContact) : 0,
     });
   }
