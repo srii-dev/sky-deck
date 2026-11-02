@@ -34,6 +34,8 @@ export interface FeedResponse {
   source: string;
   fetchedAt: number;
   error?: string;
+  /** A source was rate-limited/failed (a fallback may still have answered). */
+  busy?: boolean;
 }
 
 export interface RouteAirport {
