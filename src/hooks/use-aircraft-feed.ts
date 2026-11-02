@@ -2,7 +2,15 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { getAircraftFeed, searchAircraft } from "@/lib/adsb.functions";
-import type { Aircraft, FeedResponse } from "@/lib/aircraft";
+import {
+  isEmergency,
+  nextEmergencyMemory,
+  presentEmergency,
+  pickFresherAircraft,
+  type Aircraft,
+  type EmergencyMemory,
+  type FeedResponse,
+} from "@/lib/aircraft";
 import { planCoverage, type Circle } from "@/lib/coverage";
 import type { TrailPoint, Viewport } from "@/components/skydeck/map-config";
 
@@ -38,15 +46,26 @@ function aged(entry: CacheEntry, now: number): Aircraft[] {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+interface Incoming {
+  aircraft: Aircraft[];
+  source: string;
+  fresh: boolean;
+}
+
+export interface MergedAircraft {
+  aircraft: Aircraft;
+  fresh: boolean;
+}
+
 async function refreshCoverage(
   vp: Viewport,
   cache: Map<string, CacheEntry>,
   gapMs: number | null,
-): Promise<FeedState & { ok: boolean }> {
+): Promise<FeedState & { ok: boolean; merged: MergedAircraft[] }> {
   const started = performance.now();
   const plan = planCoverage(vp);
   const now = Date.now();
-  const lists: Aircraft[][] = [];
+  const lists: Incoming[] = [];
   const sources = new Set<string>();
   let failed = 0;
   let cached = 0;
@@ -55,7 +74,7 @@ async function refreshCoverage(
   for (const c of plan.circles) {
     const hit = cache.get(c.key);
     if (hit && now - hit.at < CIRCLE_TTL_MS) {
-      lists.push(aged(hit, now));
+      lists.push({ aircraft: aged(hit, now), source: hit.res.source, fresh: false });
       sources.add(hit.res.source);
       cached++;
     } else todo.push(c);
@@ -74,24 +93,30 @@ async function refreshCoverage(
       }
       if (res && !res.error) {
         cache.set(c.key, { at: Date.now(), res });
-        lists.push(res.aircraft);
+        lists.push({ aircraft: res.aircraft, source: res.source, fresh: true });
         sources.add(res.source);
       } else {
         failed++;
         const old = cache.get(c.key);
-        if (old && Date.now() - old.at < CIRCLE_STALE_OK_MS) lists.push(aged(old, Date.now()));
-        else if (res?.aircraft.length) lists.push(res.aircraft);
+        if (old && Date.now() - old.at < CIRCLE_STALE_OK_MS) {
+          lists.push({ aircraft: aged(old, Date.now()), source: old.res.source, fresh: false });
+        } else if (res?.aircraft.length) {
+          lists.push({ aircraft: res.aircraft, source: res.source, fresh: false });
+        }
       }
     }
   };
   await Promise.all(Array.from({ length: Math.min(CONCURRENCY, todo.length) }, (_, i) => worker(i)));
 
-  // Merge and de-duplicate by ICAO hex, keeping the freshest position.
-  const byHex = new Map<string, Aircraft>();
+  // Merge and de-duplicate by ICAO hex, keeping the whole freshest record.
+  const byHex = new Map<string, MergedAircraft>();
   for (const list of lists) {
-    for (const a of list) {
+    for (const a of list.aircraft) {
+      const stamped = { ...a, source: list.source };
       const prev = byHex.get(a.hex);
-      if (!prev || a.seenPos < prev.seenPos) byHex.set(a.hex, a);
+      if (!prev || pickFresherAircraft(prev.aircraft, stamped) !== prev.aircraft) {
+        byHex.set(a.hex, { aircraft: stamped, fresh: list.fresh });
+      }
     }
   }
   for (const [k, v] of cache) if (Date.now() - v.at > 2 * CIRCLE_STALE_OK_MS) cache.delete(k);
@@ -104,8 +129,10 @@ async function refreshCoverage(
       `${plan.circles.length}/${plan.totalNeeded} circle(s), ${ms} ms, gap: ${gap}, source: ${source ?? "none"}, ${byHex.size} aircraft`,
   );
 
+  const merged = [...byHex.values()];
   return {
-    aircraft: [...byHex.values()],
+    aircraft: merged.map((m) => m.aircraft),
+    merged,
     source,
     fetchedAt: failed === plan.circles.length ? null : Date.now(),
     busy: failed > 0,
@@ -130,6 +157,8 @@ export function useAircraftFeed(viewport: Viewport | null, selectedHex: string |
   const wakeRef = useRef<(() => void) | null>(null);
   const dirtyRef = useRef(false);
   const failuresRef = useRef(0);
+  const emergencyRef = useRef<EmergencyMemory>({});
+  const loggedEmergencyRef = useRef(new Set<string>());
 
   // One refresh at a time. A successful next start is aimed at POLL_MS after the previous start.
   useEffect(() => {
@@ -153,8 +182,33 @@ export function useAircraftFeed(viewport: Viewport | null, selectedHex: string |
           if (cancelled) break;
           setIsFetching(false);
           failuresRef.current = r.ok ? 0 : failuresRef.current + 1;
+          let aircraft = r.aircraft;
+          if (r.fetchedAt != null) {
+            const observedAt = Date.now();
+            emergencyRef.current = nextEmergencyMemory(
+              emergencyRef.current,
+              r.merged.map((m) => ({
+                hex: m.aircraft.hex,
+                squawk: m.aircraft.squawk,
+                seenPos: m.aircraft.seenPos,
+                freshlyFetched: m.fresh,
+                observedAt,
+              })),
+            );
+            for (const m of r.merged) {
+              const a = m.aircraft;
+              if (!a.squawk || !isEmergency(a.squawk)) continue;
+              const key = `${a.hex}:${a.squawk}`;
+              if (loggedEmergencyRef.current.has(key)) continue;
+              loggedEmergencyRef.current.add(key);
+              console.info(
+                `[emergency] hex=${a.hex} callsign=${a.callsign ?? ""} squawk=${a.squawk} source=${a.source ?? ""} seenPos=${a.seenPos} at=${new Date(observedAt).toISOString()}`,
+              );
+            }
+            aircraft = r.merged.map((m) => presentEmergency(m.aircraft, emergencyRef.current));
+          }
           setState((prev) => ({
-            aircraft: r.fetchedAt == null && prev.aircraft.length ? prev.aircraft : r.aircraft,
+            aircraft: r.fetchedAt == null && prev.aircraft.length ? prev.aircraft : aircraft,
             source: r.source ?? prev.source,
             fetchedAt: r.fetchedAt ?? prev.fetchedAt,
             busy: r.busy,
@@ -207,7 +261,7 @@ export function useAircraftFeed(viewport: Viewport | null, selectedHex: string |
     const list = state.aircraft;
     if (!selectedHex || inFeed) return list;
     const extra = selectedQuery.data?.aircraft.find((a) => a.hex === selectedHex);
-    return extra ? [...list, extra] : list;
+    return extra ? [...list, presentEmergency(extra, emergencyRef.current)] : list;
   }, [state.aircraft, selectedHex, inFeed, selectedQuery.data]);
 
   // Position history for trails, accumulated from every poll.

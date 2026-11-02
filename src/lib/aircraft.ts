@@ -27,6 +27,10 @@ export interface Aircraft {
   kindLabel: string;
   /** Seconds since last position report. */
   seenPos: number;
+  /** Client-only: provider that supplied the winning record. */
+  source?: string;
+  /** Client-only: squawk withheld from alerts until it is confirmed. */
+  reportedSquawk?: string | null;
 }
 
 export interface FeedResponse {
@@ -62,6 +66,84 @@ export const EMERGENCY_SQUAWKS: Record<string, string> = {
 
 export function isEmergency(squawk: string | null | undefined): boolean {
   return !!squawk && squawk in EMERGENCY_SQUAWKS;
+}
+
+/** Same emergency code must be counted this many times before it alerts. */
+export const EMERGENCY_CONFIRM_POLLS = 2;
+/** Minimum gap between counted samples for one hex. Cached or immediate repeats do not count. */
+export const EMERGENCY_MIN_SAMPLE_GAP_MS = 5000;
+/** Older than this, an emergency squawk is ignored. */
+export const EMERGENCY_MAX_SEEN_POS_S = 30;
+
+export interface EmergencySample {
+  code: string;
+  count: number;
+  lastCountedAt: number;
+}
+
+export type EmergencyMemory = Record<string, EmergencySample>;
+
+export interface EmergencyObservation {
+  hex: string;
+  squawk: string | null;
+  seenPos: number;
+  freshlyFetched: boolean;
+  observedAt: number;
+}
+
+function sampleCounts(obs: EmergencyObservation, prior: EmergencySample | undefined): boolean {
+  if (!isEmergency(obs.squawk) || obs.seenPos > EMERGENCY_MAX_SEEN_POS_S) return false;
+  if (!obs.freshlyFetched) return false;
+  if (prior && obs.observedAt - prior.lastCountedAt < EMERGENCY_MIN_SAMPLE_GAP_MS) return false;
+  return true;
+}
+
+/** One observation per hex. A hex missing from `observations` is dropped. */
+export function nextEmergencyMemory(
+  prev: EmergencyMemory,
+  observations: readonly EmergencyObservation[],
+): EmergencyMemory {
+  const next: EmergencyMemory = {};
+  const seen = new Set<string>();
+  for (const obs of observations) {
+    if (seen.has(obs.hex)) continue;
+    seen.add(obs.hex);
+    const prior = prev[obs.hex];
+    if (!sampleCounts(obs, prior)) {
+      if (prior && prior.code === obs.squawk && isEmergency(obs.squawk) && obs.seenPos <= EMERGENCY_MAX_SEEN_POS_S) {
+        next[obs.hex] = prior;
+      }
+      continue;
+    }
+    const code = obs.squawk ?? "";
+    next[obs.hex] = prior && prior.code === code
+      ? { code, count: prior.count + 1, lastCountedAt: obs.observedAt }
+      : { code, count: 1, lastCountedAt: obs.observedAt };
+  }
+  return next;
+}
+
+export function isConfirmedEmergency(
+  memory: EmergencyMemory,
+  a: { hex: string; squawk: string | null; seenPos: number },
+): boolean {
+  const sample = memory[a.hex];
+  return !!sample
+    && sample.count >= EMERGENCY_CONFIRM_POLLS
+    && sample.code === a.squawk
+    && isEmergency(a.squawk)
+    && a.seenPos <= EMERGENCY_MAX_SEEN_POS_S;
+}
+
+/** Clears `squawk` until the code is confirmed, keeping the raw value for the panel. */
+export function presentEmergency(a: Aircraft, memory: EmergencyMemory): Aircraft {
+  if (!isEmergency(a.squawk) || isConfirmedEmergency(memory, a)) return a;
+  return { ...a, squawk: null, reportedSquawk: a.squawk };
+}
+
+/** Keep the record with the smaller `seenPos`. A tie keeps the one already stored. */
+export function pickFresherAircraft<T extends { seenPos: number }>(prev: T, next: T): T {
+  return next.seenPos < prev.seenPos ? next : prev;
 }
 
 /** Vertical rate threshold (ft/min) separating level flight from climb/descent. */
