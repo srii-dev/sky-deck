@@ -7,6 +7,8 @@ import { planCoverage, type Circle } from "@/lib/coverage";
 import type { TrailPoint, Viewport } from "@/components/skydeck/map-config";
 
 export const POLL_MS = 7000;
+/** Floor between a slow refresh finishing and the next start, so a long fetch cannot spin. */
+const MIN_GAP_MS = 1000;
 const MAX_TRAIL_POINTS = 600;
 const FORGET_AFTER_MS = 15 * 60 * 1000;
 
@@ -36,7 +38,11 @@ function aged(entry: CacheEntry, now: number): Aircraft[] {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-async function refreshCoverage(vp: Viewport, cache: Map<string, CacheEntry>): Promise<FeedState & { ok: boolean }> {
+async function refreshCoverage(
+  vp: Viewport,
+  cache: Map<string, CacheEntry>,
+  gapMs: number | null,
+): Promise<FeedState & { ok: boolean }> {
   const started = performance.now();
   const plan = planCoverage(vp);
   const now = Date.now();
@@ -92,9 +98,10 @@ async function refreshCoverage(vp: Viewport, cache: Map<string, CacheEntry>): Pr
 
   const ms = Math.round(performance.now() - started);
   const source = [...sources].join(", ") || null;
+  const gap = gapMs == null ? "n/a" : `${Math.round(gapMs)} ms`;
   console.info(
     `[feed] refresh: ${todo.length} request(s), ${cached} cached, ${failed} failed, ` +
-      `${plan.circles.length}/${plan.totalNeeded} circle(s), ${ms} ms, source: ${source ?? "none"}, ${byHex.size} aircraft`,
+      `${plan.circles.length}/${plan.totalNeeded} circle(s), ${ms} ms, gap: ${gap}, source: ${source ?? "none"}, ${byHex.size} aircraft`,
   );
 
   return {
@@ -124,17 +131,25 @@ export function useAircraftFeed(viewport: Viewport | null, selectedHex: string |
   const dirtyRef = useRef(false);
   const failuresRef = useRef(0);
 
-  // One refresh at a time; the next is scheduled only after the previous finishes.
+  // One refresh at a time. A successful next start is aimed at POLL_MS after the previous start.
   useEffect(() => {
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
+    let lastStart = 0;
     (async () => {
       while (!cancelled) {
         const vp = vpRef.current;
+        let didRefresh = false;
+        let elapsed = 0;
         if (vp && !document.hidden) {
+          const startedAt = performance.now();
+          const gapMs = lastStart ? startedAt - lastStart : null;
+          lastStart = startedAt;
           dirtyRef.current = false;
+          didRefresh = true;
           setIsFetching(true);
-          const r = await refreshCoverage(vp, cacheRef.current);
+          const r = await refreshCoverage(vp, cacheRef.current, gapMs);
+          elapsed = performance.now() - startedAt;
           if (cancelled) break;
           setIsFetching(false);
           failuresRef.current = r.ok ? 0 : failuresRef.current + 1;
@@ -148,7 +163,11 @@ export function useAircraftFeed(viewport: Viewport | null, selectedHex: string |
           if (dirtyRef.current && failuresRef.current === 0) continue;
         }
         const f = failuresRef.current;
-        const delay = f ? Math.min(MAX_BACKOFF_MS, POLL_MS * 2 ** f) : POLL_MS;
+        const delay = f
+          ? Math.min(MAX_BACKOFF_MS, POLL_MS * 2 ** f)
+          : didRefresh
+            ? Math.max(MIN_GAP_MS, POLL_MS - elapsed)
+            : POLL_MS;
         await new Promise<void>((res) => {
           timer = setTimeout(res, delay);
           wakeRef.current = () => {
