@@ -146,6 +146,19 @@ export function pickFresherAircraft<T extends { seenPos: number }>(prev: T, next
   return next.seenPos < prev.seenPos ? next : prev;
 }
 
+export function resolveFeedNotices(input: {
+  circles: number;
+  failed: number;
+  fallbackBusy: boolean;
+}): { error: "Data provider busy" | null; backup: boolean; areasMissing: boolean } {
+  const allFailed = input.circles > 0 && input.failed === input.circles;
+  return {
+    error: allFailed ? "Data provider busy" : null,
+    backup: input.fallbackBusy && !allFailed,
+    areasMissing: input.failed > 0 && !allFailed,
+  };
+}
+
 /** Vertical rate threshold (ft/min) separating level flight from climb/descent. */
 export const LEVEL_THRESHOLD_FPM = 300;
 

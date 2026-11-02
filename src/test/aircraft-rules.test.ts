@@ -8,6 +8,7 @@ import {
   passesFilters,
   pickFresherAircraft,
   presentEmergency,
+  resolveFeedNotices,
   type Aircraft,
   type EmergencyObservation,
 } from "@/lib/aircraft";
@@ -108,6 +109,40 @@ describe("overlap merge", () => {
     const first = { ...base, seenPos: 4, squawk: "1200", lat: 1 };
     const second = { ...base, seenPos: 4, squawk: "7700", lat: 9 };
     expect(pickFresherAircraft(first, second)).toBe(first);
+  });
+});
+
+describe("feed notices", () => {
+  it("uses the hard message only when every circle failed", () => {
+    expect(resolveFeedNotices({ circles: 3, failed: 3, fallbackBusy: true })).toEqual({
+      error: "Data provider busy",
+      backup: false,
+      areasMissing: false,
+    });
+  });
+
+  it("shows a backup notice when a fallback answered and data arrived", () => {
+    expect(resolveFeedNotices({ circles: 2, failed: 0, fallbackBusy: true })).toEqual({
+      error: null,
+      backup: true,
+      areasMissing: false,
+    });
+  });
+
+  it("shows a soft notice when some circles failed", () => {
+    expect(resolveFeedNotices({ circles: 3, failed: 1, fallbackBusy: false })).toEqual({
+      error: null,
+      backup: false,
+      areasMissing: true,
+    });
+  });
+
+  it("shows nothing when every circle succeeded on the primary source", () => {
+    expect(resolveFeedNotices({ circles: 2, failed: 0, fallbackBusy: false })).toEqual({
+      error: null,
+      backup: false,
+      areasMissing: false,
+    });
   });
 });
 

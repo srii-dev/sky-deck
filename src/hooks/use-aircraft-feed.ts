@@ -7,6 +7,7 @@ import {
   nextEmergencyMemory,
   presentEmergency,
   pickFresherAircraft,
+  resolveFeedNotices,
   type Aircraft,
   type EmergencyMemory,
   type FeedResponse,
@@ -32,7 +33,9 @@ interface FeedState {
   aircraft: Aircraft[];
   source: string | null;
   fetchedAt: number | null;
-  busy: boolean;
+  error: string | null;
+  backup: boolean;
+  areasMissing: boolean;
   partial: boolean;
 }
 
@@ -69,11 +72,13 @@ async function refreshCoverage(
   const sources = new Set<string>();
   let failed = 0;
   let cached = 0;
+  let fallbackBusy = false;
 
   const todo: Circle[] = [];
   for (const c of plan.circles) {
     const hit = cache.get(c.key);
     if (hit && now - hit.at < CIRCLE_TTL_MS) {
+      if (hit.res.busy) fallbackBusy = true;
       lists.push({ aircraft: aged(hit, now), source: hit.res.source, fresh: false });
       sources.add(hit.res.source);
       cached++;
@@ -92,6 +97,7 @@ async function refreshCoverage(
         res = null;
       }
       if (res && !res.error) {
+        if (res.busy) fallbackBusy = true;
         cache.set(c.key, { at: Date.now(), res });
         lists.push({ aircraft: res.aircraft, source: res.source, fresh: true });
         sources.add(res.source);
@@ -130,12 +136,15 @@ async function refreshCoverage(
   );
 
   const merged = [...byHex.values()];
+  const notices = resolveFeedNotices({ circles: plan.circles.length, failed, fallbackBusy });
   return {
     aircraft: merged.map((m) => m.aircraft),
     merged,
     source,
     fetchedAt: failed === plan.circles.length ? null : Date.now(),
-    busy: failed > 0,
+    error: notices.error,
+    backup: notices.backup,
+    areasMissing: notices.areasMissing,
     partial: plan.partial,
     ok: failed === 0,
   };
@@ -146,7 +155,9 @@ export function useAircraftFeed(viewport: Viewport | null, selectedHex: string |
     aircraft: [],
     source: null,
     fetchedAt: null,
-    busy: false,
+    error: null,
+    backup: false,
+    areasMissing: false,
     partial: false,
   });
   const [isFetching, setIsFetching] = useState(false);
@@ -211,7 +222,9 @@ export function useAircraftFeed(viewport: Viewport | null, selectedHex: string |
             aircraft: r.fetchedAt == null && prev.aircraft.length ? prev.aircraft : aircraft,
             source: r.source ?? prev.source,
             fetchedAt: r.fetchedAt ?? prev.fetchedAt,
-            busy: r.busy,
+            error: r.error,
+            backup: r.backup,
+            areasMissing: r.areasMissing,
             partial: r.partial,
           }));
           if (dirtyRef.current && failuresRef.current === 0) continue;
@@ -297,7 +310,9 @@ export function useAircraftFeed(viewport: Viewport | null, selectedHex: string |
     trail,
     fetchedAt: state.fetchedAt,
     source: state.source,
-    error: state.busy ? "Data provider busy" : null,
+    error: state.error,
+    backup: state.backup,
+    areasMissing: state.areasMissing,
     partial: state.partial,
     isFetching,
   };
