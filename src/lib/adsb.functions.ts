@@ -1,17 +1,17 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import type { Aircraft, FeedResponse, FlightRoute, RouteAirport } from "./aircraft";
-import { classifyAircraft } from "./aircraft-kind";
+import type { FeedResponse, FlightRoute, RouteAirport } from "./aircraft";
+import { getJson, loadFeedCircle, searchAircraftSources } from "./adsb-sources";
 
 /*
  * Server-side proxy for free community ADS-B sources.
+ * Fetch, timeouts, and back-off live in adsb-sources.ts.
  * - Primary: adsb.lol (readsb v2 JSON)
  * - Secondary: airplanes.live (same format; may refuse unapproved callers)
  * - Fallback: OpenSky Network REST (state vectors)
  * Responses are cached in-memory for ~5 s per rounded viewport.
  */
 
-const UA = "SkyDeck/0.1 (community flight tracker)";
 const FEED_TTL_MS = 5000;
 const ROUTE_TTL_MS = 60 * 60 * 1000;
 
@@ -30,135 +30,6 @@ function prune<T>(cache: Map<string, CacheEntry<T>>, ttl: number, max: number) {
   }
 }
 
-async function getJson(url: string, timeoutMs = 6000): Promise<unknown> {
-  const ctrl = new AbortController();
-  const t = setTimeout(() => ctrl.abort(), timeoutMs);
-  try {
-    const res = await fetch(url, {
-      headers: { "User-Agent": UA, Accept: "application/json" },
-      signal: ctrl.signal,
-    });
-    if (!res.ok) throw Object.assign(new Error(`HTTP ${res.status}`), { status: res.status });
-    return await res.json();
-  } finally {
-    clearTimeout(t);
-  }
-}
-
-const num = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? v : null);
-const str = (v: unknown): string | null => {
-  if (typeof v !== "string") return null;
-  const s = v.trim();
-  return s.length ? s : null;
-};
-
-type RawKeys =
-  | "alt_baro" | "alt_geom" | "baro_rate" | "category" | "desc" | "flight" | "geom_rate" | "gs" | "hex"
-  | "lat" | "lon" | "mag_heading" | "r" | "seen" | "seen_pos" | "squawk" | "t" | "track" | "true_heading"
-  | "ownOp" | "iata" | "icao" | "location" | "name";
-type Raw = Partial<Record<RawKeys, unknown>>;
-
-// readsb / tar1090 aircraft JSON → Aircraft
-function fromReadsb(ac: Raw): Aircraft | null {
-  const lat = num(ac.lat);
-  const lon = num(ac.lon);
-  if (lat == null || lon == null) return null;
-  const onGround = ac.alt_baro === "ground";
-  const altFt = onGround ? 0 : (num(ac.alt_baro) ?? num(ac.alt_geom));
-  const category = str(ac.category);
-  const type = str(ac.t);
-  const k = classifyAircraft(category, type);
-  return {
-    hex: String(ac.hex ?? "").replace("~", "").toLowerCase(),
-    callsign: str(ac.flight),
-    registration: str(ac.r),
-    type,
-    description: str(ac.desc),
-    operator: str(ac.ownOp),
-    lat,
-    lon,
-    altFt,
-    onGround,
-    gs: num(ac.gs),
-    track: num(ac.track) ?? num(ac.true_heading) ?? num(ac.mag_heading),
-    vRate: num(ac.baro_rate) ?? num(ac.geom_rate),
-    squawk: str(ac.squawk),
-    category,
-    kind: k.kind,
-    kindLabel: k.label,
-    seenPos: num(ac.seen_pos) ?? num(ac.seen) ?? 0,
-  };
-}
-
-function parseReadsb(json: unknown): Aircraft[] {
-  const list = (json as { ac?: unknown[]; aircraft?: unknown[] })?.ac ??
-    (json as { aircraft?: unknown[] })?.aircraft ??
-    [];
-  const out: Aircraft[] = [];
-  for (const raw of list) {
-    const a = fromReadsb(raw as Raw);
-    if (a && a.hex) out.push(a);
-  }
-  return out;
-}
-
-const M_TO_FT = 3.28084;
-const MS_TO_KT = 1.943844;
-
-function parseOpenSky(json: unknown): Aircraft[] {
-  const states = (json as { states?: unknown[][] })?.states ?? [];
-  const out: Aircraft[] = [];
-  for (const s of states) {
-    const lon = num(s[5]);
-    const lat = num(s[6]);
-    if (lat == null || lon == null) continue;
-    const baroM = num(s[7]) ?? num(s[13]);
-    const vel = num(s[9]);
-    const vr = num(s[11]);
-    const lastContact = num(s[4]);
-    out.push({
-      hex: String(s[0] ?? "").toLowerCase(),
-      callsign: str(s[1]),
-      registration: null,
-      type: null,
-      description: null,
-      operator: null,
-      lat,
-      lon,
-      altFt: s[8] ? 0 : baroM != null ? baroM * M_TO_FT : null,
-      onGround: !!s[8],
-      gs: vel != null ? vel * MS_TO_KT : null,
-      track: num(s[10]),
-      vRate: vr != null ? vr * M_TO_FT * 60 : null,
-      squawk: str(s[14]),
-      category: null,
-      kind: "generic",
-      kindLabel: "Aircraft",
-      seenPos: lastContact != null ? Math.max(0, Date.now() / 1000 - lastContact) : 0,
-    });
-  }
-  return out;
-}
-
-const NM_PER_DEG_LAT = 60;
-
-// Per-source back-off after rate limiting (429) or errors; skipped sources fall through to the next.
-const BACKOFF_BASE_MS = 10_000;
-const BACKOFF_MAX_MS = 120_000;
-const sourceBackoff = new Map<string, { until: number; strikes: number }>();
-function coolingDown(name: string): boolean {
-  const b = sourceBackoff.get(name);
-  return !!b && Date.now() < b.until;
-}
-function strike(name: string, rateLimited: boolean) {
-  const prev = sourceBackoff.get(name);
-  const strikes = (prev?.strikes ?? 0) + 1;
-  // Plain errors back off gently; 429s back off hard.
-  const base = rateLimited ? BACKOFF_BASE_MS : BACKOFF_BASE_MS / 4;
-  const wait = Math.min(BACKOFF_MAX_MS, base * 2 ** (strikes - 1));
-  sourceBackoff.set(name, { until: Date.now() + wait, strikes });
-}
-
 const feedInput = z.object({
   lat: z.number().min(-90).max(90),
   lon: z.number().min(-180).max(180),
@@ -175,75 +46,36 @@ export const getAircraftFeed = createServerFn({ method: "GET" })
     const hit = feedCache.get(key);
     if (hit && Date.now() - hit.at < FEED_TTL_MS) return hit.value;
 
-    const sources: [string, () => Promise<Aircraft[]>][] = [
-      ["adsb.lol", async () => parseReadsb(await getJson(`https://api.adsb.lol/v2/point/${lat}/${lon}/${r}`))],
-      [
-        "airplanes.live",
-        async () => parseReadsb(await getJson(`https://api.airplanes.live/v2/point/${lat}/${lon}/${r}`)),
-      ],
-      [
-        "OpenSky Network",
-        async () => {
-          const dLat = r / NM_PER_DEG_LAT;
-          const dLon = r / (NM_PER_DEG_LAT * Math.max(0.1, Math.cos((lat * Math.PI) / 180)));
-          const q = new URLSearchParams({
-            lamin: String(Math.max(-90, lat - dLat)),
-            lamax: String(Math.min(90, lat + dLat)),
-            lomin: String(Math.max(-180, lon - dLon)),
-            lomax: String(Math.min(180, lon + dLon)),
-          });
-          return parseOpenSky(await getJson(`https://opensky-network.org/api/states/all?${q}`, 8000));
-        },
-      ],
-    ];
-
-    let busy = false;
-    for (const [name, run] of sources) {
-      if (coolingDown(name)) {
-        busy = true;
-        continue;
-      }
-      try {
-        const aircraft = await run();
-        sourceBackoff.delete(name);
-        const value: FeedResponse = { aircraft, source: name, fetchedAt: Date.now(), ...(busy ? { busy } : {}) };
-        prune(feedCache, FEED_TTL_MS, 200);
-        feedCache.set(key, { at: Date.now(), value });
-        return value;
-      } catch (err) {
-        const status = (err as { status?: number }).status;
-        busy = true;
-        strike(name, status === 429);
-        console.warn(`[adsb] ${name} failed:`, err instanceof Error ? err.message : err);
-      }
+    const value = await loadFeedCircle(lat, lon, r);
+    if (!value.error) {
+      prune(feedCache, FEED_TTL_MS, 200);
+      feedCache.set(key, { at: Date.now(), value });
+      return value;
     }
     if (hit) return { ...hit.value, busy: true, error: "Data provider busy" };
-    return { aircraft: [], source: "none", fetchedAt: Date.now(), busy: true, error: "Data provider busy" };
+    return value;
   });
 
 const searchInput = z.object({ q: z.string().trim().min(2).max(12) });
 
 export const searchAircraft = createServerFn({ method: "GET" })
   .validator((d: unknown) => searchInput.parse(d))
-  .handler(async ({ data }): Promise<{ aircraft: Aircraft[]; error?: string }> => {
+  .handler(async ({ data }) => {
     const q = data.q.toUpperCase().replace(/[^A-Z0-9-]/g, "");
-    const attempts: string[] = [];
-    if (/^[0-9A-F]{6}$/.test(q)) attempts.push(`hex/${q.toLowerCase()}`);
-    attempts.push(`callsign/${q}`);
-    attempts.push(`reg/${q}`);
-    try {
-      for (const path of attempts) {
-        const list = parseReadsb(await getJson(`https://api.adsb.lol/v2/${path}`));
-        if (list.length) return { aircraft: list.slice(0, 10) };
-      }
-      return { aircraft: [] };
-    } catch (err) {
-      console.warn("[adsb] search failed:", err instanceof Error ? err.message : err);
-      return { aircraft: [], error: "Search unavailable right now" };
-    }
+    return searchAircraftSources(q);
   });
 
 const routeInput = z.object({ callsign: z.string().trim().min(3).max(10) });
+
+const num = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? v : null);
+const str = (v: unknown): string | null => {
+  if (typeof v !== "string") return null;
+  const s = v.trim();
+  return s.length ? s : null;
+};
+
+type RawKeys = "lat" | "lon" | "iata" | "icao" | "location" | "name";
+type Raw = Partial<Record<RawKeys, unknown>>;
 
 function toAirport(a: Raw): RouteAirport | null {
   const lat = num(a.lat);
