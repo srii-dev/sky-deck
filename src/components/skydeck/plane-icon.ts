@@ -21,6 +21,13 @@ export function buildPlaneSdf(): { width: number; height: number; data: Uint8Arr
   PLANE.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
   ctx.closePath();
   ctx.fill();
+  return sdfFromCanvas(ctx);
+}
+
+
+type SdfImage = { width: number; height: number; data: Uint8Array };
+
+function sdfFromCanvas(ctx: CanvasRenderingContext2D): SdfImage {
   const src = ctx.getImageData(0, 0, SIZE, SIZE).data;
   const inside = new Uint8Array(SIZE * SIZE);
   for (let i = 0; i < SIZE * SIZE; i++) inside[i] = (src[i * 4 + 3] ?? 0) > 127 ? 1 : 0;
@@ -52,4 +59,23 @@ export function buildPlaneSdf(): { width: number; height: number; data: Uint8Arr
     }
   }
   return { width: SIZE, height: SIZE, data: out };
+}
+
+/** Rasterises a 64×64 SVG silhouette and turns it into the same SDF format as the generic plane. */
+export function buildSvgSdf(svg: string): Promise<SdfImage | null> {
+  if (typeof document === "undefined") return Promise.resolve(null);
+  return new Promise((resolve) => {
+    const img = new Image(SIZE, SIZE);
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = SIZE;
+      canvas.height = SIZE;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return resolve(null);
+      ctx.drawImage(img, 0, 0, SIZE, SIZE);
+      resolve(sdfFromCanvas(ctx));
+    };
+    img.onerror = () => resolve(null);
+    img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+  });
 }
