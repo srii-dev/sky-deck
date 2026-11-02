@@ -91,10 +91,12 @@ async function refreshCoverage(
     while (next < todo.length) {
       const c = todo[next++]!;
       let res: FeedResponse | null = null;
+      let failure = "";
       try {
         res = await getAircraftFeed({ data: { lat: c.lat, lon: c.lon, radiusNm: c.radiusNm } });
-      } catch {
+      } catch (err) {
         res = null;
+        failure = err instanceof Error ? err.message : "request failed";
       }
       if (res && !res.error) {
         if (res.busy) fallbackBusy = true;
@@ -103,6 +105,8 @@ async function refreshCoverage(
         sources.add(res.source);
       } else {
         failed++;
+        const message = res?.error || failure || "request failed";
+        console.info(`[feed] circle ${c.key} failed: ${message}`);
         const old = cache.get(c.key);
         if (old && Date.now() - old.at < CIRCLE_STALE_OK_MS) {
           lists.push({ aircraft: aged(old, Date.now()), source: old.res.source, fresh: false });
