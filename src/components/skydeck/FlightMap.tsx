@@ -219,9 +219,9 @@ export interface FlightMapProps {
   follow: boolean;
   flyTarget: FlyTarget | null;
   onViewportChange: (v: Viewport) => void;
-  glideRing?: boolean;
-  glideRatio?: number | null;
-  onGlideStatus?: (status: GlideStatus) => void;
+  glideRing?: boolean | undefined;
+  glideRatio?: number | null | undefined;
+  onGlideStatus?: ((status: GlideStatus) => void) | undefined;
 }
 
 export default function FlightMap(props: FlightMapProps) {

@@ -13,6 +13,7 @@ import { EmergencyBanner } from "@/components/skydeck/EmergencyBanner";
 import { AltitudeLegend } from "@/components/skydeck/AltitudeLegend";
 import { AircraftTypesLegend } from "@/components/skydeck/AircraftTypesLegend";
 import type { Basemap, FlyTarget, Viewport } from "@/components/skydeck/map-config";
+import type { GlideStatus } from "@/components/skydeck/FlightMap";
 import { useAircraftFeed } from "@/hooks/use-aircraft-feed";
 import {
   activeFilterCount,
@@ -67,6 +68,9 @@ function SkyDeck() {
   const [units, setUnits] = useState<UnitSystem>("aviation");
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
   const [flyTarget, setFlyTarget] = useState<FlyTarget | null>(null);
+  const [glideRing, setGlideRing] = useState(false);
+  const [glideRatio, setGlideRatio] = useState<number | null>(null);
+  const [glideStatus, setGlideStatus] = useState<GlideStatus | undefined>(undefined);
 
   // Restore preferences after hydration.
   useEffect(() => {
@@ -126,7 +130,10 @@ function SkyDeck() {
 
   const onSelect = useCallback((hex: string | null) => {
     setSelectedHex(hex);
-    if (!hex) setFollow(false);
+    if (!hex) {
+      setFollow(false);
+      setGlideRatio(null);
+    }
   }, []);
 
   const filterCount = activeFilterCount(filters);
@@ -149,6 +156,9 @@ function SkyDeck() {
             follow={follow}
             flyTarget={flyTarget}
             onViewportChange={setPendingViewport}
+            glideRing={glideRing}
+            glideRatio={glideRatio}
+            onGlideStatus={setGlideStatus}
           />
         </Suspense>
       </ClientOnly>
@@ -326,6 +336,11 @@ function SkyDeck() {
           onTrail3d={setTrail3d}
           follow={follow}
           onFollow={setFollow}
+          glideRing={glideRing}
+          onGlideRing={setGlideRing}
+          glideRatio={glideRatio}
+          onGlideRatio={setGlideRatio}
+          glideStatus={glideStatus}
           onClose={() => onSelect(null)}
         />
       )}
