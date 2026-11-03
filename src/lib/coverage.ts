@@ -3,6 +3,8 @@
 
 export const SOURCE_MAX_RADIUS_NM = 250;
 export const MAX_CIRCLES = 6;
+/** Wide views refetch this many nearest circles every poll. Farther circles alternate. */
+export const WIDE_NEAR_CIRCLES = 3;
 /** Lattice cell edge in nm. Half the diagonal (≈247 nm) stays under the source maximum. */
 const CELL_NM = 350;
 const NM_PER_DEG = 60;
@@ -98,4 +100,16 @@ export function planCoverage(v: CoverageView): CoveragePlan {
     partial: cells.length > MAX_CIRCLES,
     totalNeeded: cells.length,
   };
+}
+
+/**
+ * Whether a stale circle should be requested on this poll.
+ * The nearest circles are always due. Farther circles are due on even polls,
+ * and on any poll when they have no cached sample. Callers still serve a
+ * skipped circle from its aged cache.
+ */
+export function wideCircleDue(index: number, hasCache: boolean, pollIndex: number): boolean {
+  if (index < WIDE_NEAR_CIRCLES) return true;
+  if (!hasCache) return true;
+  return pollIndex % 2 === 0;
 }

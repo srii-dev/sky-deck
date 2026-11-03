@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { haversineNm, MAX_CIRCLES, planCoverage, SOURCE_MAX_RADIUS_NM } from "@/lib/coverage";
+import { haversineNm, MAX_CIRCLES, planCoverage, SOURCE_MAX_RADIUS_NM, wideCircleDue } from "@/lib/coverage";
 
 describe("coverage planning", () => {
   it("uses one circle when the view fits within the source maximum", () => {
@@ -94,5 +94,22 @@ describe("coverage planning", () => {
       bounds: { north: 45.02, south: 35.02, east: -82.02, west: -98.02 },
     });
     expect(b.circles.map((c) => c.key).sort()).toEqual(a.circles.map((c) => c.key).sort());
+  });
+});
+
+describe("wide-view fetch alternation", () => {
+  it("requests the nearest circles every poll", () => {
+    expect(wideCircleDue(0, true, 1)).toBe(true);
+    expect(wideCircleDue(2, true, 1)).toBe(true);
+  });
+
+  it("requests a cached far circle only on even polls", () => {
+    expect(wideCircleDue(3, true, 0)).toBe(true);
+    expect(wideCircleDue(5, true, 1)).toBe(false);
+    expect(wideCircleDue(5, true, 2)).toBe(true);
+  });
+
+  it("requests a far circle that has never been cached", () => {
+    expect(wideCircleDue(4, false, 1)).toBe(true);
   });
 });

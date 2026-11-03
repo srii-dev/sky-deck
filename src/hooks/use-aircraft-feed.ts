@@ -12,7 +12,7 @@ import {
   type EmergencyMemory,
   type FeedResponse,
 } from "@/lib/aircraft";
-import { planCoverage, type Circle } from "@/lib/coverage";
+import { planCoverage, wideCircleDue, type Circle } from "@/lib/coverage";
 import type { TrailPoint, Viewport } from "@/components/skydeck/map-config";
 
 export const POLL_MS = 7000;
@@ -64,6 +64,7 @@ async function refreshCoverage(
   vp: Viewport,
   cache: Map<string, CacheEntry>,
   gapMs: number | null,
+  pollIndex: number,
 ): Promise<FeedState & { ok: boolean; merged: MergedAircraft[] }> {
   const started = performance.now();
   const plan = planCoverage(vp);
@@ -75,15 +76,26 @@ async function refreshCoverage(
   let fallbackBusy = false;
 
   const todo: Circle[] = [];
-  for (const c of plan.circles) {
+  plan.circles.forEach((c, index) => {
     const hit = cache.get(c.key);
-    if (hit && now - hit.at < CIRCLE_TTL_MS) {
+    const serveCache = () => {
+      if (!hit) return;
       if (hit.res.busy) fallbackBusy = true;
       lists.push({ aircraft: aged(hit, now), source: hit.res.source, fresh: false });
       sources.add(hit.res.source);
       cached++;
-    } else todo.push(c);
-  }
+    };
+    if (hit && now - hit.at < CIRCLE_TTL_MS) {
+      serveCache();
+      return;
+    }
+    // Far circles alternate. A skip is not a failure and still merges aged positions.
+    if (!wideCircleDue(index, !!hit, pollIndex)) {
+      serveCache();
+      return;
+    }
+    todo.push(c);
+  });
 
   let next = 0;
   const worker = async (slot: number) => {
@@ -180,6 +192,7 @@ export function useAircraftFeed(viewport: Viewport | null, selectedHex: string |
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
     let lastStart = 0;
+    let pollIndex = 0;
     (async () => {
       while (!cancelled) {
         const vp = vpRef.current;
@@ -192,7 +205,8 @@ export function useAircraftFeed(viewport: Viewport | null, selectedHex: string |
           dirtyRef.current = false;
           didRefresh = true;
           setIsFetching(true);
-          const r = await refreshCoverage(vp, cacheRef.current, gapMs);
+          const r = await refreshCoverage(vp, cacheRef.current, gapMs, pollIndex);
+          pollIndex += 1;
           elapsed = performance.now() - startedAt;
           if (cancelled) break;
           setIsFetching(false);
