@@ -1,11 +1,24 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { loadFeedCircle, resetAdsbSourceState, searchAircraftSources, type SourceDeps } from "@/lib/adsb-sources";
+import {
+  loadFeedCircle,
+  resetAdsbSourceState,
+  searchAircraftSources,
+  type SourceDeps,
+} from "@/lib/adsb-sources";
 
 afterEach(() => {
   resetAdsbSourceState();
 });
 
-const ac = { hex: "abc123", flight: "TST1", lat: 40.7, lon: -74, alt_baro: 1000, seen_pos: 1, squawk: "1200" };
+const ac = {
+  hex: "abc123",
+  flight: "TST1",
+  lat: 40.7,
+  lon: -74,
+  alt_baro: 1000,
+  seen_pos: 1,
+  squawk: "1200",
+};
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -73,7 +86,12 @@ describe("feed fallback", () => {
         return Promise.resolve(new Response("no", { status: 503 }));
       },
     });
-    expect(res).toMatchObject({ aircraft: [], source: "none", busy: true, error: "Data provider busy" });
+    expect(res).toMatchObject({
+      aircraft: [],
+      source: "none",
+      busy: true,
+      error: "Data provider busy",
+    });
     expect(Date.now() - started).toBeLessThan(700);
   });
 });

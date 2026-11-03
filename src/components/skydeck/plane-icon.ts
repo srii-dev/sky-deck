@@ -5,8 +5,24 @@ const SIZE = 64;
 const RADIUS = 6; // px of distance encoded on each side of the edge
 
 const PLANE: [number, number][] = [
-  [32, 5], [35, 10], [35, 24], [58, 36], [58, 40], [35, 34.5], [34, 49], [42, 55], [42, 58.5],
-  [32, 55.5], [22, 58.5], [22, 55], [30, 49], [29, 34.5], [6, 40], [6, 36], [29, 24], [29, 10],
+  [32, 5],
+  [35, 10],
+  [35, 24],
+  [58, 36],
+  [58, 40],
+  [35, 34.5],
+  [34, 49],
+  [42, 55],
+  [42, 58.5],
+  [32, 55.5],
+  [22, 58.5],
+  [22, 55],
+  [30, 49],
+  [29, 34.5],
+  [6, 40],
+  [6, 36],
+  [29, 24],
+  [29, 10],
 ];
 
 export function buildPlaneSdf(): { width: number; height: number; data: Uint8Array } | null {
@@ -23,7 +39,6 @@ export function buildPlaneSdf(): { width: number; height: number; data: Uint8Arr
   ctx.fill();
   return sdfFromCanvas(ctx);
 }
-
 
 type SdfImage = { width: number; height: number; data: Uint8Array };
 

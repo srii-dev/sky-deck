@@ -110,15 +110,21 @@ export function nextEmergencyMemory(
     seen.add(obs.hex);
     const prior = prev[obs.hex];
     if (!sampleCounts(obs, prior)) {
-      if (prior && prior.code === obs.squawk && isEmergency(obs.squawk) && obs.seenPos <= EMERGENCY_MAX_SEEN_POS_S) {
+      if (
+        prior &&
+        prior.code === obs.squawk &&
+        isEmergency(obs.squawk) &&
+        obs.seenPos <= EMERGENCY_MAX_SEEN_POS_S
+      ) {
         next[obs.hex] = prior;
       }
       continue;
     }
     const code = obs.squawk ?? "";
-    next[obs.hex] = prior && prior.code === code
-      ? { code, count: prior.count + 1, lastCountedAt: obs.observedAt }
-      : { code, count: 1, lastCountedAt: obs.observedAt };
+    next[obs.hex] =
+      prior && prior.code === code
+        ? { code, count: prior.count + 1, lastCountedAt: obs.observedAt }
+        : { code, count: 1, lastCountedAt: obs.observedAt };
   }
   return next;
 }
@@ -128,11 +134,13 @@ export function isConfirmedEmergency(
   a: { hex: string; squawk: string | null; seenPos: number },
 ): boolean {
   const sample = memory[a.hex];
-  return !!sample
-    && sample.count >= EMERGENCY_CONFIRM_POLLS
-    && sample.code === a.squawk
-    && isEmergency(a.squawk)
-    && a.seenPos <= EMERGENCY_MAX_SEEN_POS_S;
+  return (
+    !!sample &&
+    sample.count >= EMERGENCY_CONFIRM_POLLS &&
+    sample.code === a.squawk &&
+    isEmergency(a.squawk) &&
+    a.seenPos <= EMERGENCY_MAX_SEEN_POS_S
+  );
 }
 
 /** Clears `squawk` until the code is confirmed, keeping the raw value for the panel. */

@@ -44,7 +44,9 @@ type CacheEntry = { at: number; res: FeedResponse };
 /** Results reused from cache are aged so dead-reckoning stays correct. */
 function aged(entry: CacheEntry, now: number): Aircraft[] {
   const ageS = Math.max(0, (now - entry.at) / 1000);
-  return ageS < 0.5 ? entry.res.aircraft : entry.res.aircraft.map((a) => ({ ...a, seenPos: a.seenPos + ageS }));
+  return ageS < 0.5
+    ? entry.res.aircraft
+    : entry.res.aircraft.map((a) => ({ ...a, seenPos: a.seenPos + ageS }));
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -128,7 +130,9 @@ async function refreshCoverage(
       }
     }
   };
-  await Promise.all(Array.from({ length: Math.min(CONCURRENCY, todo.length) }, (_, i) => worker(i)));
+  await Promise.all(
+    Array.from({ length: Math.min(CONCURRENCY, todo.length) }, (_, i) => worker(i)),
+  );
 
   // Merge and de-duplicate by ICAO hex, keeping the whole freshest record.
   const byHex = new Map<string, MergedAircraft>();
@@ -271,7 +275,11 @@ export function useAircraftFeed(viewport: Viewport | null, selectedHex: string |
   }, []);
 
   // A new viewport refreshes right away (unless we're backing off a busy provider).
-  const vpKey = viewport ? planCoverage(viewport).circles.map((c) => c.key).join("|") : "";
+  const vpKey = viewport
+    ? planCoverage(viewport)
+        .circles.map((c) => c.key)
+        .join("|")
+    : "";
   useEffect(() => {
     if (!vpKey) return;
     dirtyRef.current = true;

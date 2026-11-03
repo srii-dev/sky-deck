@@ -11,7 +11,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { airlineCode, ALT_FILTER_MAX, DEFAULT_FILTERS, type Aircraft, type Filters } from "@/lib/aircraft";
+import {
+  airlineCode,
+  ALT_FILTER_MAX,
+  DEFAULT_FILTERS,
+  type Aircraft,
+  type Filters,
+} from "@/lib/aircraft";
 import { airlineName } from "@/lib/airlines";
 import { fmtAltitude, type UnitSystem } from "@/lib/units";
 
@@ -92,7 +98,10 @@ export function FiltersPanel({ filters, onChange, aircraft, units }: Props) {
 
       <div className="space-y-2">
         <Label className="hud-label">Airline</Label>
-        <Select value={filters.airline || ANY} onValueChange={(v) => set({ airline: v === ANY ? "" : v })}>
+        <Select
+          value={filters.airline || ANY}
+          onValueChange={(v) => set({ airline: v === ANY ? "" : v })}
+        >
           <SelectTrigger className="data-value">
             <SelectValue placeholder="Any airline" />
           </SelectTrigger>
@@ -114,7 +123,11 @@ export function FiltersPanel({ filters, onChange, aircraft, units }: Props) {
         <Label htmlFor="f-ground" className="text-sm">
           Hide ground traffic
         </Label>
-        <Switch id="f-ground" checked={filters.hideGround} onCheckedChange={(v) => set({ hideGround: v })} />
+        <Switch
+          id="f-ground"
+          checked={filters.hideGround}
+          onCheckedChange={(v) => set({ hideGround: v })}
+        />
       </div>
       <div className="flex items-center justify-between">
         <Label htmlFor="f-emg" className="text-sm">

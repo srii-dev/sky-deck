@@ -1,7 +1,13 @@
 import { AlertTriangle } from "lucide-react";
 import { EMERGENCY_SQUAWKS, type Aircraft } from "@/lib/aircraft";
 
-export function EmergencyBanner({ aircraft, onPick }: { aircraft: Aircraft[]; onPick: (a: Aircraft) => void }) {
+export function EmergencyBanner({
+  aircraft,
+  onPick,
+}: {
+  aircraft: Aircraft[];
+  onPick: (a: Aircraft) => void;
+}) {
   if (!aircraft.length) return null;
   return (
     <div

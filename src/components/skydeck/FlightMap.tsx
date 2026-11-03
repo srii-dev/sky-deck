@@ -15,7 +15,13 @@ import { altitudeColor, EMERGENCY_COLOR, isEmergency, type Aircraft } from "@/li
 import { keepUprightWithoutHeading } from "@/lib/aircraft-kind";
 import { buildPlaneSdf, buildSvgSdf } from "./plane-icon";
 import { LEGEND_KINDS, svgMarkup } from "./aircraft-icons";
-import { DEFAULT_VIEW, type Basemap, type FlyTarget, type TrailPoint, type Viewport } from "./map-config";
+import {
+  DEFAULT_VIEW,
+  type Basemap,
+  type FlyTarget,
+  type TrailPoint,
+  type Viewport,
+} from "./map-config";
 
 setWorkerUrl(workerUrl);
 
@@ -30,7 +36,9 @@ const SATELLITE_STYLE: StyleSpecification = {
   sources: {
     sat: {
       type: "raster",
-      tiles: ["https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"],
+      tiles: [
+        "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+      ],
       tileSize: 256,
       maxzoom: 19,
       attribution: "Imagery © Esri, Maxar, Earthstar Geographics",
@@ -72,7 +80,8 @@ function extrapolate(tr: Pick<Track, "a" | "lat" | "lon" | "t0">, now: number): 
   const d = a.gs * KT_TO_MS * dt;
   const rad = (a.track * Math.PI) / 180;
   const dLat = (d * Math.cos(rad)) / M_PER_DEG;
-  const dLon = (d * Math.sin(rad)) / (M_PER_DEG * Math.max(0.05, Math.cos((tr.lat * Math.PI) / 180)));
+  const dLon =
+    (d * Math.sin(rad)) / (M_PER_DEG * Math.max(0.05, Math.cos((tr.lat * Math.PI) / 180)));
   return [tr.lat + dLat, tr.lon + dLon];
 }
 
@@ -88,7 +97,8 @@ function haversineNm(lat1: number, lon1: number, lat2: number, lon2: number): nu
   const toR = Math.PI / 180;
   const dLat = (lat2 - lat1) * toR;
   const dLon = (lon2 - lon1) * toR;
-  const s = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * toR) * Math.cos(lat2 * toR) * Math.sin(dLon / 2) ** 2;
+  const s =
+    Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * toR) * Math.cos(lat2 * toR) * Math.sin(dLon / 2) ** 2;
   return 2 * R * Math.asin(Math.sqrt(s));
 }
 
@@ -153,7 +163,13 @@ function trailFeatures(trail: TrailPoint[]) {
     lines.push({
       type: "Feature",
       properties: { color },
-      geometry: { type: "LineString", coordinates: [[p.lon, p.lat], [q.lon, q.lat]] },
+      geometry: {
+        type: "LineString",
+        coordinates: [
+          [p.lon, p.lat],
+          [q.lon, q.lat],
+        ],
+      },
     });
     const altM = altFt * FT_TO_M;
     ribbons.push({
@@ -213,9 +229,12 @@ export default function FlightMap(props: FlightMapProps) {
     });
 
     if (!map.getSource("sd-trail")) map.addSource("sd-trail", { type: "geojson", data: empty() });
-    if (!map.getSource("sd-trail-ribbon")) map.addSource("sd-trail-ribbon", { type: "geojson", data: empty() });
-    if (!map.getSource("sd-trail-curtain")) map.addSource("sd-trail-curtain", { type: "geojson", data: empty() });
-    if (!map.getSource("sd-aircraft")) map.addSource("sd-aircraft", { type: "geojson", data: empty() });
+    if (!map.getSource("sd-trail-ribbon"))
+      map.addSource("sd-trail-ribbon", { type: "geojson", data: empty() });
+    if (!map.getSource("sd-trail-curtain"))
+      map.addSource("sd-trail-curtain", { type: "geojson", data: empty() });
+    if (!map.getSource("sd-aircraft"))
+      map.addSource("sd-aircraft", { type: "geojson", data: empty() });
 
     if (!map.getLayer("sd-trail-line")) {
       map.addLayer({
@@ -437,8 +456,12 @@ export default function FlightMap(props: FlightMapProps) {
     }
     const f = trailFeatures(pts);
     (map.getSource("sd-trail") as GeoJSONSource | undefined)?.setData(trail3d ? empty() : f.lines);
-    (map.getSource("sd-trail-ribbon") as GeoJSONSource | undefined)?.setData(trail3d ? f.ribbons : empty());
-    (map.getSource("sd-trail-curtain") as GeoJSONSource | undefined)?.setData(trail3d ? f.curtains : empty());
+    (map.getSource("sd-trail-ribbon") as GeoJSONSource | undefined)?.setData(
+      trail3d ? f.ribbons : empty(),
+    );
+    (map.getSource("sd-trail-curtain") as GeoJSONSource | undefined)?.setData(
+      trail3d ? f.curtains : empty(),
+    );
   };
 
   // ---------- map init ----------
@@ -464,7 +487,10 @@ export default function FlightMap(props: FlightMapProps) {
     });
     mapRef.current = map;
     if (import.meta.env.DEV) (window as unknown as { __skydeckMap?: MLMap }).__skydeckMap = map;
-    map.addControl(new NavigationControl({ visualizePitch: true, showCompass: true }), "bottom-right");
+    map.addControl(
+      new NavigationControl({ visualizePitch: true, showCompass: true }),
+      "bottom-right",
+    );
     map.addControl(new ScaleControl({ unit: "nautical" }), "bottom-right");
 
     let terrainGen = 0;
@@ -496,7 +522,10 @@ export default function FlightMap(props: FlightMapProps) {
       const b = map.getBounds();
       const ne = b.getNorthEast();
       const sw = b.getSouthWest();
-      const r = Math.max(haversineNm(c.lat, c.lng, ne.lat, ne.lng), haversineNm(c.lat, c.lng, sw.lat, sw.lng));
+      const r = Math.max(
+        haversineNm(c.lat, c.lng, ne.lat, ne.lng),
+        haversineNm(c.lat, c.lng, sw.lat, sw.lng),
+      );
       propsRef.current.onViewportChange({
         lat: c.lat,
         lon: ((((c.lng + 180) % 360) + 360) % 360) - 180,
@@ -506,7 +535,13 @@ export default function FlightMap(props: FlightMapProps) {
       try {
         localStorage.setItem(
           "skydeck:view",
-          JSON.stringify({ lat: c.lat, lon: c.lng, zoom: map.getZoom(), pitch: map.getPitch(), bearing: map.getBearing() }),
+          JSON.stringify({
+            lat: c.lat,
+            lon: c.lng,
+            zoom: map.getZoom(),
+            pitch: map.getPitch(),
+            bearing: map.getBearing(),
+          }),
         );
       } catch {
         /* ignore */
@@ -650,7 +685,12 @@ export default function FlightMap(props: FlightMapProps) {
     const map = mapRef.current;
     const t = props.flyTarget;
     if (!map || !t) return;
-    map.flyTo({ center: [t.lon, t.lat], zoom: t.zoom ?? Math.max(map.getZoom(), 9), speed: 1.4, essential: true });
+    map.flyTo({
+      center: [t.lon, t.lat],
+      zoom: t.zoom ?? Math.max(map.getZoom(), 9),
+      speed: 1.4,
+      essential: true,
+    });
   }, [props.flyTarget]);
 
   // 3D trail is easier to read with some pitch.

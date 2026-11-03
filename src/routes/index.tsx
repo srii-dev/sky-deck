@@ -284,7 +284,9 @@ function SkyDeck() {
       {(feed.error || feed.backup || feed.areasMissing || feed.partial) && (
         <div className="pointer-events-none absolute inset-x-0 bottom-16 z-20 flex flex-col items-center gap-1.5">
           {feed.error && (
-            <div className="glass-panel rounded-md px-3 py-1.5 text-xs text-warning">{feed.error}</div>
+            <div className="glass-panel rounded-md px-3 py-1.5 text-xs text-warning">
+              {feed.error}
+            </div>
           )}
           {feed.backup && (
             <div className="glass-panel rounded-md px-3 py-1.5 text-xs text-muted-foreground">

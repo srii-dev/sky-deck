@@ -26,7 +26,9 @@ export function LiveIndicator({ fetchedAt, error, isFetching, shown, total, sour
     <div className="flex items-center gap-3" title={source ? `Data: ${source}` : undefined}>
       <span className={cn("flex items-center gap-2", stale ? "text-warning" : "text-success")}>
         <span className={cn("size-2 rounded-full bg-current", !stale && "live-dot")} />
-        <span className="font-display text-xs font-semibold uppercase tracking-[0.2em]">{label}</span>
+        <span className="font-display text-xs font-semibold uppercase tracking-[0.2em]">
+          {label}
+        </span>
       </span>
       <span className="data-value whitespace-nowrap text-[11px] text-muted-foreground">
         {age == null ? "—" : isFetching && age > 6 ? "updating…" : `${age}s ago`}

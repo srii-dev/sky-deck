@@ -15,9 +15,24 @@ import {
 import { fmtAltitude, fmtSpeed, fmtVerticalRate } from "@/lib/units";
 
 const base: Aircraft = {
-  hex: "abc123", callsign: "UAL130", registration: "N24973", type: "B789", description: null,
-  operator: null, lat: 0, lon: 0, altFt: 35000, onGround: false, gs: 450, track: 90, vRate: 0,
-  squawk: "1200", category: "A5", kind: "widebody", kindLabel: "Heavy jet", seenPos: 0,
+  hex: "abc123",
+  callsign: "UAL130",
+  registration: "N24973",
+  type: "B789",
+  description: null,
+  operator: null,
+  lat: 0,
+  lon: 0,
+  altFt: 35000,
+  onGround: false,
+  gs: 450,
+  track: 90,
+  vRate: 0,
+  squawk: "1200",
+  category: "A5",
+  kind: "widebody",
+  kindLabel: "Heavy jet",
+  seenPos: 0,
 };
 
 describe("emergency squawks", () => {
@@ -80,17 +95,21 @@ describe("emergency confirmation", () => {
     expect(memory["abc123"]).toBeUndefined();
     const counted = nextEmergencyMemory({}, [obs({ seenPos: 30 })]);
     expect(counted["abc123"]?.count).toBe(1);
-    expect(isConfirmedEmergency(
-      { abc123: { code: "7700", count: 2, lastCountedAt: 0 } },
-      { ...ac, seenPos: 31 },
-    )).toBe(false);
+    expect(
+      isConfirmedEmergency(
+        { abc123: { code: "7700", count: 2, lastCountedAt: 0 } },
+        { ...ac, seenPos: 31 },
+      ),
+    ).toBe(false);
   });
 
   it("resets when the code changes and clears when the code is normal or the hex leaves", () => {
     const first = nextEmergencyMemory({}, [obs()]);
     const changed = nextEmergencyMemory(first, [obs({ observedAt: 5000, squawk: "7600" })]);
     expect(changed["abc123"]).toEqual({ code: "7600", count: 1, lastCountedAt: 5000 });
-    expect(nextEmergencyMemory(first, [obs({ squawk: "1200", observedAt: 5000 })])["abc123"]).toBeUndefined();
+    expect(
+      nextEmergencyMemory(first, [obs({ squawk: "1200", observedAt: 5000 })])["abc123"],
+    ).toBeUndefined();
     expect(nextEmergencyMemory(first, [])["abc123"]).toBeUndefined();
   });
 });
@@ -102,7 +121,11 @@ describe("overlap merge", () => {
     expect(pickFresherAircraft(older, newer)).toEqual(newer);
     expect(pickFresherAircraft(newer, older)).toEqual(newer);
     const fresherEmergency = { ...base, seenPos: 1, squawk: "7700", lat: 3 };
-    expect(pickFresherAircraft(older, fresherEmergency)).toMatchObject({ squawk: "7700", lat: 3, seenPos: 1 });
+    expect(pickFresherAircraft(older, fresherEmergency)).toMatchObject({
+      squawk: "7700",
+      lat: 3,
+      seenPos: 1,
+    });
   });
 
   it("keeps the first record when seenPos ties", () => {
@@ -157,7 +180,9 @@ describe("flight status", () => {
 
 describe("filters", () => {
   it("hide ground traffic removes aircraft on ground", () => {
-    expect(passesFilters({ ...base, onGround: true }, { ...DEFAULT_FILTERS, hideGround: true })).toBe(false);
+    expect(
+      passesFilters({ ...base, onGround: true }, { ...DEFAULT_FILTERS, hideGround: true }),
+    ).toBe(false);
   });
   it("altitude range and airline", () => {
     expect(passesFilters(base, { ...DEFAULT_FILTERS, altMax: 30000 })).toBe(false);
