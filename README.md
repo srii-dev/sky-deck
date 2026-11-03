@@ -48,7 +48,7 @@ Then open the URL that Vite prints (usually http://localhost:3000 or http://loca
 | --- | --- |
 | `bun run dev` | Start the dev server |
 | `bun run build` | Production build |
-| `bun run preview` | Preview the production build |
+| `bun run preview` | Does not currently work with the Cloudflare-targeted build |
 | `bun run test` | Run the tests once |
 | `bun run test:watch` | Run the tests in watch mode |
 | `bun run lint` | Lint the code |
@@ -100,7 +100,7 @@ Each of these has its own licence and usage terms. Check them before deploying p
 - Free sources have no flight history, so a trail only shows the time you have been watching.
 - Airport search covers about 110 major airports.
 - Some flights show "Route not available" because the free route lookup does not know every flight.
-- Rate limits on free providers can cause a "Data provider busy" message and slower updates.
+- Wide views still hit provider rate limits. The nearest three circles refresh every poll; farther circles refresh every other poll and keep their last positions. A cold view with nothing cached can come back empty until a provider answers.
 - The in-memory cache and back-off state live per server instance, so they behave differently on serverless hosting.
 - The emergency-squawk banner has been tested automatically but rarely seen with live data.
 

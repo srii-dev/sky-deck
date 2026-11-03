@@ -1,16 +1,30 @@
 # Roadmap
 
-Implemented in code. Still needs a browser check:
+Phase 1 is done on `ide/phase1-fixes` and checked against the reports in `docs/plan-task3.md`, `docs/plan-phase1-finish.md`, `docs/plan-icon-fix.md`, and `docs/plan-throttling.md`.
 
-- [ ] Multi-circle aircraft coverage (≤6 circles, dedupe, partial notice, back-off, refresh logs)
-- [ ] Aircraft category icons (server-side kind, map icons, legend)
+Done and verified:
 
-GitHub export and local IDE work are in place: `README.md` (setup, scripts, no env file because sources are keyless) and `LICENSE`. Baseline on this branch: tests and production build passed; lint fails on existing CRLF Prettier errors.
+- Live map and aircraft panel (search, filters, trails, source and position age).
+- Category icons, including fresh-load registration of the nine `sd-kind-*` images before the map goes idle (`d3eb1ee`). Glider, balloon, drone, and ground silhouettes were registered and were not in the live samples.
+- Wide-area coverage of up to 6 circles of about 247 nm, with partial-view notice when more cells are needed.
+- Polling aimed at 7 seconds after the previous refresh started.
+- Provider fallback (adsb.lol, then airplanes.live, then OpenSky) with per-provider back-off and a 9 second deadline.
+- Emergency squawk confirmation on two independent fresh samples at least 5 seconds apart, ignoring `seenPos` over 30 seconds. Unit-tested. No live 7500/7600/7700 was on screen.
+- Soft notices ("Using backup data source", "Some areas may be missing") and the hard "Data provider busy" notice when every planned circle fails.
+- Terrain and buildings deferred until map idle, with a 3 second fallback. In the measured runs idle won and the 3 second timer did not install the scene. Layers sit below trails and aircraft.
 
-Phase 1, in order:
+Known issues:
 
-- [ ] Schedule the next refresh from when the previous one started, so successful updates land about every 7 s, and log that gap
-- [ ] Shorten provider timeouts, cap each circle with an overall deadline, and give search the same back-off plus an airplanes.live fallback
-- [ ] Show a calm backup-source notice when a fallback answered, separate from the hard "Data provider busy" failure
-- [ ] Paint the base map and HUD first, and add 3D terrain and buildings only after the map is idle
-- [ ] Add coverage tests (wide eastern North America, antimeridian, near a pole, 6-circle cap, stable keys) and verify wide coverage in the browser
+- Wide-view throttling is reduced, not gone. Nearest three circles are fetched every poll; farther circles every other poll, and their last positions stay on the map. On one eastern North America view, mean failed circles on the five steady refreshes fell from 3.4 to 1.0, and aircraft stayed about 1400. A cold reload while providers were cooling logged 0 aircraft once. Logged statuses were 429 and 403, not timeouts or 5xx, so back-off is still immediate. Far-circle emergency confirmation is slower (about 14 to 21 seconds) because a cached sample does not count.
+- `bun run preview` fails because the production build targets Cloudflare and does not emit `dist/server/server.js`.
+- Lint: 81 problems (72 Prettier errors, 9 warnings: 6 `react-refresh/only-export-components`, 3 unused `react-hooks/exhaustive-deps` disables). Not fixed.
+- The MapLibre chunk is over 500 kB (`FlightMap` about 1077 kB in the latest production build).
+
+Planned, not built:
+
+- Glide range and reachable airports
+- ADS-B decoder
+- ACARS
+- Airport pages
+- Replay
+- Alerts
