@@ -13,6 +13,17 @@ import type { FeatureCollection, Feature, Point, LineString, Polygon } from "geo
 
 import { altitudeColor, EMERGENCY_COLOR, isEmergency, type Aircraft } from "@/lib/aircraft";
 import { keepUprightWithoutHeading } from "@/lib/aircraft-kind";
+import {
+  buildRingPolygon,
+  computeAGL,
+  ELEV_UNAVAILABLE_GENERIC,
+  ELEV_UNAVAILABLE_TERRAIN_OFF,
+  glideRatioBounds,
+  isElevationCacheValid,
+  rangeNm,
+  TERRAIN_EXAGGERATION,
+  type ElevationCacheEntry,
+} from "@/lib/glide-ring";
 import { buildPlaneSdf, buildSvgSdf } from "./plane-icon";
 import { LEGEND_KINDS, svgMarkup } from "./aircraft-icons";
 import {
@@ -190,6 +201,13 @@ function trailFeatures(trail: TrailPoint[]) {
   };
 }
 
+export interface GlideStatus {
+  aglFt: number | null;
+  rangeNm: number | null;
+  elevationAvailable: boolean;
+  reason?: string;
+}
+
 export interface FlightMapProps {
   aircraft: Aircraft[];
   selectedHex: string | null;
@@ -201,12 +219,16 @@ export interface FlightMapProps {
   follow: boolean;
   flyTarget: FlyTarget | null;
   onViewportChange: (v: Viewport) => void;
+  glideRing?: boolean;
+  glideRatio?: number | null;
+  onGlideStatus?: (status: GlideStatus) => void;
 }
 
 export default function FlightMap(props: FlightMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MLMap | null>(null);
   const tracksRef = useRef(new Map<string, Track>());
+  const elevCacheRef = useRef<Map<string, ElevationCacheEntry>>(new Map());
   const propsRef = useRef(props);
   propsRef.current = props;
   const styleReadyRef = useRef(false);
@@ -228,6 +250,8 @@ export default function FlightMap(props: FlightMapProps) {
       addKindImages(m);
     });
 
+    if (!map.getSource("sd-glide-ring"))
+      map.addSource("sd-glide-ring", { type: "geojson", data: empty() });
     if (!map.getSource("sd-trail")) map.addSource("sd-trail", { type: "geojson", data: empty() });
     if (!map.getSource("sd-trail-ribbon"))
       map.addSource("sd-trail-ribbon", { type: "geojson", data: empty() });
@@ -235,6 +259,38 @@ export default function FlightMap(props: FlightMapProps) {
       map.addSource("sd-trail-curtain", { type: "geojson", data: empty() });
     if (!map.getSource("sd-aircraft"))
       map.addSource("sd-aircraft", { type: "geojson", data: empty() });
+
+    if (!map.getLayer("sd-glide-ring-fill")) {
+      map.addLayer(
+        {
+          id: "sd-glide-ring-fill",
+          type: "fill",
+          source: "sd-glide-ring",
+          paint: {
+            "fill-color": "#f5b83d",
+            "fill-opacity": 0.08,
+          },
+        },
+        map.getLayer("sd-trail-line") ? "sd-trail-line" : undefined,
+      );
+    }
+    if (!map.getLayer("sd-glide-ring-line")) {
+      map.addLayer(
+        {
+          id: "sd-glide-ring-line",
+          type: "line",
+          source: "sd-glide-ring",
+          layout: { "line-cap": "round", "line-join": "round" },
+          paint: {
+            "line-color": "#f5b83d",
+            "line-width": 1.5,
+            "line-dasharray": [4, 3],
+            "line-opacity": 0.7,
+          },
+        },
+        map.getLayer("sd-trail-line") ? "sd-trail-line" : undefined,
+      );
+    }
 
     if (!map.getLayer("sd-trail-line")) {
       map.addLayer({
@@ -354,6 +410,7 @@ export default function FlightMap(props: FlightMapProps) {
     }
 
     applyTrail();
+    updateGlideRing();
     styleReadyRef.current = true;
   };
 
@@ -365,7 +422,8 @@ export default function FlightMap(props: FlightMapProps) {
       const layer = layers[i];
       if (!layer) continue;
       const basemapSymbol = layer.type === "symbol" && !layer.id.startsWith("sd-");
-      if (layer.id === "sd-trail-line" || basemapSymbol) idx = idx < 0 ? i : Math.min(idx, i);
+      if (layer.id === "sd-glide-ring-fill" || layer.id === "sd-trail-line" || basemapSymbol)
+        idx = idx < 0 ? i : Math.min(idx, i);
     }
     return idx >= 0 ? layers[idx]?.id : undefined;
   };
@@ -434,12 +492,14 @@ export default function FlightMap(props: FlightMapProps) {
     }
     applyTerrain();
     addKindImages(map);
+    updateGlideRing();
   };
 
   const applyTerrain = () => {
     const map = mapRef.current;
     if (!map || !map.getSource("sd-dem")) return;
-    if (propsRef.current.terrain) map.setTerrain({ source: "sd-dem", exaggeration: 1.3 });
+    if (propsRef.current.terrain)
+      map.setTerrain({ source: "sd-dem", exaggeration: TERRAIN_EXAGGERATION });
     else map.setTerrain(null);
   };
 
@@ -462,6 +522,111 @@ export default function FlightMap(props: FlightMapProps) {
     (map.getSource("sd-trail-curtain") as GeoJSONSource | undefined)?.setData(
       trail3d ? f.curtains : empty(),
     );
+  };
+
+  const updateGlideRing = () => {
+    const map = mapRef.current;
+    if (!map) return;
+    const p = propsRef.current;
+    const src = map.getSource("sd-glide-ring") as GeoJSONSource | undefined;
+    if (!src) return;
+
+    const selectedHex = p.selectedHex;
+    const activeAircraft = selectedHex ? p.aircraft.find((a) => a.hex === selectedHex) : undefined;
+
+    if (!p.glideRing || !activeAircraft) {
+      src.setData(empty());
+      p.onGlideStatus?.({ aglFt: null, rangeNm: null, elevationAvailable: false });
+      return;
+    }
+
+    const bounds = glideRatioBounds(activeAircraft.kind);
+    if (!bounds) {
+      src.setData(empty());
+      p.onGlideStatus?.({
+        aglFt: null,
+        rangeNm: null,
+        elevationAvailable: false,
+        reason: "No glide ratio for category",
+      });
+      return;
+    }
+
+    if (activeAircraft.onGround || activeAircraft.altFt == null) {
+      src.setData(empty());
+      p.onGlideStatus?.({
+        aglFt: null,
+        rangeNm: null,
+        elevationAvailable: false,
+        reason: "Aircraft on ground",
+      });
+      return;
+    }
+
+    if (!p.terrain) {
+      src.setData(empty());
+      p.onGlideStatus?.({
+        aglFt: null,
+        rangeNm: null,
+        elevationAvailable: false,
+        reason: ELEV_UNAVAILABLE_TERRAIN_OFF,
+      });
+      return;
+    }
+
+    let rawElevM: number | null = null;
+    try {
+      rawElevM = map.queryTerrainElevation([activeAircraft.lon, activeAircraft.lat]);
+    } catch {
+      rawElevM = null;
+    }
+
+    const now = Date.now();
+    if (rawElevM != null) {
+      elevCacheRef.current.set(activeAircraft.hex, {
+        elevM: rawElevM,
+        lat: activeAircraft.lat,
+        lon: activeAircraft.lon,
+        sampledAt: now,
+      });
+    } else {
+      const cached = elevCacheRef.current.get(activeAircraft.hex);
+      if (isElevationCacheValid(cached, activeAircraft.lat, activeAircraft.lon, now)) {
+        rawElevM = cached!.elevM;
+      }
+    }
+
+    if (rawElevM == null) {
+      src.setData(empty());
+      p.onGlideStatus?.({
+        aglFt: null,
+        rangeNm: null,
+        elevationAvailable: false,
+        reason: ELEV_UNAVAILABLE_GENERIC,
+      });
+      return;
+    }
+
+    const aglFt = computeAGL(activeAircraft.altFt, activeAircraft.onGround, rawElevM);
+    if (aglFt == null || aglFt <= 0) {
+      src.setData(empty());
+      p.onGlideStatus?.({
+        aglFt: null,
+        rangeNm: null,
+        elevationAvailable: false,
+      });
+      return;
+    }
+
+    const effectiveRatio = p.glideRatio ?? bounds.defaultRatio;
+    const range = rangeNm(aglFt, effectiveRatio);
+    const polygon = buildRingPolygon(activeAircraft.lat, activeAircraft.lon, range);
+    src.setData(polygon);
+    p.onGlideStatus?.({
+      aglFt,
+      rangeNm: range,
+      elevationAvailable: true,
+    });
   };
 
   // ---------- map init ----------
@@ -616,10 +781,18 @@ export default function FlightMap(props: FlightMapProps) {
     };
     raf = requestAnimationFrame(tick);
 
+    const onSourceData = (e: { sourceId?: string; isSourceLoaded?: boolean }) => {
+      if (e.sourceId === "sd-dem" && e.isSourceLoaded) {
+        updateGlideRing();
+      }
+    };
+    map.on("sourcedata", onSourceData);
+
     return () => {
       cancelAnimationFrame(raf);
       if (terrainTimer) clearTimeout(terrainTimer);
       terrainGen += 1;
+      map.off("sourcedata", onSourceData);
       map.remove();
       mapRef.current = null;
     };
@@ -657,6 +830,7 @@ export default function FlightMap(props: FlightMapProps) {
     }
     tracksRef.current = next;
     applyTrail();
+    updateGlideRing();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.aircraft]);
 
@@ -667,8 +841,14 @@ export default function FlightMap(props: FlightMapProps) {
 
   useEffect(() => {
     applyTerrain();
+    updateGlideRing();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.terrain]);
+
+  useEffect(() => {
+    updateGlideRing();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.glideRing, props.glideRatio, props.selectedHex]);
 
   useEffect(() => {
     const map = mapRef.current;
