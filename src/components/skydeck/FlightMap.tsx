@@ -106,8 +106,16 @@ function loadKindImages(): Promise<void> {
   return kindImagesLoading;
 }
 function addKindImages(map: MLMap) {
+  // StrictMode cleanup calls map.remove(); adding to that instance throws or recreates a style.
+  if (map._removed) return;
   for (const [id, img] of kindImages) {
-    if (!map.hasImage(id)) map.addImage(id, img, { sdf: true, pixelRatio: 2 });
+    if (map._removed) return;
+    try {
+      if (map.hasImage(id)) continue;
+      map.addImage(id, img, { sdf: true, pixelRatio: 2 });
+    } catch {
+      // The style was swapped or the map was removed. The next style.load adds the image.
+    }
   }
 }
 
@@ -200,7 +208,8 @@ export default function FlightMap(props: FlightMapProps) {
     addKindImages(map);
     void loadKindImages().then(() => {
       const m = mapRef.current;
-      if (m && m.isStyleLoaded()) addKindImages(m);
+      if (!m || m._removed) return;
+      addKindImages(m);
     });
 
     if (!map.getSource("sd-trail")) map.addSource("sd-trail", { type: "geojson", data: empty() });
@@ -405,6 +414,7 @@ export default function FlightMap(props: FlightMapProps) {
       );
     }
     applyTerrain();
+    addKindImages(map);
   };
 
   const applyTerrain = () => {
