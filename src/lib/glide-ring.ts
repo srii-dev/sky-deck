@@ -49,6 +49,13 @@ export function glideRatioBounds(kind: AircraftKind): GlideRatioBounds | null {
   };
 }
 
+/** Clamp a glide ratio to the category's bounds. Returns the original ratio if unbounded. */
+export function clampGlideRatio(ratio: number, kind: AircraftKind): number {
+  const bounds = glideRatioBounds(kind);
+  if (!bounds) return ratio;
+  return Math.min(bounds.max, Math.max(bounds.min, ratio));
+}
+
 /** Compute still-air glide range in nautical miles from AGL in feet and glide ratio. */
 export function rangeNm(altAGLFt: number, ratio: number): number {
   if (altAGLFt <= 0 || ratio <= 0) return 0;

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildRingPolygon,
+  clampGlideRatio,
   computeAGL,
   DEFAULT_GLIDE_RATIOS,
   destinationPoint,
@@ -137,5 +138,30 @@ describe("glide ring math and rules", () => {
     expect(fmtRange(97.9, "metric")).toBe("181 km");
     expect(fmtRange(97.9, "imperial")).toBe("113 mi");
     expect(fmtRange(0, "aviation")).toBe("0 nm");
+  });
+
+  it("clamps glide ratio within bounds for kind, returning unchanged for unbounded kinds", () => {
+    // Narrowbody bounds: 8.5 - 25.5
+    expect(clampGlideRatio(5, "narrowbody")).toBe(8.5);
+    expect(clampGlideRatio(30, "narrowbody")).toBe(25.5);
+    expect(clampGlideRatio(17, "narrowbody")).toBe(17);
+
+    // Glider bounds: 30 - 40
+    expect(clampGlideRatio(20, "glider")).toBe(30);
+    expect(clampGlideRatio(50, "glider")).toBe(40);
+
+    // Unbounded / hidden categories
+    expect(clampGlideRatio(10, "drone")).toBe(10);
+  });
+
+  it("unwraps longitudes continuously across antimeridian so ring at lon 179 contains longitudes > 180", () => {
+    const poly = buildRingPolygon(0, 179, 100);
+    const coords = poly.geometry.coordinates[0]!;
+    // Point east of 179 deg lon should unwrap to > 180 instead of jumping to -179
+    const eastCoords = coords.filter((c) => (c[0] ?? 0) > 180);
+    expect(eastCoords.length).toBeGreaterThan(0);
+    // Bearing 90 is index 18 (72 points / 4 = 18)
+    const bearing90Point = coords[18]!;
+    expect(bearing90Point[0]!).toBeCloseTo(180.667, 2);
   });
 });

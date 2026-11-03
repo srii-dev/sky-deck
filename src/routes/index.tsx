@@ -128,11 +128,14 @@ function SkyDeck() {
     [flyTo],
   );
 
+  useEffect(() => {
+    setGlideRatio(null);
+  }, [selectedHex]);
+
   const onSelect = useCallback((hex: string | null) => {
     setSelectedHex(hex);
     if (!hex) {
       setFollow(false);
-      setGlideRatio(null);
     }
   }, []);
 

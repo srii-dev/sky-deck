@@ -15,6 +15,7 @@ import { altitudeColor, EMERGENCY_COLOR, isEmergency, type Aircraft } from "@/li
 import { keepUprightWithoutHeading } from "@/lib/aircraft-kind";
 import {
   buildRingPolygon,
+  clampGlideRatio,
   computeAGL,
   ELEV_UNAVAILABLE_GENERIC,
   ELEV_UNAVAILABLE_TERRAIN_OFF,
@@ -229,6 +230,7 @@ export default function FlightMap(props: FlightMapProps) {
   const mapRef = useRef<MLMap | null>(null);
   const tracksRef = useRef(new Map<string, Track>());
   const elevCacheRef = useRef<Map<string, ElevationCacheEntry>>(new Map());
+  const lastGlideStatusRef = useRef<GlideStatus | null>(null);
   const propsRef = useRef(props);
   propsRef.current = props;
   const styleReadyRef = useRef(false);
@@ -524,6 +526,21 @@ export default function FlightMap(props: FlightMapProps) {
     );
   };
 
+  const emitGlideStatus = (status: GlideStatus) => {
+    const prev = lastGlideStatusRef.current;
+    if (
+      prev &&
+      prev.aglFt === status.aglFt &&
+      prev.rangeNm === status.rangeNm &&
+      prev.elevationAvailable === status.elevationAvailable &&
+      prev.reason === status.reason
+    ) {
+      return;
+    }
+    lastGlideStatusRef.current = status;
+    propsRef.current.onGlideStatus?.(status);
+  };
+
   const updateGlideRing = () => {
     const map = mapRef.current;
     if (!map) return;
@@ -536,14 +553,14 @@ export default function FlightMap(props: FlightMapProps) {
 
     if (!p.glideRing || !activeAircraft) {
       src.setData(empty());
-      p.onGlideStatus?.({ aglFt: null, rangeNm: null, elevationAvailable: false });
+      emitGlideStatus({ aglFt: null, rangeNm: null, elevationAvailable: false });
       return;
     }
 
     const bounds = glideRatioBounds(activeAircraft.kind);
     if (!bounds) {
       src.setData(empty());
-      p.onGlideStatus?.({
+      emitGlideStatus({
         aglFt: null,
         rangeNm: null,
         elevationAvailable: false,
@@ -554,7 +571,7 @@ export default function FlightMap(props: FlightMapProps) {
 
     if (activeAircraft.onGround || activeAircraft.altFt == null) {
       src.setData(empty());
-      p.onGlideStatus?.({
+      emitGlideStatus({
         aglFt: null,
         rangeNm: null,
         elevationAvailable: false,
@@ -565,7 +582,7 @@ export default function FlightMap(props: FlightMapProps) {
 
     if (!p.terrain) {
       src.setData(empty());
-      p.onGlideStatus?.({
+      emitGlideStatus({
         aglFt: null,
         rangeNm: null,
         elevationAvailable: false,
@@ -598,7 +615,7 @@ export default function FlightMap(props: FlightMapProps) {
 
     if (rawElevM == null) {
       src.setData(empty());
-      p.onGlideStatus?.({
+      emitGlideStatus({
         aglFt: null,
         rangeNm: null,
         elevationAvailable: false,
@@ -610,7 +627,7 @@ export default function FlightMap(props: FlightMapProps) {
     const aglFt = computeAGL(activeAircraft.altFt, activeAircraft.onGround, rawElevM);
     if (aglFt == null || aglFt <= 0) {
       src.setData(empty());
-      p.onGlideStatus?.({
+      emitGlideStatus({
         aglFt: null,
         rangeNm: null,
         elevationAvailable: false,
@@ -618,11 +635,14 @@ export default function FlightMap(props: FlightMapProps) {
       return;
     }
 
-    const effectiveRatio = p.glideRatio ?? bounds.defaultRatio;
+    const effectiveRatio = clampGlideRatio(
+      p.glideRatio ?? bounds.defaultRatio,
+      activeAircraft.kind,
+    );
     const range = rangeNm(aglFt, effectiveRatio);
     const polygon = buildRingPolygon(activeAircraft.lat, activeAircraft.lon, range);
     src.setData(polygon);
-    p.onGlideStatus?.({
+    emitGlideStatus({
       aglFt,
       rangeNm: range,
       elevationAvailable: true,
