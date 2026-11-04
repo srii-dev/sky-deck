@@ -275,7 +275,8 @@ export function AircraftPanel(props: Props) {
     <>
       <section
         aria-label="Aircraft details"
-        className="glass-panel pointer-events-auto fixed inset-x-0 bottom-0 z-40 flex max-h-[70vh] flex-col rounded-t-xl pb-[env(safe-area-inset-bottom)] md:hidden"
+        className="glass-panel pointer-events-auto fixed inset-x-0 bottom-0 z-40 flex flex-col rounded-t-xl pb-[env(safe-area-inset-bottom)] md:hidden"
+        style={{ maxHeight: "min(70vh, calc(100dvh - var(--hud-h, 76px) - 8px))" }}
       >
         <button
           aria-label="Toggle details"
@@ -298,7 +299,8 @@ export function AircraftPanel(props: Props) {
       </section>
       <aside
         aria-label="Aircraft details"
-        className="glass-panel scanline pointer-events-auto absolute bottom-4 right-14 top-[76px] z-30 hidden w-[360px] flex-col overflow-hidden rounded-lg md:flex"
+        className="glass-panel scanline pointer-events-auto absolute bottom-4 right-14 z-30 hidden w-[360px] flex-col overflow-hidden rounded-lg md:flex"
+        style={{ top: "calc(var(--hud-h, 76px) + 8px)" }}
       >
         <div className="border-b border-border/60 p-4">{header(false)}</div>
         <div className="flex-1 overflow-y-auto p-4">{body}</div>

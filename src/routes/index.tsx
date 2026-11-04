@@ -1,5 +1,5 @@
 import { createFileRoute, ClientOnly } from "@tanstack/react-router";
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Mountain, SlidersHorizontal, Box } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -71,6 +71,21 @@ function SkyDeck() {
   const [glideRing, setGlideRing] = useState(false);
   const [glideRatio, setGlideRatio] = useState<number | null>(null);
   const [glideStatus, setGlideStatus] = useState<GlideStatus | undefined>(undefined);
+  const [hudH, setHudH] = useState(76);
+  const hudRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = hudRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const height = Math.round(entry.borderBoxSize?.[0]?.blockSize ?? entry.contentRect.height);
+        if (height > 0) setHudH(height);
+      }
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   // Restore preferences after hydration.
   useEffect(() => {
@@ -142,7 +157,14 @@ function SkyDeck() {
   const filterCount = activeFilterCount(filters);
 
   return (
-    <main className="relative h-dvh w-full overflow-hidden bg-background">
+    <main
+      className="relative h-dvh w-full overflow-hidden bg-background"
+      style={
+        {
+          "--hud-h": `${hudH}px`,
+        } as React.CSSProperties
+      }
+    >
       <h1 className="sr-only">
         {APP_NAME} — {APP_TAGLINE}
       </h1>
@@ -167,7 +189,10 @@ function SkyDeck() {
       </ClientOnly>
 
       {/* Top HUD */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex flex-col gap-2 p-3 md:flex-row md:items-start">
+      <div
+        ref={hudRef}
+        className="pointer-events-none absolute inset-x-0 top-0 z-20 flex flex-col gap-2 p-3 md:flex-row md:items-start"
+      >
         <div className="glass-panel pointer-events-auto flex h-11 items-center gap-4 rounded-md px-3">
           <div className="flex items-baseline gap-1.5">
             <span className="font-display text-base font-bold tracking-[0.18em] text-primary">
@@ -289,7 +314,10 @@ function SkyDeck() {
 
       {/* Emergency alert */}
       {emergencies.length > 0 && (
-        <div className="pointer-events-none absolute inset-x-0 top-[176px] z-30 flex justify-center px-3 md:top-[72px]">
+        <div
+          className="pointer-events-none absolute inset-x-0 z-30 flex justify-center px-3"
+          style={{ top: "calc(var(--hud-h, 76px) + 8px)" }}
+        >
           <EmergencyBanner aircraft={emergencies} onPick={pickAircraft} />
         </div>
       )}
