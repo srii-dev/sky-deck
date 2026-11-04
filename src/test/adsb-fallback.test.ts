@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
+import { DATA_BUSY_MESSAGE } from "@/lib/aircraft";
 import {
   loadFeedCircle,
   resetAdsbSourceState,
@@ -90,7 +91,7 @@ describe("feed fallback", () => {
       aircraft: [],
       source: "none",
       busy: true,
-      error: "Data provider busy",
+      error: DATA_BUSY_MESSAGE,
     });
     expect(Date.now() - started).toBeLessThan(700);
   });

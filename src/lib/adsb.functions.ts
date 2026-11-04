@@ -1,6 +1,11 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import type { FeedResponse, FlightRoute, RouteAirport } from "./aircraft";
+import {
+  DATA_BUSY_MESSAGE,
+  type FeedResponse,
+  type FlightRoute,
+  type RouteAirport,
+} from "./aircraft";
 import { getJson, loadFeedCircle, searchAircraftSources } from "./adsb-sources";
 
 /*
@@ -52,7 +57,7 @@ export const getAircraftFeed = createServerFn({ method: "GET" })
       feedCache.set(key, { at: Date.now(), value });
       return value;
     }
-    if (hit) return { ...hit.value, busy: true, error: "Data provider busy" };
+    if (hit) return { ...hit.value, busy: true, error: DATA_BUSY_MESSAGE };
     return value;
   });
 

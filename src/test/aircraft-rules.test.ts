@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  DATA_BUSY_MESSAGE,
   DEFAULT_FILTERS,
   flightStatus,
   isConfirmedEmergency,
@@ -138,7 +139,7 @@ describe("overlap merge", () => {
 describe("feed notices", () => {
   it("uses the hard message only when every circle failed", () => {
     expect(resolveFeedNotices({ circles: 3, failed: 3, fallbackBusy: true })).toEqual({
-      error: "Data provider busy",
+      error: DATA_BUSY_MESSAGE,
       backup: false,
       areasMissing: false,
     });

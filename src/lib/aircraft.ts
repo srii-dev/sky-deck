@@ -154,14 +154,17 @@ export function pickFresherAircraft<T extends { seenPos: number }>(prev: T, next
   return next.seenPos < prev.seenPos ? next : prev;
 }
 
+/** User-facing message when live ADS-B providers fail to respond. */
+export const DATA_BUSY_MESSAGE = "Live data is busy. Retrying…";
+
 export function resolveFeedNotices(input: {
   circles: number;
   failed: number;
   fallbackBusy: boolean;
-}): { error: "Data provider busy" | null; backup: boolean; areasMissing: boolean } {
+}): { error: typeof DATA_BUSY_MESSAGE | null; backup: boolean; areasMissing: boolean } {
   const allFailed = input.circles > 0 && input.failed === input.circles;
   return {
-    error: allFailed ? "Data provider busy" : null,
+    error: allFailed ? DATA_BUSY_MESSAGE : null,
     backup: input.fallbackBusy && !allFailed,
     areasMissing: input.failed > 0 && !allFailed,
   };

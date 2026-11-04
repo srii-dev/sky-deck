@@ -1,4 +1,4 @@
-import type { Aircraft, FeedResponse } from "./aircraft";
+import { DATA_BUSY_MESSAGE, type Aircraft, type FeedResponse } from "./aircraft";
 import { classifyAircraft } from "./aircraft-kind";
 
 /*
@@ -257,7 +257,7 @@ export async function loadFeedCircle(
     source: "none",
     fetchedAt: clock(),
     busy: true,
-    error: "Data provider busy",
+    error: DATA_BUSY_MESSAGE,
   };
 }
 

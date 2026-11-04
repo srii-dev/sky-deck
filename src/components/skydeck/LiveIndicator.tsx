@@ -23,7 +23,7 @@ export function LiveIndicator({ fetchedAt, error, isFetching, shown, total, sour
   const label = fetchedAt == null ? "Loading aircraft..." : stale ? "Delayed" : "Live";
 
   return (
-    <div className="flex items-center gap-3" title={source ? `Data: ${source}` : undefined}>
+    <div className="flex items-center gap-3">
       <span className={cn("flex items-center gap-2", stale ? "text-warning" : "text-success")}>
         <span className={cn("size-2 rounded-full bg-current", !stale && "live-dot")} />
         <span className="font-display text-xs font-semibold uppercase tracking-[0.2em]">

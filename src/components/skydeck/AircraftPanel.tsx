@@ -187,10 +187,7 @@ export function AircraftPanel(props: Props) {
         <Cell label="ICAO hex">{a.hex.toUpperCase()}</Cell>
         <Cell label="Registration">{a.registration ?? "—"}</Cell>
         <Cell label="Type">{a.type ?? "—"}</Cell>
-        <Cell label="Category" className="col-span-2">
-          {a.kindLabel}
-        </Cell>
-        <Cell label="Source">{a.source ?? "—"}</Cell>
+        <Cell label="Category">{a.kindLabel}</Cell>
         <Cell label="Position age">{`${Math.round(a.seenPos)}s`}</Cell>
       </div>
 
