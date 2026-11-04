@@ -557,7 +557,7 @@ export default function FlightMap(props: FlightMapProps) {
       return;
     }
 
-    if (activeAircraft.hex.startsWith("mock-")) {
+    if (import.meta.env.DEV && activeAircraft.hex.startsWith("mock-")) {
       const mbounds = glideRatioBounds(activeAircraft.kind);
       if (!mbounds || !p.terrain) {
         src.setData(empty());

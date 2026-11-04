@@ -133,7 +133,7 @@ function SkyDeck() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingViewport]);
 
-  const feed = useAircraftFeed(viewport, selectedHex);
+  const feed = useAircraftFeed(viewport, selectedHex?.startsWith("mock-") ? null : selectedHex);
 
   const allAircraft = useMemo(() => {
     if (mockAircraft.length > 0) {
