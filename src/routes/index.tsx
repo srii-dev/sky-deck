@@ -73,6 +73,23 @@ function SkyDeck() {
   const [glideStatus, setGlideStatus] = useState<GlideStatus | undefined>(undefined);
   const [hudH, setHudH] = useState(76);
   const hudRef = useRef<HTMLDivElement>(null);
+  const [isMock, setIsMock] = useState(false);
+  const [mockAircraft, setMockAircraft] = useState<Aircraft[]>([]);
+
+  useEffect(() => {
+    if (import.meta.env.DEV && typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      setIsMock(params.get("mock") === "1");
+    }
+  }, []);
+
+  useEffect(() => {
+    if (import.meta.env.DEV && isMock && viewport) {
+      void import("@/lib/mock-fixture.dev").then(({ generateDevMockAircraft }) => {
+        setMockAircraft(generateDevMockAircraft(viewport.lat, viewport.lon));
+      });
+    }
+  }, [isMock, viewport?.lat, viewport?.lon]);
 
   useEffect(() => {
     const el = hudRef.current;
@@ -118,17 +135,24 @@ function SkyDeck() {
 
   const feed = useAircraftFeed(viewport, selectedHex);
 
+  const allAircraft = useMemo(() => {
+    if (mockAircraft.length > 0) {
+      return [...feed.aircraft, ...mockAircraft];
+    }
+    return feed.aircraft;
+  }, [feed.aircraft, mockAircraft]);
+
   const visible = useMemo(
-    () => feed.aircraft.filter((a) => a.hex === selectedHex || passesFilters(a, filters)),
-    [feed.aircraft, filters, selectedHex],
+    () => allAircraft.filter((a) => a.hex === selectedHex || passesFilters(a, filters)),
+    [allAircraft, filters, selectedHex],
   );
   const emergencies = useMemo(
     () => feed.aircraft.filter((a) => isEmergency(a.squawk)),
     [feed.aircraft],
   );
   const selected = useMemo(
-    () => feed.aircraft.find((a) => a.hex === selectedHex) ?? null,
-    [feed.aircraft, selectedHex],
+    () => allAircraft.find((a) => a.hex === selectedHex) ?? null,
+    [allAircraft, selectedHex],
   );
 
   const flyTo = useCallback((lat: number, lon: number, zoom?: number) => {
@@ -205,14 +229,14 @@ function SkyDeck() {
             error={feed.error}
             isFetching={feed.isFetching}
             shown={visible.length}
-            total={feed.aircraft.length}
+            total={allAircraft.length}
             source={feed.source}
           />
         </div>
 
         <div className="pointer-events-auto w-full md:max-w-sm">
           <SearchBox
-            aircraft={feed.aircraft}
+            aircraft={allAircraft}
             onAircraft={pickAircraft}
             onAirport={(apt) => flyTo(apt.lat, apt.lon, 11)}
           />

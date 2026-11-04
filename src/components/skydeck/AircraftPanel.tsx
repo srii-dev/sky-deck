@@ -204,7 +204,11 @@ export function AircraftPanel(props: Props) {
           </Label>
           <Switch id="follow" checked={props.follow} onCheckedChange={props.onFollow} />
         </div>
-        {bounds != null && (
+        {bounds == null ? (
+          <div className="border-t border-border/40 pt-2 text-xs text-muted-foreground">
+            No glide ring for this category
+          </div>
+        ) : (
           <div className="space-y-2 border-t border-border/40 pt-2">
             <div className="flex items-center justify-between">
               <Label htmlFor="glide-ring" className="text-sm">

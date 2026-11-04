@@ -557,6 +557,22 @@ export default function FlightMap(props: FlightMapProps) {
       return;
     }
 
+    if (activeAircraft.hex.startsWith("mock-")) {
+      const mbounds = glideRatioBounds(activeAircraft.kind);
+      if (!mbounds || !p.terrain) {
+        src.setData(empty());
+        return;
+      }
+      const effectiveRatio = clampGlideRatio(
+        p.glideRatio ?? mbounds.defaultRatio,
+        activeAircraft.kind,
+      );
+      const range = rangeNm(activeAircraft.altFt ?? 0, effectiveRatio);
+      const polygon = buildRingPolygon(activeAircraft.lat, activeAircraft.lon, range);
+      src.setData(polygon);
+      return;
+    }
+
     const bounds = glideRatioBounds(activeAircraft.kind);
     if (!bounds) {
       src.setData(empty());
