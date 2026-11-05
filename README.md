@@ -85,13 +85,14 @@ src/
 
 ## Data sources and attribution
 
-SkyDeck relies on free community data. Please be gentle with it and respect each provider's terms.
+Community data. Positions may be delayed or incomplete. Educational estimates only. Not for operational or safety use.
 
-- **Aircraft positions:** [adsb.lol](https://adsb.lol), [airplanes.live](https://airplanes.live) and the [OpenSky Network](https://opensky-network.org)
-- **Routes:** the community route data published by adsb.lol
-- **Map data:** OpenStreetMap contributors, served through [OpenFreeMap](https://openfreemap.org)
-- **Satellite imagery:** Esri, Maxar, Earthstar Geographics
-- **Terrain:** Mapzen / AWS Terrain Tiles
+- **Aircraft positions & routes:** [adsb.lol](https://adsb.lol) (Open Database License (ODbL 1.0))
+- **Aircraft positions fallback:** [airplanes.live](https://airplanes.live)
+- **Aircraft positions fallback:** [OpenSky Network](https://opensky-network.org)
+- **Map data:** OpenStreetMap contributors via [OpenFreeMap](https://openfreemap.org)
+- **Satellite imagery:** [Esri](https://www.esri.com) (Imagery © Esri, Maxar, Earthstar Geographics)
+- **Terrain:** [Mapzen / AWS Terrain Tiles](https://github.com/tilezen/joerd/blob/master/docs/attribution.md)
 
 Each of these has its own licence and usage terms. Check them before deploying publicly or commercially.
 
