@@ -55,7 +55,10 @@ const EMITTER: Record<string, KindInfo> = {
 
 const TYPE_RULES: [RegExp, KindInfo][] = [
   [/^(BALL|SHIP|GBAL)$/, { kind: "balloon", label: "Balloon" }],
-  [/^(GLID|ASK\d|ASW\d|ASG\d|ASH\d|DG\d|LS\d|DUOD|ARCP|NIMB|VENT|DISC)/, { kind: "glider", label: "Glider" }],
+  [
+    /^(GLID|ASK\d|ASW\d|ASG\d|ASH\d|DG\d|LS\d|DUOD|ARCP|NIMB|VENT|DISC)/,
+    { kind: "glider", label: "Glider" },
+  ],
   [/^(UAV|Q\d|RQ\d|MQ\d|HRON|TB2)/, { kind: "drone", label: "Drone" }],
   [/^(GND|SERV|TWR|EMER)$/, { kind: "ground", label: "Ground vehicle" }],
   [
@@ -84,7 +87,10 @@ const TYPE_RULES: [RegExp, KindInfo][] = [
   ],
 ];
 
-export function classifyAircraft(category: string | null | undefined, typeCode: string | null | undefined): KindInfo {
+export function classifyAircraft(
+  category: string | null | undefined,
+  typeCode: string | null | undefined,
+): KindInfo {
   const cat = category?.trim().toUpperCase();
   if (cat && EMITTER[cat]) return EMITTER[cat];
   const t = typeCode?.trim().toUpperCase();

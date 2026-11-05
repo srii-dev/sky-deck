@@ -110,15 +110,21 @@ export function nextEmergencyMemory(
     seen.add(obs.hex);
     const prior = prev[obs.hex];
     if (!sampleCounts(obs, prior)) {
-      if (prior && prior.code === obs.squawk && isEmergency(obs.squawk) && obs.seenPos <= EMERGENCY_MAX_SEEN_POS_S) {
+      if (
+        prior &&
+        prior.code === obs.squawk &&
+        isEmergency(obs.squawk) &&
+        obs.seenPos <= EMERGENCY_MAX_SEEN_POS_S
+      ) {
         next[obs.hex] = prior;
       }
       continue;
     }
     const code = obs.squawk ?? "";
-    next[obs.hex] = prior && prior.code === code
-      ? { code, count: prior.count + 1, lastCountedAt: obs.observedAt }
-      : { code, count: 1, lastCountedAt: obs.observedAt };
+    next[obs.hex] =
+      prior && prior.code === code
+        ? { code, count: prior.count + 1, lastCountedAt: obs.observedAt }
+        : { code, count: 1, lastCountedAt: obs.observedAt };
   }
   return next;
 }
@@ -128,11 +134,13 @@ export function isConfirmedEmergency(
   a: { hex: string; squawk: string | null; seenPos: number },
 ): boolean {
   const sample = memory[a.hex];
-  return !!sample
-    && sample.count >= EMERGENCY_CONFIRM_POLLS
-    && sample.code === a.squawk
-    && isEmergency(a.squawk)
-    && a.seenPos <= EMERGENCY_MAX_SEEN_POS_S;
+  return (
+    !!sample &&
+    sample.count >= EMERGENCY_CONFIRM_POLLS &&
+    sample.code === a.squawk &&
+    isEmergency(a.squawk) &&
+    a.seenPos <= EMERGENCY_MAX_SEEN_POS_S
+  );
 }
 
 /** Clears `squawk` until the code is confirmed, keeping the raw value for the panel. */
@@ -146,14 +154,17 @@ export function pickFresherAircraft<T extends { seenPos: number }>(prev: T, next
   return next.seenPos < prev.seenPos ? next : prev;
 }
 
+/** User-facing message when live ADS-B providers fail to respond. */
+export const DATA_BUSY_MESSAGE = "Live data is busy. Retrying…";
+
 export function resolveFeedNotices(input: {
   circles: number;
   failed: number;
   fallbackBusy: boolean;
-}): { error: "Data provider busy" | null; backup: boolean; areasMissing: boolean } {
+}): { error: typeof DATA_BUSY_MESSAGE | null; backup: boolean; areasMissing: boolean } {
   const allFailed = input.circles > 0 && input.failed === input.circles;
   return {
-    error: allFailed ? "Data provider busy" : null,
+    error: allFailed ? DATA_BUSY_MESSAGE : null,
     backup: input.fallbackBusy && !allFailed,
     areasMissing: input.failed > 0 && !allFailed,
   };

@@ -44,7 +44,9 @@ type CacheEntry = { at: number; res: FeedResponse };
 /** Results reused from cache are aged so dead-reckoning stays correct. */
 function aged(entry: CacheEntry, now: number): Aircraft[] {
   const ageS = Math.max(0, (now - entry.at) / 1000);
-  return ageS < 0.5 ? entry.res.aircraft : entry.res.aircraft.map((a) => ({ ...a, seenPos: a.seenPos + ageS }));
+  return ageS < 0.5
+    ? entry.res.aircraft
+    : entry.res.aircraft.map((a) => ({ ...a, seenPos: a.seenPos + ageS }));
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -118,7 +120,9 @@ async function refreshCoverage(
       } else {
         failed++;
         const message = res?.error || failure || "request failed";
-        console.info(`[feed] circle ${c.key} failed: ${message}`);
+        if (import.meta.env.DEV) {
+          console.info(`[feed] circle ${c.key} failed: ${message}`);
+        }
         const old = cache.get(c.key);
         if (old && Date.now() - old.at < CIRCLE_STALE_OK_MS) {
           lists.push({ aircraft: aged(old, Date.now()), source: old.res.source, fresh: false });
@@ -128,7 +132,9 @@ async function refreshCoverage(
       }
     }
   };
-  await Promise.all(Array.from({ length: Math.min(CONCURRENCY, todo.length) }, (_, i) => worker(i)));
+  await Promise.all(
+    Array.from({ length: Math.min(CONCURRENCY, todo.length) }, (_, i) => worker(i)),
+  );
 
   // Merge and de-duplicate by ICAO hex, keeping the whole freshest record.
   const byHex = new Map<string, MergedAircraft>();
@@ -146,10 +152,12 @@ async function refreshCoverage(
   const ms = Math.round(performance.now() - started);
   const source = [...sources].join(", ") || null;
   const gap = gapMs == null ? "n/a" : `${Math.round(gapMs)} ms`;
-  console.info(
-    `[feed] refresh: ${todo.length} request(s), ${cached} cached, ${failed} failed, ` +
-      `${plan.circles.length}/${plan.totalNeeded} circle(s), ${ms} ms, gap: ${gap}, source: ${source ?? "none"}, ${byHex.size} aircraft`,
-  );
+  if (import.meta.env.DEV) {
+    console.info(
+      `[feed] refresh: ${todo.length} request(s), ${cached} cached, ${failed} failed, ` +
+        `${plan.circles.length}/${plan.totalNeeded} circle(s), ${ms} ms, gap: ${gap}, source: ${source ?? "none"}, ${byHex.size} aircraft`,
+    );
+  }
 
   const merged = [...byHex.values()];
   const notices = resolveFeedNotices({ circles: plan.circles.length, failed, fallbackBusy });
@@ -230,9 +238,11 @@ export function useAircraftFeed(viewport: Viewport | null, selectedHex: string |
               const key = `${a.hex}:${a.squawk}`;
               if (loggedEmergencyRef.current.has(key)) continue;
               loggedEmergencyRef.current.add(key);
-              console.info(
-                `[emergency] hex=${a.hex} callsign=${a.callsign ?? ""} squawk=${a.squawk} source=${a.source ?? ""} seenPos=${a.seenPos} at=${new Date(observedAt).toISOString()}`,
-              );
+              if (import.meta.env.DEV) {
+                console.info(
+                  `[emergency] hex=${a.hex} callsign=${a.callsign ?? ""} squawk=${a.squawk} source=${a.source ?? ""} seenPos=${a.seenPos} at=${new Date(observedAt).toISOString()}`,
+                );
+              }
             }
             aircraft = r.merged.map((m) => presentEmergency(m.aircraft, emergencyRef.current));
           }
@@ -271,7 +281,11 @@ export function useAircraftFeed(viewport: Viewport | null, selectedHex: string |
   }, []);
 
   // A new viewport refreshes right away (unless we're backing off a busy provider).
-  const vpKey = viewport ? planCoverage(viewport).circles.map((c) => c.key).join("|") : "";
+  const vpKey = viewport
+    ? planCoverage(viewport)
+        .circles.map((c) => c.key)
+        .join("|")
+    : "";
   useEffect(() => {
     if (!vpKey) return;
     dirtyRef.current = true;

@@ -44,7 +44,8 @@ const normLon = (lon: number) => ((((lon + 180) % 360) + 360) % 360) - 180;
 export function haversineNm(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const dLat = (lat2 - lat1) * toR;
   const dLon = (lon2 - lon1) * toR;
-  const s = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * toR) * Math.cos(lat2 * toR) * Math.sin(dLon / 2) ** 2;
+  const s =
+    Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * toR) * Math.cos(lat2 * toR) * Math.sin(dLon / 2) ** 2;
   return 2 * 3440.065 * Math.asin(Math.min(1, Math.sqrt(s)));
 }
 
@@ -66,7 +67,11 @@ export function planCoverage(v: CoverageView): CoveragePlan {
     const lat = Math.round(v.lat * 100) / 100;
     const lon = Math.round(normLon(v.lon) * 100) / 100;
     const radiusNm = Math.max(5, Math.min(SOURCE_MAX_RADIUS_NM, Math.round(r)));
-    return { circles: [{ key: `${lat},${lon},${radiusNm}`, lat, lon, radiusNm }], partial: false, totalNeeded: 1 };
+    return {
+      circles: [{ key: `${lat},${lon},${radiusNm}`, lat, lon, radiusNm }],
+      partial: false,
+      totalNeeded: 1,
+    };
   }
 
   const b = v.bounds;

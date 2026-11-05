@@ -24,6 +24,8 @@ import {
   fmtVerticalRate,
   type UnitSystem,
 } from "@/lib/units";
+import { GLIDE_DISCLAIMER, GLIDE_RATIO_LABEL, fmtRange, glideRatioBounds } from "@/lib/glide-ring";
+import type { GlideStatus } from "./FlightMap";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -33,6 +35,11 @@ interface Props {
   onTrail3d: (v: boolean) => void;
   follow: boolean;
   onFollow: (v: boolean) => void;
+  glideRing: boolean;
+  onGlideRing: (v: boolean) => void;
+  glideRatio: number | null;
+  onGlideRatio: (v: number) => void;
+  glideStatus?: GlideStatus | undefined;
   onClose: () => void;
 }
 
@@ -67,6 +74,8 @@ export function AircraftPanel(props: Props) {
   const emg = isEmergency(a.squawk);
   const code = airlineCode(a.callsign);
   const operator = a.operator ?? airlineName(code);
+  const bounds = glideRatioBounds(a.kind);
+  const currentRatio = props.glideRatio ?? bounds?.defaultRatio ?? 12;
 
   const route = useQuery({
     queryKey: ["route", a.callsign],
@@ -171,13 +180,14 @@ export function AircraftPanel(props: Props) {
           <span className="text-muted-foreground">{compassPoint(a.track)}</span>
         </Cell>
         <Cell label="Squawk" className={cn(emg && "border-destructive bg-destructive/15")}>
-          <span className={cn(emg && "text-destructive")}>{a.reportedSquawk ?? a.squawk ?? "—"}</span>
+          <span className={cn(emg && "text-destructive")}>
+            {a.reportedSquawk ?? a.squawk ?? "—"}
+          </span>
         </Cell>
         <Cell label="ICAO hex">{a.hex.toUpperCase()}</Cell>
         <Cell label="Registration">{a.registration ?? "—"}</Cell>
         <Cell label="Type">{a.type ?? "—"}</Cell>
-        <Cell label="Category" className="col-span-2">{a.kindLabel}</Cell>
-        <Cell label="Source">{a.source ?? "—"}</Cell>
+        <Cell label="Category">{a.kindLabel}</Cell>
         <Cell label="Position age">{`${Math.round(a.seenPos)}s`}</Cell>
       </div>
 
@@ -194,6 +204,67 @@ export function AircraftPanel(props: Props) {
           </Label>
           <Switch id="follow" checked={props.follow} onCheckedChange={props.onFollow} />
         </div>
+        {bounds == null ? (
+          <div className="border-t border-border/40 pt-2 text-xs text-muted-foreground">
+            No glide ring for this category
+          </div>
+        ) : (
+          <div className="space-y-2 border-t border-border/40 pt-2">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="glide-ring" className="text-sm">
+                Glide range ring
+              </Label>
+              <Switch
+                id="glide-ring"
+                checked={props.glideRing}
+                onCheckedChange={props.onGlideRing}
+              />
+            </div>
+            {props.glideRing && (
+              <div className="space-y-2 rounded bg-background/50 p-2.5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">
+                    Ratio: <span className="font-semibold text-foreground">{currentRatio}:1</span>
+                    {a.kind === "generic" && (
+                      <span className="ml-1 text-[10px] text-muted-foreground/80">
+                        (Unknown category)
+                      </span>
+                    )}
+                  </span>
+                  {props.glideStatus?.elevationAvailable && props.glideStatus.rangeNm != null && (
+                    <span className="font-semibold text-primary">
+                      {fmtRange(props.glideStatus.rangeNm, props.units)}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] text-muted-foreground">{bounds.min}</span>
+                  <input
+                    type="range"
+                    min={bounds.min}
+                    max={bounds.max}
+                    step={bounds.step}
+                    value={currentRatio}
+                    onChange={(e) => props.onGlideRatio(parseFloat(e.target.value))}
+                    aria-label="Glide ratio"
+                    aria-valuetext={`${currentRatio} to 1`}
+                    className="h-1.5 flex-1 cursor-pointer appearance-none rounded-lg bg-secondary accent-primary"
+                  />
+                  <span className="text-[10px] text-muted-foreground">{bounds.max}</span>
+                </div>
+                <p className="text-[11px] leading-tight text-muted-foreground">
+                  {GLIDE_RATIO_LABEL}
+                </p>
+                {!props.glideStatus?.elevationAvailable && props.glideStatus?.reason && (
+                  <p className="text-[11px] font-medium leading-tight text-destructive">
+                    {props.glideStatus.reason}
+                  </p>
+                )}
+                <p className="text-[10px] leading-tight text-warning/90">{GLIDE_DISCLAIMER}</p>
+              </div>
+            )}
+          </div>
+        )}
         <p className="text-[11px] leading-snug text-muted-foreground">
           The trail builds up from live positions while you watch.
         </p>
@@ -205,7 +276,8 @@ export function AircraftPanel(props: Props) {
     <>
       <section
         aria-label="Aircraft details"
-        className="glass-panel pointer-events-auto fixed inset-x-0 bottom-0 z-40 flex max-h-[70vh] flex-col rounded-t-xl pb-[env(safe-area-inset-bottom)] md:hidden"
+        className="glass-panel pointer-events-auto fixed inset-x-0 bottom-0 z-40 flex flex-col rounded-t-xl pb-[env(safe-area-inset-bottom)] md:hidden"
+        style={{ maxHeight: "min(70vh, calc(100dvh - var(--hud-h, 76px) - 8px))" }}
       >
         <button
           aria-label="Toggle details"
@@ -228,7 +300,8 @@ export function AircraftPanel(props: Props) {
       </section>
       <aside
         aria-label="Aircraft details"
-        className="glass-panel scanline pointer-events-auto absolute bottom-4 right-14 top-[76px] z-30 hidden w-[360px] flex-col overflow-hidden rounded-lg md:flex"
+        className="glass-panel scanline pointer-events-auto absolute bottom-4 right-14 z-30 hidden w-[360px] flex-col overflow-hidden rounded-lg md:flex"
+        style={{ top: "calc(var(--hud-h, 76px) + 8px)" }}
       >
         <div className="border-b border-border/60 p-4">{header(false)}</div>
         <div className="flex-1 overflow-y-auto p-4">{body}</div>

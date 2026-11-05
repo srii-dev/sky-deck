@@ -1,4 +1,4 @@
-import type { Aircraft, FeedResponse } from "./aircraft";
+import { DATA_BUSY_MESSAGE, type Aircraft, type FeedResponse } from "./aircraft";
 import { classifyAircraft } from "./aircraft-kind";
 
 /*
@@ -67,8 +67,25 @@ const str = (v: unknown): string | null => {
 };
 
 type RawKeys =
-  | "alt_baro" | "alt_geom" | "baro_rate" | "category" | "desc" | "flight" | "geom_rate" | "gs" | "hex"
-  | "lat" | "lon" | "mag_heading" | "r" | "seen" | "seen_pos" | "squawk" | "t" | "track" | "true_heading"
+  | "alt_baro"
+  | "alt_geom"
+  | "baro_rate"
+  | "category"
+  | "desc"
+  | "flight"
+  | "geom_rate"
+  | "gs"
+  | "hex"
+  | "lat"
+  | "lon"
+  | "mag_heading"
+  | "r"
+  | "seen"
+  | "seen_pos"
+  | "squawk"
+  | "t"
+  | "track"
+  | "true_heading"
   | "ownOp";
 type Raw = Partial<Record<RawKeys, unknown>>;
 
@@ -82,7 +99,9 @@ function fromReadsb(ac: Raw): Aircraft | null {
   const type = str(ac.t);
   const k = classifyAircraft(category, type);
   return {
-    hex: String(ac.hex ?? "").replace("~", "").toLowerCase(),
+    hex: String(ac.hex ?? "")
+      .replace("~", "")
+      .toLowerCase(),
     callsign: str(ac.flight),
     registration: str(ac.r),
     type,
@@ -104,7 +123,8 @@ function fromReadsb(ac: Raw): Aircraft | null {
 }
 
 function parseReadsb(json: unknown): Aircraft[] {
-  const list = (json as { ac?: unknown[]; aircraft?: unknown[] })?.ac ??
+  const list =
+    (json as { ac?: unknown[]; aircraft?: unknown[] })?.ac ??
     (json as { aircraft?: unknown[] })?.aircraft ??
     [];
   const out: Aircraft[] = [];
@@ -169,8 +189,22 @@ export async function loadFeedCircle(
   const r = radiusNm;
 
   const sources: [string, number, (timeoutMs: number) => Promise<Aircraft[]>][] = [
-    ["adsb.lol", readsbTimeout, (timeoutMs) => getJson(`https://api.adsb.lol/v2/point/${lat}/${lon}/${r}`, timeoutMs, deps).then(parseReadsb)],
-    ["airplanes.live", readsbTimeout, (timeoutMs) => getJson(`https://api.airplanes.live/v2/point/${lat}/${lon}/${r}`, timeoutMs, deps).then(parseReadsb)],
+    [
+      "adsb.lol",
+      readsbTimeout,
+      (timeoutMs) =>
+        getJson(`https://api.adsb.lol/v2/point/${lat}/${lon}/${r}`, timeoutMs, deps).then(
+          parseReadsb,
+        ),
+    ],
+    [
+      "airplanes.live",
+      readsbTimeout,
+      (timeoutMs) =>
+        getJson(`https://api.airplanes.live/v2/point/${lat}/${lon}/${r}`, timeoutMs, deps).then(
+          parseReadsb,
+        ),
+    ],
     [
       "OpenSky Network",
       openSkyTimeout,
@@ -183,7 +217,9 @@ export async function loadFeedCircle(
           lomin: String(Math.max(-180, lon - dLon)),
           lomax: String(Math.min(180, lon + dLon)),
         });
-        return getJson(`https://opensky-network.org/api/states/all?${q}`, timeoutMs, deps).then(parseOpenSky);
+        return getJson(`https://opensky-network.org/api/states/all?${q}`, timeoutMs, deps).then(
+          parseOpenSky,
+        );
       },
     ],
   ];
@@ -202,7 +238,12 @@ export async function loadFeedCircle(
     try {
       const aircraft = await run(Math.min(sourceTimeout, remaining));
       sourceBackoff.delete(name);
-      const value: FeedResponse = { aircraft, source: name, fetchedAt: clock(), ...(busy ? { busy } : {}) };
+      const value: FeedResponse = {
+        aircraft,
+        source: name,
+        fetchedAt: clock(),
+        ...(busy ? { busy } : {}),
+      };
       return value;
     } catch (err) {
       const status = (err as { status?: number }).status;
@@ -211,7 +252,13 @@ export async function loadFeedCircle(
       console.warn(`[adsb] ${name} failed:`, err instanceof Error ? err.message : err);
     }
   }
-  return { aircraft: [], source: "none", fetchedAt: clock(), busy: true, error: "Data provider busy" };
+  return {
+    aircraft: [],
+    source: "none",
+    fetchedAt: clock(),
+    busy: true,
+    error: DATA_BUSY_MESSAGE,
+  };
 }
 
 export interface SearchResult {

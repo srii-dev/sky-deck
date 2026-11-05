@@ -1,5 +1,5 @@
 import { createFileRoute, ClientOnly } from "@tanstack/react-router";
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Mountain, SlidersHorizontal, Box } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ import { EmergencyBanner } from "@/components/skydeck/EmergencyBanner";
 import { AltitudeLegend } from "@/components/skydeck/AltitudeLegend";
 import { AircraftTypesLegend } from "@/components/skydeck/AircraftTypesLegend";
 import type { Basemap, FlyTarget, Viewport } from "@/components/skydeck/map-config";
+import type { GlideStatus } from "@/components/skydeck/FlightMap";
 import { useAircraftFeed } from "@/hooks/use-aircraft-feed";
 import {
   activeFilterCount,
@@ -67,6 +68,41 @@ function SkyDeck() {
   const [units, setUnits] = useState<UnitSystem>("aviation");
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
   const [flyTarget, setFlyTarget] = useState<FlyTarget | null>(null);
+  const [glideRing, setGlideRing] = useState(false);
+  const [glideRatio, setGlideRatio] = useState<number | null>(null);
+  const [glideStatus, setGlideStatus] = useState<GlideStatus | undefined>(undefined);
+  const [hudH, setHudH] = useState(76);
+  const hudRef = useRef<HTMLDivElement>(null);
+  const [isMock, setIsMock] = useState(false);
+  const [mockAircraft, setMockAircraft] = useState<Aircraft[]>([]);
+
+  useEffect(() => {
+    if (import.meta.env.DEV && typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      setIsMock(params.get("mock") === "1");
+    }
+  }, []);
+
+  useEffect(() => {
+    if (import.meta.env.DEV && isMock && viewport) {
+      void import("@/lib/mock-fixture.dev").then(({ generateDevMockAircraft }) => {
+        setMockAircraft(generateDevMockAircraft(viewport.lat, viewport.lon));
+      });
+    }
+  }, [isMock, viewport?.lat, viewport?.lon]);
+
+  useEffect(() => {
+    const el = hudRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const height = Math.round(entry.borderBoxSize?.[0]?.blockSize ?? entry.contentRect.height);
+        if (height > 0) setHudH(height);
+      }
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   // Restore preferences after hydration.
   useEffect(() => {
@@ -97,19 +133,26 @@ function SkyDeck() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingViewport]);
 
-  const feed = useAircraftFeed(viewport, selectedHex);
+  const feed = useAircraftFeed(viewport, selectedHex?.startsWith("mock-") ? null : selectedHex);
+
+  const allAircraft = useMemo(() => {
+    if (mockAircraft.length > 0) {
+      return [...feed.aircraft, ...mockAircraft];
+    }
+    return feed.aircraft;
+  }, [feed.aircraft, mockAircraft]);
 
   const visible = useMemo(
-    () => feed.aircraft.filter((a) => a.hex === selectedHex || passesFilters(a, filters)),
-    [feed.aircraft, filters, selectedHex],
+    () => allAircraft.filter((a) => a.hex === selectedHex || passesFilters(a, filters)),
+    [allAircraft, filters, selectedHex],
   );
   const emergencies = useMemo(
     () => feed.aircraft.filter((a) => isEmergency(a.squawk)),
     [feed.aircraft],
   );
   const selected = useMemo(
-    () => feed.aircraft.find((a) => a.hex === selectedHex) ?? null,
-    [feed.aircraft, selectedHex],
+    () => allAircraft.find((a) => a.hex === selectedHex) ?? null,
+    [allAircraft, selectedHex],
   );
 
   const flyTo = useCallback((lat: number, lon: number, zoom?: number) => {
@@ -124,15 +167,28 @@ function SkyDeck() {
     [flyTo],
   );
 
+  useEffect(() => {
+    setGlideRatio(null);
+  }, [selectedHex]);
+
   const onSelect = useCallback((hex: string | null) => {
     setSelectedHex(hex);
-    if (!hex) setFollow(false);
+    if (!hex) {
+      setFollow(false);
+    }
   }, []);
 
   const filterCount = activeFilterCount(filters);
 
   return (
-    <main className="relative h-dvh w-full overflow-hidden bg-background">
+    <main
+      className="relative h-dvh w-full overflow-hidden bg-background"
+      style={
+        {
+          "--hud-h": `${hudH}px`,
+        } as React.CSSProperties
+      }
+    >
       <h1 className="sr-only">
         {APP_NAME} — {APP_TAGLINE}
       </h1>
@@ -149,12 +205,18 @@ function SkyDeck() {
             follow={follow}
             flyTarget={flyTarget}
             onViewportChange={setPendingViewport}
+            glideRing={glideRing}
+            glideRatio={glideRatio}
+            onGlideStatus={setGlideStatus}
           />
         </Suspense>
       </ClientOnly>
 
       {/* Top HUD */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex flex-col gap-2 p-3 md:flex-row md:items-start">
+      <div
+        ref={hudRef}
+        className="pointer-events-none absolute inset-x-0 top-0 z-20 flex flex-col gap-2 p-3 md:flex-row md:items-start"
+      >
         <div className="glass-panel pointer-events-auto flex h-11 items-center gap-4 rounded-md px-3">
           <div className="flex items-baseline gap-1.5">
             <span className="font-display text-base font-bold tracking-[0.18em] text-primary">
@@ -167,14 +229,14 @@ function SkyDeck() {
             error={feed.error}
             isFetching={feed.isFetching}
             shown={visible.length}
-            total={feed.aircraft.length}
+            total={allAircraft.length}
             source={feed.source}
           />
         </div>
 
         <div className="pointer-events-auto w-full md:max-w-sm">
           <SearchBox
-            aircraft={feed.aircraft}
+            aircraft={allAircraft}
             onAircraft={pickAircraft}
             onAirport={(apt) => flyTo(apt.lat, apt.lon, 11)}
           />
@@ -276,19 +338,19 @@ function SkyDeck() {
 
       {/* Emergency alert */}
       {emergencies.length > 0 && (
-        <div className="pointer-events-none absolute inset-x-0 top-[176px] z-30 flex justify-center px-3 md:top-[72px]">
+        <div
+          className="pointer-events-none absolute inset-x-0 z-30 flex justify-center px-3"
+          style={{ top: "calc(var(--hud-h, 76px) + 8px)" }}
+        >
           <EmergencyBanner aircraft={emergencies} onPick={pickAircraft} />
         </div>
       )}
 
-      {(feed.error || feed.backup || feed.areasMissing || feed.partial) && (
+      {(feed.error || feed.areasMissing || feed.partial) && (
         <div className="pointer-events-none absolute inset-x-0 bottom-16 z-20 flex flex-col items-center gap-1.5">
           {feed.error && (
-            <div className="glass-panel rounded-md px-3 py-1.5 text-xs text-warning">{feed.error}</div>
-          )}
-          {feed.backup && (
-            <div className="glass-panel rounded-md px-3 py-1.5 text-xs text-muted-foreground">
-              Using backup data source
+            <div className="glass-panel rounded-md px-3 py-1.5 text-xs text-warning">
+              {feed.error}
             </div>
           )}
           {feed.areasMissing && (
@@ -324,6 +386,11 @@ function SkyDeck() {
           onTrail3d={setTrail3d}
           follow={follow}
           onFollow={setFollow}
+          glideRing={glideRing}
+          onGlideRing={setGlideRing}
+          glideRatio={glideRatio}
+          onGlideRatio={setGlideRatio}
+          glideStatus={glideStatus}
           onClose={() => onSelect(null)}
         />
       )}
