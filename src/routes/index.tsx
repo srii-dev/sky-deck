@@ -1,6 +1,6 @@
 import { createFileRoute, ClientOnly } from "@tanstack/react-router";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Mountain, SlidersHorizontal, Box } from "lucide-react";
+import { Mountain, SlidersHorizontal, Box, Info } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -25,6 +25,7 @@ import {
 } from "@/lib/aircraft";
 import { UNIT_LABELS, type UnitSystem } from "@/lib/units";
 import { APP_NAME, APP_TAGLINE } from "@/config/brand";
+import { DATA_CREDITS, DATA_DISCLAIMER } from "@/config/credits";
 
 const FlightMap = lazy(() => import("@/components/skydeck/FlightMap"));
 
@@ -331,6 +332,56 @@ function SkyDeck() {
                 aircraft={feed.aircraft}
                 units={units}
               />
+            </PopoverContent>
+          </Popover>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="panel"
+                size="icon"
+                className="h-11 w-11"
+                aria-label="Data credits"
+                title="Data credits"
+              >
+                <Info className="size-4" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent
+              align="end"
+              className="glass-panel max-h-[calc(100dvh-var(--hud-h,76px)-1.5rem)] w-80 max-w-[calc(100vw-1.5rem)] overflow-y-auto p-4"
+            >
+              <div className="space-y-3">
+                <div className="border-b border-border/60 pb-2">
+                  <h2 className="font-display text-sm font-semibold uppercase tracking-wider text-foreground">
+                    Data Credits
+                  </h2>
+                  <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                    {DATA_DISCLAIMER}
+                  </p>
+                </div>
+                <ul className="space-y-2.5 text-xs">
+                  {DATA_CREDITS.map((item) => (
+                    <li key={item.name} className="flex flex-col gap-0.5">
+                      <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                        {item.label}
+                      </span>
+                      <a
+                        href={item.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-medium text-primary underline-offset-4 hover:underline"
+                      >
+                        {item.name}
+                      </a>
+                      {item.note && (
+                        <span className="text-[10px] text-muted-foreground/80">
+                          {item.note}
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </PopoverContent>
           </Popover>
         </div>
