@@ -108,7 +108,7 @@ Each of these has its own licence and usage terms. Check them before deploying p
 ## Known limitations
 
 - Free sources have no flight history, so a trail only shows the time you have been watching.
-- Airport search covers about 115 major airports. The reachable-airports list uses a larger set (about 4,500 large and medium airports), so small airfields are missing and "none listed" does not mean none reachable.
+- Airport search covers about 114 major airports. The reachable-airports list uses a larger set (about 4,500 large and medium airports), so small airfields are missing and "none listed" does not mean none reachable.
 - The glide ring and reachable airports are straight-line, still-air estimates that ignore terrain, wind and runway suitability. They are for education only.
 - ACARS messages come from a pre-release third-party API: anonymous access, CORS and the rate limit (60 requests a minute per visitor) can change without notice. The messages are received by volunteers, can be incomplete or wrong, and may contain sensitive details. Nothing is stored. Whether and how you may receive, show or republish radio messages depends on your country, so check the law before deploying this publicly. This project is not legal advice.
 - Some flights show "Route not available" because the free route lookup does not know every flight.
