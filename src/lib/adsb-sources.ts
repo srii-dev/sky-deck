@@ -16,6 +16,13 @@ import {
  * Plain fetch + back-off for the free ADS-B proxies.
  * Server functions in adsb.functions.ts are the only callers besides tests.
  * The browser must not import this module.
+ *
+ * Request flow for the map feed (loadFeedCached):
+ *   fresh cache hit -> return;  same key already in flight -> share that request;
+ *   otherwise loadFeedCircle: per provider, skip if cooling down, wait for a pacing slot
+ *   (PROVIDER_MIN_GAP_MS), re-check the cool-down, then fetch with the time that is left.
+ * Coalescing, pacing and the in-flight map live in module memory, so they apply only inside
+ * one server instance (one Workers isolate), not across instances.
  */
 
 const UA = "SkyDeck/0.1 (community flight tracker)";
