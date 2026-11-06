@@ -25,6 +25,7 @@ import {
   TERRAIN_EXAGGERATION,
   type ElevationCacheEntry,
 } from "@/lib/glide-ring";
+import { reachableAirports, reachableAirportsGeoJSON } from "@/lib/reachable-airports";
 import { buildPlaneSdf, buildSvgSdf } from "./plane-icon";
 import { LEGEND_KINDS, svgMarkup } from "./aircraft-icons";
 import {
@@ -254,6 +255,8 @@ export default function FlightMap(props: FlightMapProps) {
 
     if (!map.getSource("sd-glide-ring"))
       map.addSource("sd-glide-ring", { type: "geojson", data: empty() });
+    if (!map.getSource("sd-reach-airports"))
+      map.addSource("sd-reach-airports", { type: "geojson", data: empty() });
     if (!map.getSource("sd-trail")) map.addSource("sd-trail", { type: "geojson", data: empty() });
     if (!map.getSource("sd-trail-ribbon"))
       map.addSource("sd-trail-ribbon", { type: "geojson", data: empty() });
@@ -330,6 +333,42 @@ export default function FlightMap(props: FlightMapProps) {
           "fill-extrusion-base": ["get", "base"],
           "fill-extrusion-height": ["get", "top"],
           "fill-extrusion-opacity": 0.92,
+        },
+      });
+    }
+
+    // Airports inside the glide ring: above the ring and trails, below the aircraft.
+    if (!map.getLayer("sd-reach-airports-dot")) {
+      map.addLayer({
+        id: "sd-reach-airports-dot",
+        type: "circle",
+        source: "sd-reach-airports",
+        paint: {
+          "circle-radius": ["interpolate", ["linear"], ["zoom"], 3, 3, 12, 6],
+          "circle-color": "#f5b83d",
+          "circle-stroke-width": 1.5,
+          "circle-stroke-color": "rgba(5,10,18,0.9)",
+        },
+      });
+    }
+    if (!map.getLayer("sd-reach-airports-label")) {
+      map.addLayer({
+        id: "sd-reach-airports-label",
+        type: "symbol",
+        source: "sd-reach-airports",
+        layout: {
+          "text-field": ["coalesce", ["get", "iata"], ""],
+          "text-font": ["Noto Sans Regular"],
+          "text-size": 11,
+          "text-offset": [0, 0.9],
+          "text-anchor": "top",
+          "text-optional": true,
+          "text-allow-overlap": false,
+        },
+        paint: {
+          "text-color": "#f5b83d",
+          "text-halo-color": "rgba(5,10,18,0.9)",
+          "text-halo-width": 1.4,
         },
       });
     }
@@ -541,7 +580,32 @@ export default function FlightMap(props: FlightMapProps) {
     propsRef.current.onGlideStatus?.(status);
   };
 
+  // Refreshes the ring, then the airport markers that depend on the ring's range.
   const updateGlideRing = () => {
+    drawGlideRing();
+    updateReachMarkers();
+  };
+
+  // Markers for the airports inside the ring: the same set the panel lists. Cleared whenever
+  // the ring is off or has no usable range.
+  const updateReachMarkers = () => {
+    const map = mapRef.current;
+    if (!map) return;
+    const src = map.getSource("sd-reach-airports") as GeoJSONSource | undefined;
+    if (!src) return;
+    const p = propsRef.current;
+    const status = lastGlideStatusRef.current;
+    const ac = p.selectedHex ? p.aircraft.find((a) => a.hex === p.selectedHex) : undefined;
+    // The dev mock path draws its ring without publishing a status, so skip it here.
+    const isMock = import.meta.env.DEV && !!ac?.hex.startsWith("mock-");
+    if (!p.glideRing || !ac || isMock || !status?.elevationAvailable || status.rangeNm == null) {
+      src.setData(empty());
+      return;
+    }
+    src.setData(reachableAirportsGeoJSON(reachableAirports(ac.lat, ac.lon, status.rangeNm)));
+  };
+
+  const drawGlideRing = () => {
     const map = mapRef.current;
     if (!map) return;
     const p = propsRef.current;
