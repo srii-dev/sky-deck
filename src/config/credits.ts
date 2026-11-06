@@ -34,7 +34,7 @@ export const DATA_CREDITS: readonly CreditEntry[] = [
     label: "Satellite imagery",
     name: "Esri",
     url: "https://www.esri.com",
-    note: "Imagery © Esri, Maxar, Earthstar Geographics",
+    note: "Imagery © Esri, Vantor, Earthstar Geographics",
   },
   {
     label: "Terrain",

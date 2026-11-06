@@ -91,7 +91,7 @@ Community data. Positions may be delayed or incomplete. Educational estimates on
 - **Aircraft positions fallback:** [airplanes.live](https://airplanes.live)
 - **Aircraft positions fallback:** [OpenSky Network](https://opensky-network.org)
 - **Map data:** OpenStreetMap contributors via [OpenFreeMap](https://openfreemap.org)
-- **Satellite imagery:** [Esri](https://www.esri.com) (Imagery © Esri, Maxar, Earthstar Geographics)
+- **Satellite imagery:** [Esri](https://www.esri.com) (Imagery © Esri, Vantor, Earthstar Geographics)
 - **Terrain:** [Mapzen / AWS Terrain Tiles](https://github.com/tilezen/joerd/blob/master/docs/attribution.md)
 
 Each of these has its own licence and usage terms. Check them before deploying publicly or commercially.
