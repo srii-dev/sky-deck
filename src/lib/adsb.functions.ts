@@ -9,7 +9,7 @@ import { prune, type CacheEntry } from "./request-control";
  * Fetch, timeouts, and back-off live in adsb-sources.ts.
  * - Primary: adsb.lol (readsb v2 JSON)
  * - Secondary: airplanes.live (same format; may refuse unapproved callers)
- * - Fallback: OpenSky Network REST (state vectors)
+ * (OpenSky Network is intentionally not used: its terms require a written license for live API use.)
  * Feed responses are cached in-memory for ~5 s per rounded viewport, and identical in-flight
  * requests are shared (both in adsb-sources.ts, loadFeedCached).
  */

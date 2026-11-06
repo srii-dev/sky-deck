@@ -27,7 +27,6 @@ import {
 
 const UA = "SkyDeck/0.1 (community flight tracker)";
 export const READSB_TIMEOUT_MS = 4000;
-export const OPENSKY_TIMEOUT_MS = 6000;
 export const FEED_DEADLINE_MS = 9000;
 const MIN_ATTEMPT_MS = 250;
 
@@ -42,12 +41,14 @@ const sourceBackoff = new Map<string, { until: number; strikes: number }>();
  * These are starting guesses, not published limits (data-terms review is a separate task):
  *  - adsb.lol: limit unpublished ("dynamic"); 500 ms keeps a 6-circle poll near 3-4 s.
  *  - airplanes.live: documents about 1 request per second.
- *  - OpenSky Network: anonymous budget is tiny, so it only serves the odd request.
+ *
+ * OpenSky Network is deliberately NOT a source. Its terms of use (opensky-network.org/about/terms-of-use)
+ * say the REST API is for non-profit research and education only, and that operational use in any live
+ * product, service or automated system needs a written license. Add it back only with that license.
  */
 export const PROVIDER_MIN_GAP_MS: Record<string, number> = {
   "adsb.lol": 500,
   "airplanes.live": 1000,
-  "OpenSky Network": 10_000,
 };
 
 const FEED_TTL_MS = 5000;
@@ -80,7 +81,6 @@ export interface SourceDeps {
   fetchImpl?: typeof fetch;
   now?: () => number;
   readsbTimeoutMs?: number;
-  openSkyTimeoutMs?: number;
   deadlineMs?: number;
   /** Test hook: replaces every provider's pacing gap (0 turns pacing off). */
   paceGapMs?: number;
@@ -199,46 +199,6 @@ function parseReadsb(json: unknown): Aircraft[] {
   return out;
 }
 
-const M_TO_FT = 3.28084;
-const MS_TO_KT = 1.943844;
-
-function parseOpenSky(json: unknown): Aircraft[] {
-  const states = (json as { states?: unknown[][] })?.states ?? [];
-  const out: Aircraft[] = [];
-  for (const s of states) {
-    const lon = num(s[5]);
-    const lat = num(s[6]);
-    if (lat == null || lon == null) continue;
-    const baroM = num(s[7]) ?? num(s[13]);
-    const vel = num(s[9]);
-    const vr = num(s[11]);
-    const lastContact = num(s[4]);
-    out.push({
-      hex: String(s[0] ?? "").toLowerCase(),
-      callsign: str(s[1]),
-      registration: null,
-      type: null,
-      description: null,
-      operator: null,
-      lat,
-      lon,
-      altFt: s[8] ? 0 : baroM != null ? baroM * M_TO_FT : null,
-      onGround: !!s[8],
-      gs: vel != null ? vel * MS_TO_KT : null,
-      track: num(s[10]),
-      vRate: vr != null ? vr * M_TO_FT * 60 : null,
-      squawk: str(s[14]),
-      category: null,
-      kind: "generic",
-      kindLabel: "Aircraft",
-      seenPos: lastContact != null ? Math.max(0, Date.now() / 1000 - lastContact) : 0,
-    });
-  }
-  return out;
-}
-
-const NM_PER_DEG_LAT = 60;
-
 export async function loadFeedCircle(
   lat: number,
   lon: number,
@@ -249,7 +209,6 @@ export async function loadFeedCircle(
   const started = clock();
   const deadline = deps?.deadlineMs ?? FEED_DEADLINE_MS;
   const readsbTimeout = deps?.readsbTimeoutMs ?? READSB_TIMEOUT_MS;
-  const openSkyTimeout = deps?.openSkyTimeoutMs ?? OPENSKY_TIMEOUT_MS;
   const r = radiusNm;
 
   const sources: [string, number, (timeoutMs: number) => Promise<Aircraft[]>][] = [
@@ -268,23 +227,6 @@ export async function loadFeedCircle(
         getJson(`https://api.airplanes.live/v2/point/${lat}/${lon}/${r}`, timeoutMs, deps).then(
           parseReadsb,
         ),
-    ],
-    [
-      "OpenSky Network",
-      openSkyTimeout,
-      (timeoutMs) => {
-        const dLat = r / NM_PER_DEG_LAT;
-        const dLon = r / (NM_PER_DEG_LAT * Math.max(0.1, Math.cos((lat * Math.PI) / 180)));
-        const q = new URLSearchParams({
-          lamin: String(Math.max(-90, lat - dLat)),
-          lamax: String(Math.min(90, lat + dLat)),
-          lomin: String(Math.max(-180, lon - dLon)),
-          lomax: String(Math.min(180, lon + dLon)),
-        });
-        return getJson(`https://opensky-network.org/api/states/all?${q}`, timeoutMs, deps).then(
-          parseOpenSky,
-        );
-      },
     ],
   ];
 
