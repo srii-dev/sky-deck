@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, ChevronDown, ChevronUp, Crosshair, Plane, X } from "lucide-react";
 
@@ -25,6 +25,7 @@ import {
   type UnitSystem,
 } from "@/lib/units";
 import { GLIDE_DISCLAIMER, GLIDE_RATIO_LABEL, fmtRange, glideRatioBounds } from "@/lib/glide-ring";
+import { REACHABLE_LIST_NOTE, reachableAirports } from "@/lib/reachable-airports";
 import type { GlideStatus } from "./FlightMap";
 import { cn } from "@/lib/utils";
 
@@ -76,6 +77,12 @@ export function AircraftPanel(props: Props) {
   const operator = a.operator ?? airlineName(code);
   const bounds = glideRatioBounds(a.kind);
   const currentRatio = props.glideRatio ?? bounds?.defaultRatio ?? 12;
+  const glideRangeNm =
+    props.glideRing && props.glideStatus?.elevationAvailable ? props.glideStatus.rangeNm : null;
+  const reachable = useMemo(
+    () => reachableAirports(a.lat, a.lon, glideRangeNm),
+    [a.lat, a.lon, glideRangeNm],
+  );
 
   const route = useQuery({
     queryKey: ["route", a.callsign],
@@ -259,6 +266,38 @@ export function AircraftPanel(props: Props) {
                   <p className="text-[11px] font-medium leading-tight text-destructive">
                     {props.glideStatus.reason}
                   </p>
+                )}
+                {glideRangeNm != null && (
+                  <div className="space-y-1 border-t border-border/40 pt-2">
+                    <div className="hud-label">Airports within range</div>
+                    {reachable.length > 0 ? (
+                      <ul className="space-y-0.5">
+                        {reachable.map((r) => (
+                          <li
+                            key={r.airport.icao}
+                            className="flex items-baseline justify-between gap-2 text-xs"
+                          >
+                            <span className="min-w-0 truncate">
+                              <span className="font-semibold text-foreground">
+                                {r.airport.iata}
+                              </span>{" "}
+                              <span className="text-muted-foreground">{r.airport.city}</span>
+                            </span>
+                            <span className="data-value shrink-0 text-muted-foreground">
+                              {fmtRange(r.distNm, props.units)} {compassPoint(r.bearingDeg)}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-[11px] leading-tight text-muted-foreground">
+                        No listed airports within range
+                      </p>
+                    )}
+                    <p className="text-[10px] leading-tight text-muted-foreground/80">
+                      {REACHABLE_LIST_NOTE}
+                    </p>
+                  </div>
                 )}
                 <p className="text-[10px] leading-tight text-warning/90">{GLIDE_DISCLAIMER}</p>
               </div>
