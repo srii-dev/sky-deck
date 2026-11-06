@@ -1,6 +1,6 @@
 import { createFileRoute, ClientOnly, Link } from "@tanstack/react-router";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Mountain, Radio, SlidersHorizontal, Box } from "lucide-react";
+import { Info, Mountain, Radio, SlidersHorizontal, Box } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -9,6 +9,7 @@ import { LiveIndicator } from "@/components/skydeck/LiveIndicator";
 import { SearchBox } from "@/components/skydeck/SearchBox";
 import { FiltersPanel } from "@/components/skydeck/FiltersPanel";
 import { AircraftPanel } from "@/components/skydeck/AircraftPanel";
+import { CreditsDialog } from "@/components/skydeck/CreditsDialog";
 import { EmergencyBanner } from "@/components/skydeck/EmergencyBanner";
 import { AltitudeLegend } from "@/components/skydeck/AltitudeLegend";
 import { AircraftTypesLegend } from "@/components/skydeck/AircraftTypesLegend";
@@ -71,6 +72,8 @@ function SkyDeck() {
   const [glideRing, setGlideRing] = useState(false);
   const [glideRatio, setGlideRatio] = useState<number | null>(null);
   const [glideStatus, setGlideStatus] = useState<GlideStatus | undefined>(undefined);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [creditsOpen, setCreditsOpen] = useState(false);
   const [hudH, setHudH] = useState(76);
   const hudRef = useRef<HTMLDivElement>(null);
   const [isMock, setIsMock] = useState(false);
@@ -307,7 +310,7 @@ function SkyDeck() {
               </ToggleGroupItem>
             </ToggleGroup>
           </div>
-          <Popover>
+          <Popover open={filtersOpen} onOpenChange={setFiltersOpen}>
             <PopoverTrigger asChild>
               <Button
                 variant="panel"
@@ -339,6 +342,18 @@ function SkyDeck() {
                 <Radio className="size-4" />
                 ADS-B message inspector
               </Link>
+              {/* The dialog is rendered at page level: a dialog inside the popover would unmount with it. */}
+              <button
+                type="button"
+                onClick={() => {
+                  setFiltersOpen(false);
+                  setCreditsOpen(true);
+                }}
+                className="mt-2 flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-primary"
+              >
+                <Info className="size-4" />
+                Credits and data sources
+              </button>
             </PopoverContent>
           </Popover>
         </div>
@@ -402,6 +417,8 @@ function SkyDeck() {
           onClose={() => onSelect(null)}
         />
       )}
+
+      <CreditsDialog open={creditsOpen} onOpenChange={setCreditsOpen} />
     </main>
   );
 }

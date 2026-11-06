@@ -105,6 +105,8 @@ SkyDeck relies on free community data. Please be gentle with it and respect each
 
 Each of these has its own licence and usage terms. Check them before deploying publicly or commercially.
 
+The same credits, with the wording each source asks for, are shown in the app: open the Filters menu and choose "Credits and data sources" (also linked at the bottom of the message inspector). The list lives in `src/lib/credits.ts`, so update it when a source changes.
+
 ## Known limitations
 
 - Free sources have no flight history, so a trail only shows the time you have been watching.
