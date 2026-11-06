@@ -59,7 +59,7 @@ const SATELLITE_STYLE: StyleSpecification = {
       ],
       tileSize: 256,
       maxzoom: 19,
-      attribution: "Imagery © Esri, Maxar, Earthstar Geographics",
+      attribution: "Imagery © Esri, Vantor, Earthstar Geographics, and the GIS User Community",
     },
     openmaptiles: { type: "vector", url: OFM_VECTOR },
   },
