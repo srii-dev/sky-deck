@@ -14,10 +14,13 @@ const badgeVariants = cva(
         destructive:
           "border-transparent bg-destructive text-destructive-foreground shadow hover:bg-destructive/80",
         outline: "text-foreground",
-        climbing: "border-success/40 bg-success/15 text-success font-display uppercase tracking-wider",
-        descending: "border-primary/40 bg-primary/15 text-primary font-display uppercase tracking-wider",
+        climbing:
+          "border-success/40 bg-success/15 text-success font-display uppercase tracking-wider",
+        descending:
+          "border-primary/40 bg-primary/15 text-primary font-display uppercase tracking-wider",
         cruising: "border-accent/40 bg-accent/15 text-accent font-display uppercase tracking-wider",
-        ground: "border-border bg-muted text-muted-foreground font-display uppercase tracking-wider",
+        ground:
+          "border-border bg-muted text-muted-foreground font-display uppercase tracking-wider",
         emergency:
           "border-destructive bg-destructive text-destructive-foreground font-display uppercase tracking-wider animate-emergency",
       },
