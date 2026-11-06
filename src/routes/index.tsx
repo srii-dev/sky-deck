@@ -1,6 +1,6 @@
-import { createFileRoute, ClientOnly } from "@tanstack/react-router";
+import { createFileRoute, ClientOnly, Link } from "@tanstack/react-router";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Mountain, SlidersHorizontal, Box } from "lucide-react";
+import { Mountain, Radio, SlidersHorizontal, Box } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -333,6 +333,17 @@ function SkyDeck() {
               />
             </PopoverContent>
           </Popover>
+          <Button
+            asChild
+            variant="panel"
+            size="icon"
+            className="h-11 w-11"
+            title="ADS-B message inspector"
+          >
+            <Link to="/inspector" aria-label="ADS-B message inspector">
+              <Radio />
+            </Link>
+          </Button>
         </div>
       </div>
 
