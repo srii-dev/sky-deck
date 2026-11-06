@@ -30,13 +30,11 @@ function hang(init?: RequestInit): Promise<Response> {
   });
 }
 
-const fast: Pick<SourceDeps, "readsbTimeoutMs" | "openSkyTimeoutMs" | "deadlineMs" | "paceGapMs"> =
-  {
-    readsbTimeoutMs: 40,
-    openSkyTimeoutMs: 40,
-    deadlineMs: 500,
-    paceGapMs: 0, // the coalescing tests are not about pacing
-  };
+const fast: Pick<SourceDeps, "readsbTimeoutMs" | "deadlineMs" | "paceGapMs"> = {
+  readsbTimeoutMs: 40,
+  deadlineMs: 500,
+  paceGapMs: 0, // the coalescing tests are not about pacing
+};
 
 /** Fake clock so cache TTL and cool-downs can be crossed without waiting. */
 function clock(start = 1_000_000) {
@@ -149,8 +147,8 @@ describe("feed coalescing", () => {
       expect(r.busy).toBe(true);
       expect(r.aircraft).toHaveLength(1);
     }
-    // one shared request: adsb.lol, airplanes.live and OpenSky once each
-    expect(calls).toBe(3);
+    // one shared request: adsb.lol and airplanes.live once each
+    expect(calls).toBe(2);
   });
 
   it("clears the in-flight entry after a timed-out request", async () => {
@@ -181,7 +179,6 @@ describe("feed coalescing", () => {
     const deps: SourceDeps = {
       paceGapMs: 0,
       readsbTimeoutMs: 40,
-      openSkyTimeoutMs: 40,
       deadlineMs: 300, // above MIN_ATTEMPT_MS; waiter limit = 300 + 500 ms margin
       fetchImpl: () => {
         calls++;

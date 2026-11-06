@@ -8,7 +8,7 @@ Done and verified:
 - Category icons, including fresh-load registration of the nine `sd-kind-*` images before the map goes idle (`d3eb1ee`). Glider, balloon, drone, and ground silhouettes were registered and were not in the live samples.
 - Wide-area coverage of up to 6 circles of about 247 nm, with partial-view notice when more cells are needed.
 - Polling aimed at 7 seconds after the previous refresh started.
-- Provider fallback (adsb.lol, then airplanes.live, then OpenSky) with per-provider back-off and a 9 second deadline.
+- Provider fallback (adsb.lol, then airplanes.live) with per-provider back-off and a 9 second deadline. OpenSky was a third provider when Phase 1 was verified. It was removed later because its terms require a written license for operational API use (see the README).
 - Emergency squawk confirmation on two independent fresh samples at least 5 seconds apart, ignoring `seenPos` over 30 seconds. Unit-tested. No live 7500/7600/7700 was on screen.
 - Soft notices ("Using backup data source", "Some areas may be missing") and the hard "Data provider busy" notice when every planned circle fails.
 - Terrain and buildings deferred until map idle, with a 3 second fallback. In the measured runs idle won and the 3 second timer did not install the scene. Layers sit below trails and aircraft.

@@ -36,13 +36,11 @@ function hang(init?: RequestInit): Promise<Response> {
   });
 }
 
-const fast: Pick<SourceDeps, "readsbTimeoutMs" | "openSkyTimeoutMs" | "deadlineMs" | "paceGapMs"> =
-  {
-    readsbTimeoutMs: 40,
-    openSkyTimeoutMs: 40,
-    deadlineMs: 500,
-    paceGapMs: 0, // pacing has its own tests; these tests are about fallback order
-  };
+const fast: Pick<SourceDeps, "readsbTimeoutMs" | "deadlineMs" | "paceGapMs"> = {
+  readsbTimeoutMs: 40,
+  deadlineMs: 500,
+  paceGapMs: 0, // pacing has its own tests; these tests are about fallback order
+};
 
 describe("feed fallback", () => {
   it("uses airplanes.live when the primary source fails", async () => {
@@ -53,13 +51,14 @@ describe("feed fallback", () => {
         urls.push(String(url));
         if (String(url).includes("adsb.lol")) return new Response("no", { status: 500 });
         if (String(url).includes("airplanes.live")) return json({ ac: [ac] });
-        throw new Error("OpenSky should not be called");
+        throw new Error("only adsb.lol and airplanes.live may be called");
       },
     });
     expect(res.source).toBe("airplanes.live");
     expect(res.busy).toBe(true);
     expect(res.error).toBeUndefined();
     expect(res.aircraft).toHaveLength(1);
+    expect(urls).toHaveLength(2);
     expect(urls.some((u) => u.includes("opensky"))).toBe(false);
   });
 
@@ -70,7 +69,7 @@ describe("feed fallback", () => {
       fetchImpl: (url, init) => {
         if (String(url).includes("adsb.lol")) return hang(init);
         if (String(url).includes("airplanes.live")) return Promise.resolve(json({ ac: [ac] }));
-        return Promise.reject(new Error("OpenSky should not be called"));
+        return Promise.reject(new Error("only adsb.lol and airplanes.live may be called"));
       },
     });
     expect(res.source).toBe("airplanes.live");
@@ -83,10 +82,10 @@ describe("feed fallback", () => {
     const res = await loadFeedCircle(40.7, -74, 25, {
       paceGapMs: 0,
       readsbTimeoutMs: 1000,
-      openSkyTimeoutMs: 1000,
       deadlineMs: 400,
       fetchImpl: (url, init) => {
-        if (String(url).includes("opensky")) return hang(init);
+        // airplanes.live hangs past the deadline; adsb.lol fails straight away.
+        if (String(url).includes("airplanes.live")) return hang(init);
         return Promise.resolve(new Response("no", { status: 503 }));
       },
     });
@@ -97,6 +96,20 @@ describe("feed fallback", () => {
       error: DATA_BUSY_MESSAGE,
     });
     expect(Date.now() - started).toBeLessThan(700);
+  });
+
+  it("never calls OpenSky, even when both providers fail", async () => {
+    const urls: string[] = [];
+    const res = await loadFeedCircle(40.7, -74, 25, {
+      ...fast,
+      fetchImpl: async (url) => {
+        urls.push(String(url));
+        return new Response("no", { status: 503 });
+      },
+    });
+    expect(res).toMatchObject({ source: "none", busy: true, error: DATA_BUSY_MESSAGE });
+    // An allowlist of hosts, in order: any new or third provider would fail this, not just OpenSky.
+    expect(urls.map((u) => new URL(u).hostname)).toEqual(["api.adsb.lol", "api.airplanes.live"]);
   });
 });
 

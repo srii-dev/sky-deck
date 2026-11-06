@@ -10,7 +10,7 @@
 <!-- LOVABLE:END -->
 
 ## Project rules
-- Live ADS-B data is fetched only through `createServerFn` proxies in `src/lib/adsb.functions.ts` (adsb.lol → airplanes.live → OpenSky fallback, ~5 s in-memory cache); the browser never calls ADS-B providers directly, to avoid CORS and keep provider changes in one place.
+- Live ADS-B data is fetched only through `createServerFn` proxies in `src/lib/adsb.functions.ts` (adsb.lol → airplanes.live fallback, ~5 s in-memory cache); the browser never calls ADS-B providers directly, to avoid CORS and keep provider changes in one place. OpenSky Network is intentionally not a provider: its terms require a written license for operational REST API use, so do not re-add it without one.
 - MapLibre is loaded only via `React.lazy` behind `<ClientOnly>` (`src/components/skydeck/FlightMap.tsx`); shared map types live in `map-config.ts` so SSR never imports maplibre-gl.
 - Map overlays (aircraft, trails, terrain, buildings) are re-installed in the `style.load` handler, because switching basemaps replaces the whole style.
 - Aircraft positions are interpolated client-side by dead-reckoning from speed/track with an easing correction on each poll; polling cadence lives in `use-aircraft-feed.ts`.

@@ -65,7 +65,7 @@ Browser (map, UI)
    │  server function calls
    ▼
 Server functions (src/lib/adsb.functions.ts)
-   │  adsb.lol → airplanes.live → OpenSky (fallback order, ~5 s cache)
+   │  adsb.lol → airplanes.live (fallback order, ~5 s cache)
    ▼
 Free community ADS-B sources
 ```
@@ -95,7 +95,7 @@ scripts/                build-airports.mjs (regenerates the airport list from Ou
 
 SkyDeck relies on free community data. Please be gentle with it and respect each provider's terms.
 
-- **Aircraft positions:** [adsb.lol](https://adsb.lol), [airplanes.live](https://airplanes.live) and the [OpenSky Network](https://opensky-network.org)
+- **Aircraft positions:** [adsb.lol](https://adsb.lol) and [airplanes.live](https://airplanes.live). The [OpenSky Network](https://opensky-network.org) is deliberately not used: its terms limit the REST API to non-profit research and education, and require a written license for operational use in a live product
 - **Routes:** the community route data published by adsb.lol
 - **Airports (reachable-airport list and map markers):** large and medium airports from [OurAirports](https://ourairports.com/data/) open data (Unlicense), filtered by `scripts/build-airports.mjs`
 - **Map data:** OpenStreetMap contributors, served through [OpenFreeMap](https://openfreemap.org)
