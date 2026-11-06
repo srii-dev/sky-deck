@@ -1,6 +1,13 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { DATA_BUSY_MESSAGE } from "@/lib/aircraft";
-import { loadFeedCached, resetAdsbSourceState, type SourceDeps } from "@/lib/adsb-sources";
+import {
+  loadFeedCached,
+  loadFeedCircle,
+  PROVIDER_MIN_GAP_MS,
+  resetAdsbSourceState,
+  searchAircraftSources,
+  type SourceDeps,
+} from "@/lib/adsb-sources";
 
 afterEach(() => {
   resetAdsbSourceState();
@@ -23,11 +30,13 @@ function hang(init?: RequestInit): Promise<Response> {
   });
 }
 
-const fast: Pick<SourceDeps, "readsbTimeoutMs" | "openSkyTimeoutMs" | "deadlineMs"> = {
-  readsbTimeoutMs: 40,
-  openSkyTimeoutMs: 40,
-  deadlineMs: 500,
-};
+const fast: Pick<SourceDeps, "readsbTimeoutMs" | "openSkyTimeoutMs" | "deadlineMs" | "paceGapMs"> =
+  {
+    readsbTimeoutMs: 40,
+    openSkyTimeoutMs: 40,
+    deadlineMs: 500,
+    paceGapMs: 0, // the coalescing tests are not about pacing
+  };
 
 /** Fake clock so cache TTL and cool-downs can be crossed without waiting. */
 function clock(start = 1_000_000) {
@@ -170,6 +179,7 @@ describe("feed coalescing", () => {
     let neverSettle = true;
     let calls = 0;
     const deps: SourceDeps = {
+      paceGapMs: 0,
       readsbTimeoutMs: 40,
       openSkyTimeoutMs: 40,
       deadlineMs: 300, // above MIN_ATTEMPT_MS; waiter limit = 300 + 500 ms margin
@@ -190,5 +200,162 @@ describe("feed coalescing", () => {
     const c = await loadFeedCached(40.7, -74, 25, deps);
     expect(calls).toBe(2);
     expect(c.error).toBeUndefined();
+  });
+});
+
+/**
+ * Fake time for pacing tests: sleep() parks the caller until flush() moves the clock forward,
+ * so nothing really waits. Reserved slots use this clock.
+ */
+function fakeTime(start = 1_000_000) {
+  let t = start;
+  const waiting: { at: number; resolve: () => void }[] = [];
+  const sleeps: number[] = [];
+  return {
+    now: () => t,
+    sleeps,
+    advance: (ms: number) => (t += ms),
+    sleep: (ms: number) => {
+      sleeps.push(ms);
+      return new Promise<void>((resolve) => waiting.push({ at: t + ms, resolve }));
+    },
+    /** Let pending work settle, then wake sleepers in time order until none are left. */
+    async flush() {
+      for (let i = 0; i < 200; i++) {
+        await new Promise((r) => setImmediate(r));
+        const next = waiting.sort((a, b) => a.at - b.at).shift();
+        if (!next) return;
+        t = Math.max(t, next.at);
+        next.resolve();
+      }
+    },
+  };
+}
+
+function recorder(time: ReturnType<typeof fakeTime>, status = 200) {
+  const starts: { url: string; at: number }[] = [];
+  const fetchImpl: SourceDeps["fetchImpl"] = async (url) => {
+    starts.push({ url: String(url), at: time.now() });
+    return status === 200 ? json({ ac: [ac] }) : new Response("no", { status });
+  };
+  return { starts, fetchImpl };
+}
+
+describe("provider pacing", () => {
+  it("spaces concurrent requests to one provider by its gap", async () => {
+    const time = fakeTime();
+    const t0 = time.now();
+    const { starts, fetchImpl } = recorder(time);
+    const deps: SourceDeps = { now: time.now, sleep: time.sleep, fetchImpl, deadlineMs: 9000 };
+    const calls = [0, 1, 2, 3].map((i) => loadFeedCircle(40 + i, -74, 25, deps));
+    await time.flush();
+    await Promise.all(calls);
+    const gap = PROVIDER_MIN_GAP_MS["adsb.lol"]!;
+    expect(starts.map((s) => s.at - t0)).toEqual([0, gap, 2 * gap, 3 * gap]);
+    expect(starts.every((s) => s.url.includes("adsb.lol"))).toBe(true);
+  });
+
+  it("uses a separate gap per provider, and search shares the adsb.lol slots", async () => {
+    const time = fakeTime();
+    const { fetchImpl } = recorder(time);
+    const deps: SourceDeps = { now: time.now, sleep: time.sleep, fetchImpl, deadlineMs: 9000 };
+    const feed = loadFeedCircle(40, -74, 25, deps);
+    const search = searchAircraftSources("UAL123", deps);
+    await time.flush();
+    await Promise.all([feed, search]);
+    expect(time.sleeps).toEqual([PROVIDER_MIN_GAP_MS["adsb.lol"]]);
+  });
+
+  it("does not let a cache hit or a coalesced waiter use a slot", async () => {
+    const time = fakeTime();
+    const { starts, fetchImpl } = recorder(time);
+    const deps: SourceDeps = { now: time.now, sleep: time.sleep, fetchImpl, deadlineMs: 9000 };
+    const both = [loadFeedCached(40, -74, 25, deps), loadFeedCached(40, -74, 25, deps)];
+    await time.flush();
+    await Promise.all(both);
+    await loadFeedCached(40, -74, 25, deps); // fresh cache hit
+    expect(starts).toHaveLength(1);
+
+    const other = loadFeedCircle(41, -74, 25, deps);
+    await time.flush();
+    await other;
+    // exactly one earlier slot was used, so the next request waits one gap (not three)
+    expect(time.sleeps).toEqual([PROVIDER_MIN_GAP_MS["adsb.lol"]]);
+  });
+
+  it("skips a cooling provider without using a slot", async () => {
+    const time = fakeTime();
+    const urls: string[] = [];
+    const fetchImpl: SourceDeps["fetchImpl"] = async (url) => {
+      urls.push(String(url));
+      return String(url).includes("adsb.lol")
+        ? new Response("no", { status: 500 })
+        : json({ ac: [ac] });
+    };
+    const deps: SourceDeps = { now: time.now, sleep: time.sleep, fetchImpl, deadlineMs: 9000 };
+    await loadFeedCircle(40, -74, 25, deps); // strikes adsb.lol, airplanes.live answers
+    urls.length = 0;
+    const two = [loadFeedCircle(41, -74, 25, deps), loadFeedCircle(42, -74, 25, deps)];
+    await time.flush();
+    await Promise.all(two);
+    expect(urls.some((u) => u.includes("adsb.lol"))).toBe(false);
+    // only airplanes.live slots were taken: 1 gap and 2 gaps behind the first call's slot
+    const gap = PROVIDER_MIN_GAP_MS["airplanes.live"]!;
+    expect(time.sleeps).toEqual([gap, 2 * gap]);
+  });
+
+  it("re-checks the cool-down after waking from a slot wait", async () => {
+    const time = fakeTime();
+    const urls: string[] = [];
+    const fetchImpl: SourceDeps["fetchImpl"] = async (url) => {
+      urls.push(String(url));
+      return String(url).includes("adsb.lol")
+        ? new Response("no", { status: 500 })
+        : json({ ac: [ac] });
+    };
+    const deps: SourceDeps = { now: time.now, sleep: time.sleep, fetchImpl, deadlineMs: 9000 };
+    const a = loadFeedCircle(40, -74, 25, deps); // takes the first adsb.lol slot, fails, strikes
+    const b = loadFeedCircle(41, -74, 25, deps); // waits for the second slot
+    await time.flush();
+    await Promise.all([a, b]);
+    expect(urls.filter((u) => u.includes("adsb.lol"))).toHaveLength(1);
+  });
+
+  it("skips to the next provider, without a slot, when the wait does not fit the deadline", async () => {
+    const time = fakeTime();
+    const { starts, fetchImpl } = recorder(time);
+    const deps: SourceDeps = {
+      now: time.now,
+      sleep: time.sleep,
+      fetchImpl,
+      deadlineMs: 600,
+      paceGapMs: 500,
+    };
+    const a = loadFeedCircle(40, -74, 25, deps); // adsb.lol, no wait
+    const b = loadFeedCircle(41, -74, 25, deps); // wait 500 + 250 > 600 -> airplanes.live
+    await time.flush();
+    const [ra, rb] = await Promise.all([a, b]);
+    expect(ra.source).toBe("adsb.lol");
+    expect(rb.source).toBe("airplanes.live");
+    expect(rb.busy).toBe(true);
+    expect(starts.filter((s) => s.url.includes("adsb.lol"))).toHaveLength(1);
+
+    // b's skipped attempt reserved nothing: once a's slot passes, adsb.lol is free again.
+    time.advance(500);
+    time.sleeps.length = 0;
+    const d = loadFeedCircle(42, -74, 25, deps);
+    await time.flush();
+    expect((await d).source).toBe("adsb.lol");
+    expect(time.sleeps).toEqual([]);
+  });
+
+  it("clears pacing state on reset", async () => {
+    const time = fakeTime();
+    const { fetchImpl } = recorder(time);
+    const deps: SourceDeps = { now: time.now, sleep: time.sleep, fetchImpl, deadlineMs: 9000 };
+    await loadFeedCircle(40, -74, 25, deps);
+    resetAdsbSourceState();
+    await loadFeedCircle(41, -74, 25, deps);
+    expect(time.sleeps).toEqual([]);
   });
 });

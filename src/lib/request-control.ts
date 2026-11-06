@@ -23,6 +23,31 @@ export function prune<T>(
   }
 }
 
+export type Sleep = (ms: number) => Promise<void>;
+export const defaultSleep: Sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/** Earliest time the next request to each provider may start. */
+const nextSlotAt = new Map<string, number>();
+
+export function resetPacing() {
+  nextSlotAt.clear();
+}
+
+/** How long a request to `name` would have to wait for its slot right now. Reserves nothing. */
+export function pacingWait(name: string, now: number): number {
+  return Math.max(0, (nextSlotAt.get(name) ?? 0) - now);
+}
+
+/**
+ * Reserve the next start slot for `name` and return how long to wait for it.
+ * Synchronous on purpose: concurrent callers get distinct slots without a lock.
+ */
+export function reserveSlot(name: string, gapMs: number, now: number): number {
+  const wait = pacingWait(name, now);
+  nextSlotAt.set(name, now + wait + gapMs);
+  return wait;
+}
+
 /** Requests currently running, by cache key. Each entry is removed when its promise settles. */
 const inflight = new Map<string, Promise<unknown>>();
 

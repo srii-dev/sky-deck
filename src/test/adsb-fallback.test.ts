@@ -36,11 +36,13 @@ function hang(init?: RequestInit): Promise<Response> {
   });
 }
 
-const fast: Pick<SourceDeps, "readsbTimeoutMs" | "openSkyTimeoutMs" | "deadlineMs"> = {
-  readsbTimeoutMs: 40,
-  openSkyTimeoutMs: 40,
-  deadlineMs: 500,
-};
+const fast: Pick<SourceDeps, "readsbTimeoutMs" | "openSkyTimeoutMs" | "deadlineMs" | "paceGapMs"> =
+  {
+    readsbTimeoutMs: 40,
+    openSkyTimeoutMs: 40,
+    deadlineMs: 500,
+    paceGapMs: 0, // pacing has its own tests; these tests are about fallback order
+  };
 
 describe("feed fallback", () => {
   it("uses airplanes.live when the primary source fails", async () => {
@@ -79,6 +81,7 @@ describe("feed fallback", () => {
   it("returns before the deadline when every source fails", async () => {
     const started = Date.now();
     const res = await loadFeedCircle(40.7, -74, 25, {
+      paceGapMs: 0,
       readsbTimeoutMs: 1000,
       openSkyTimeoutMs: 1000,
       deadlineMs: 400,
