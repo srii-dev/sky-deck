@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { Airport } from "@/lib/airports";
 import { haversineNm } from "@/lib/glide-ring";
-import { initialBearingDeg, reachableAirports } from "@/lib/reachable-airports";
+import {
+  initialBearingDeg,
+  REACHABLE_LIMIT,
+  reachableAirports,
+  reachableAirportsGeoJSON,
+} from "@/lib/reachable-airports";
 
 const apt = (iata: string, lat: number, lon: number): Airport => ({
   iata,
@@ -78,5 +83,25 @@ describe("reachableAirports", () => {
     expect(codes).toEqual(expect.arrayContaining(["JFK", "LGA", "EWR"]));
     // Nothing is within 40 nm of the middle of the Pacific.
     expect(reachableAirports(0, -140, 40, 10)).toEqual([]);
+  });
+});
+
+describe("reachableAirportsGeoJSON", () => {
+  it("makes one [lon, lat] point per airport and keeps the order", () => {
+    const list = reachableAirports(0, 0, 500, 5, [EAST_120, EAST_60]);
+    const fc = reachableAirportsGeoJSON(list);
+    expect(fc.type).toBe("FeatureCollection");
+    expect(fc.features.map((f) => f.properties?.["iata"])).toEqual(["EST", "EST2"]);
+    expect(fc.features[0]!.geometry.coordinates).toEqual([1, 0]);
+    expect(fc.features[1]!.geometry.coordinates).toEqual([2, 0]);
+  });
+
+  it("is an empty collection for an empty list", () => {
+    expect(reachableAirportsGeoJSON([]).features).toEqual([]);
+  });
+
+  it("uses the same default limit as the panel", () => {
+    const many = Array.from({ length: REACHABLE_LIMIT + 3 }, (_, i) => apt(`A${i}`, 0, i * 0.1));
+    expect(reachableAirports(0, 0, 500, undefined, many)).toHaveLength(REACHABLE_LIMIT);
   });
 });
