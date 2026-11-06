@@ -1,8 +1,12 @@
+import type { FeatureCollection, Point } from "geojson";
 import { AIRPORTS, type Airport } from "./airports";
 import { haversineNm } from "./glide-ring";
 
 export const REACHABLE_LIST_NOTE =
   "From a short list of major airports. Small fields are not included, so “none” does not mean none reachable.";
+
+/** How many airports the panel list and the map markers show. */
+export const REACHABLE_LIMIT = 5;
 
 export interface ReachableAirport {
   airport: Airport;
@@ -32,7 +36,7 @@ export function reachableAirports(
   lat: number,
   lon: number,
   rangeNm: number | null,
-  limit = 5,
+  limit = REACHABLE_LIMIT,
   airports: readonly Airport[] = AIRPORTS,
 ): ReachableAirport[] {
   if (rangeNm == null || !(rangeNm > 0)) return [];
@@ -49,4 +53,18 @@ export function reachableAirports(
   }
   out.sort((a, b) => a.distNm - b.distNm);
   return out.slice(0, Math.max(0, limit));
+}
+
+/** Point features (one per airport) for the map. Coordinates are [lon, lat] as GeoJSON requires. */
+export function reachableAirportsGeoJSON(
+  list: readonly ReachableAirport[],
+): FeatureCollection<Point> {
+  return {
+    type: "FeatureCollection",
+    features: list.map((r) => ({
+      type: "Feature",
+      properties: { iata: r.airport.iata, icao: r.airport.icao, distNm: r.distNm },
+      geometry: { type: "Point", coordinates: [r.airport.lon, r.airport.lat] },
+    })),
+  };
 }
