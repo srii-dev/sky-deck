@@ -331,19 +331,16 @@ function SkyDeck() {
                 aircraft={feed.aircraft}
                 units={units}
               />
+              {/* In the popover, not the HUD row: that row has no spare width at ~1280 px. */}
+              <Link
+                to="/inspector"
+                className="mt-3 flex items-center gap-2 border-t border-border/40 pt-3 text-sm text-muted-foreground transition-colors hover:text-primary"
+              >
+                <Radio className="size-4" />
+                ADS-B message inspector
+              </Link>
             </PopoverContent>
           </Popover>
-          <Button
-            asChild
-            variant="panel"
-            size="icon"
-            className="h-11 w-11"
-            title="ADS-B message inspector"
-          >
-            <Link to="/inspector" aria-label="ADS-B message inspector">
-              <Radio />
-            </Link>
-          </Button>
         </div>
       </div>
 
