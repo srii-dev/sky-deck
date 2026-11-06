@@ -1,5 +1,6 @@
 import { DATA_BUSY_MESSAGE, type Aircraft, type FeedResponse } from "./aircraft";
 import { classifyAircraft } from "./aircraft-kind";
+import { coalesce, prune, resetInflight, type CacheEntry } from "./request-control";
 
 /*
  * Plain fetch + back-off for the free ADS-B proxies.
@@ -17,8 +18,15 @@ const BACKOFF_BASE_MS = 10_000;
 const BACKOFF_MAX_MS = 120_000;
 const sourceBackoff = new Map<string, { until: number; strikes: number }>();
 
+const FEED_TTL_MS = 5000;
+/** A waiter gives up this long after the feed deadline if the shared request never settles. */
+const WAITER_MARGIN_MS = 500;
+const feedCache = new Map<string, CacheEntry<FeedResponse>>();
+
 export function resetAdsbSourceState() {
   sourceBackoff.clear();
+  feedCache.clear();
+  resetInflight();
 }
 
 function coolingDown(name: string, now: number): boolean {
@@ -252,13 +260,57 @@ export async function loadFeedCircle(
       console.warn(`[adsb] ${name} failed:`, err instanceof Error ? err.message : err);
     }
   }
+  return busyFeed(clock());
+}
+
+function busyFeed(at: number): FeedResponse {
   return {
     aircraft: [],
     source: "none",
-    fetchedAt: clock(),
+    fetchedAt: at,
     busy: true,
     error: DATA_BUSY_MESSAGE,
   };
+}
+
+/**
+ * Cached + coalesced feed lookup. `lat`, `lon` and `radiusNm` are already snapped by the caller;
+ * the cache key is exactly `${lat},${lon},${radiusNm}` as before.
+ * - Fresh cache hit: returned without any upstream request.
+ * - Same key already in flight in this instance: wait for that request instead of starting another.
+ * - Failed results are never cached. On failure an older cached result (if any) is returned with
+ *   `busy: true` and the busy message, for every caller.
+ * Each caller gets its own response object built from the shared plain data.
+ */
+export async function loadFeedCached(
+  lat: number,
+  lon: number,
+  radiusNm: number,
+  deps?: SourceDeps,
+): Promise<FeedResponse> {
+  const clock = deps?.now ?? Date.now;
+  const key = `${lat},${lon},${radiusNm}`;
+  const hit = feedCache.get(key);
+  if (hit && clock() - hit.at < FEED_TTL_MS) return { ...hit.value };
+
+  const value = await coalesce(
+    key,
+    async () => {
+      const v = await loadFeedCircle(lat, lon, radiusNm, deps);
+      if (!v.error) {
+        prune(feedCache, FEED_TTL_MS, 200, clock());
+        feedCache.set(key, { at: clock(), value: v });
+      }
+      return v;
+    },
+    {
+      maxMs: (deps?.deadlineMs ?? FEED_DEADLINE_MS) + WAITER_MARGIN_MS,
+      onTimeout: () => busyFeed(clock()),
+    },
+  );
+  if (!value.error) return { ...value };
+  if (hit) return { ...hit.value, busy: true, error: DATA_BUSY_MESSAGE };
+  return { ...value };
 }
 
 export interface SearchResult {
