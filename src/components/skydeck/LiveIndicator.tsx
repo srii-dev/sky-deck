@@ -20,7 +20,7 @@ export function LiveIndicator({ fetchedAt, error, isFetching, shown, total, sour
 
   const age = fetchedAt && now ? Math.max(0, Math.round((now - fetchedAt) / 1000)) : null;
   const stale = age == null || age > 25 || !!error;
-  const label = fetchedAt == null ? "Loading aircraft..." : stale ? "Delayed" : "Live";
+  const label = fetchedAt == null ? "Loading" : stale ? "Delayed" : "Live";
 
   return (
     <div className="flex items-center gap-3">
@@ -33,9 +33,13 @@ export function LiveIndicator({ fetchedAt, error, isFetching, shown, total, sour
       <span className="data-value whitespace-nowrap text-[11px] text-muted-foreground">
         {age == null ? "—" : isFetching && age > 6 ? "updating…" : `${age}s ago`}
       </span>
-      <span className="data-value hidden whitespace-nowrap text-[11px] text-muted-foreground sm:inline">
-        {shown === total ? `${total} ac` : `${shown}/${total} ac`}
-      </span>
+      {/* No count before the first response: "0 ac" is not data yet, and the extra
+          width pushed the Filters button onto a second row at ~1280 px. */}
+      {fetchedAt != null && (
+        <span className="data-value hidden whitespace-nowrap text-[11px] text-muted-foreground sm:inline">
+          {shown === total ? `${total} ac` : `${shown}/${total} ac`}
+        </span>
+      )}
     </div>
   );
 }
