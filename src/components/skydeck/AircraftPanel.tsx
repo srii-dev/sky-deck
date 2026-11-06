@@ -26,7 +26,12 @@ import {
 } from "@/lib/units";
 import { GLIDE_DISCLAIMER, GLIDE_RATIO_LABEL, fmtRange, glideRatioBounds } from "@/lib/glide-ring";
 import { currentAirportList, isLargeLoaded, loadLargeAirports } from "@/lib/airport-list";
-import { REACHABLE_LIMIT, reachableAirports, reachableListNote } from "@/lib/reachable-airports";
+import {
+  formatNearestReachable,
+  REACHABLE_LIMIT,
+  reachableAirports,
+  reachableListNote,
+} from "@/lib/reachable-airports";
 import type { GlideStatus } from "./FlightMap";
 import { cn } from "@/lib/utils";
 
@@ -111,6 +116,8 @@ export function AircraftPanel(props: Props) {
     staleTime: 30 * 60 * 1000,
   });
 
+  const nearestLabel = formatNearestReachable(reachable, props.units);
+
   const header = (isMobile: boolean) => (
     <div className="flex items-start gap-3">
       <div
@@ -138,6 +145,9 @@ export function AircraftPanel(props: Props) {
         <p className="mt-1 truncate text-sm text-muted-foreground">
           {[operator, a.description ?? a.type].filter(Boolean).join(" · ") || "Unknown operator"}
         </p>
+        {nearestLabel && (
+          <p className="mt-0.5 truncate text-xs font-medium text-primary/90">{nearestLabel}</p>
+        )}
       </div>
       <div className="flex shrink-0 items-center gap-1">
         {isMobile && (

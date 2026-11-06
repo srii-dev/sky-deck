@@ -6,6 +6,7 @@ import {
   REACHABLE_LIMIT,
   reachableAirports,
   reachableAirportsGeoJSON,
+  formatNearestReachable,
 } from "@/lib/reachable-airports";
 
 const apt = (iata: string, lat: number, lon: number): Airport => ({
@@ -103,5 +104,29 @@ describe("reachableAirportsGeoJSON", () => {
   it("uses the same default limit as the panel", () => {
     const many = Array.from({ length: REACHABLE_LIMIT + 3 }, (_, i) => apt(`A${i}`, 0, i * 0.1));
     expect(reachableAirports(0, 0, 500, undefined, many)).toHaveLength(REACHABLE_LIMIT);
+  });
+});
+
+describe("formatNearestReachable", () => {
+  it("summarises the first (nearest) airport with distance and direction", () => {
+    const list = reachableAirports(0, 0, 500, 5, [EAST_120, EAST_60]);
+    const d = haversineNm(0, 0, 0, 1);
+    expect(formatNearestReachable(list, "aviation")).toBe(
+      `Nearest in range: EST · ${d.toFixed(1)} nm E`,
+    );
+  });
+
+  it("follows the unit system", () => {
+    const list = reachableAirports(0, 0, 500, 5, [EAST_60]);
+    expect(formatNearestReachable(list, "metric")).toMatch(
+      /^Nearest in range: EST · \d[\d,]* km E$/,
+    );
+    expect(formatNearestReachable(list, "imperial")).toMatch(
+      /^Nearest in range: EST · \d[\d,]* mi E$/,
+    );
+  });
+
+  it("is null for an empty list", () => {
+    expect(formatNearestReachable([], "aviation")).toBeNull();
   });
 });

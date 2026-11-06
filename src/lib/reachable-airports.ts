@@ -1,6 +1,7 @@
 import type { FeatureCollection, Point } from "geojson";
 import { AIRPORTS, type Airport } from "./airports";
-import { haversineNm } from "./glide-ring";
+import { fmtRange, haversineNm } from "./glide-ring";
+import { compassPoint, type UnitSystem } from "./units";
 
 const NOTE_SHORT =
   "From a short list of major airports. Small fields are not included, so “none” does not mean none reachable.";
@@ -74,4 +75,18 @@ export function reachableAirportsGeoJSON(
       geometry: { type: "Point", coordinates: [r.airport.lon, r.airport.lat] },
     })),
   };
+}
+
+/**
+ * One-line header summary of the nearest airport in the list (it is sorted nearest first),
+ * for example "Nearest in range: JFK · 12.3 nm NE". Null when the list is empty.
+ */
+export function formatNearestReachable(
+  list: readonly ReachableAirport[],
+  units: UnitSystem,
+): string | null {
+  const first = list[0];
+  if (!first) return null;
+  const dir = compassPoint(first.bearingDeg);
+  return `Nearest in range: ${first.airport.iata} · ${fmtRange(first.distNm, units)}${dir ? ` ${dir}` : ""}`;
 }
