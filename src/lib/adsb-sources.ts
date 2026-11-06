@@ -1,10 +1,28 @@
 import { DATA_BUSY_MESSAGE, type Aircraft, type FeedResponse } from "./aircraft";
 import { classifyAircraft } from "./aircraft-kind";
+import {
+  coalesce,
+  defaultSleep,
+  pacingWait,
+  prune,
+  reserveSlot,
+  resetInflight,
+  resetPacing,
+  type CacheEntry,
+  type Sleep,
+} from "./request-control";
 
 /*
  * Plain fetch + back-off for the free ADS-B proxies.
  * Server functions in adsb.functions.ts are the only callers besides tests.
  * The browser must not import this module.
+ *
+ * Request flow for the map feed (loadFeedCached):
+ *   fresh cache hit -> return;  same key already in flight -> share that request;
+ *   otherwise loadFeedCircle: per provider, skip if cooling down, wait for a pacing slot
+ *   (PROVIDER_MIN_GAP_MS), re-check the cool-down, then fetch with the time that is left.
+ * Coalescing, pacing and the in-flight map live in module memory, so they apply only inside
+ * one server instance (one Workers isolate), not across instances.
  */
 
 const UA = "SkyDeck/0.1 (community flight tracker)";
@@ -17,8 +35,31 @@ const BACKOFF_BASE_MS = 10_000;
 const BACKOFF_MAX_MS = 120_000;
 const sourceBackoff = new Map<string, { until: number; strikes: number }>();
 
+/**
+ * Minimum gap between the STARTS of two upstream requests to the same provider (ms).
+ * Applies to every real upstream request in this server instance (map feed and search).
+ * Cache hits, coalesced waiters and providers skipped for cool-down use no slot.
+ * These are starting guesses, not published limits (data-terms review is a separate task):
+ *  - adsb.lol: limit unpublished ("dynamic"); 500 ms keeps a 6-circle poll near 3-4 s.
+ *  - airplanes.live: documents about 1 request per second.
+ *  - OpenSky Network: anonymous budget is tiny, so it only serves the odd request.
+ */
+export const PROVIDER_MIN_GAP_MS: Record<string, number> = {
+  "adsb.lol": 500,
+  "airplanes.live": 1000,
+  "OpenSky Network": 10_000,
+};
+
+const FEED_TTL_MS = 5000;
+/** A waiter gives up this long after the feed deadline if the shared request never settles. */
+const WAITER_MARGIN_MS = 500;
+const feedCache = new Map<string, CacheEntry<FeedResponse>>();
+
 export function resetAdsbSourceState() {
   sourceBackoff.clear();
+  feedCache.clear();
+  resetInflight();
+  resetPacing();
 }
 
 function coolingDown(name: string, now: number): boolean {
@@ -41,6 +82,29 @@ export interface SourceDeps {
   readsbTimeoutMs?: number;
   openSkyTimeoutMs?: number;
   deadlineMs?: number;
+  /** Test hook: replaces every provider's pacing gap (0 turns pacing off). */
+  paceGapMs?: number;
+  /** Test hook: replaces the real timer used to wait for a pacing slot. */
+  sleep?: Sleep;
+}
+
+/**
+ * Wait for this provider's next start slot. The wait counts toward the caller's deadline.
+ * Returns false (and reserves nothing) when the wait would leave less than MIN_ATTEMPT_MS,
+ * so the caller skips this provider. Reserving is synchronous; only the sleep is async.
+ */
+async function takeSlot(
+  name: string,
+  remainingMs: number,
+  clock: () => number,
+  deps?: SourceDeps,
+): Promise<boolean> {
+  const gap = deps?.paceGapMs ?? PROVIDER_MIN_GAP_MS[name] ?? 0;
+  if (gap <= 0) return true;
+  if (pacingWait(name, clock()) + MIN_ATTEMPT_MS > remainingMs) return false;
+  const wait = reserveSlot(name, gap, clock());
+  if (wait > 0) await (deps?.sleep ?? defaultSleep)(wait);
+  return true;
 }
 
 export async function getJson(url: string, timeoutMs = 6000, deps?: SourceDeps): Promise<unknown> {
@@ -235,8 +299,22 @@ export async function loadFeedCircle(
       busy = true;
       continue;
     }
+    if (!(await takeSlot(name, remaining, clock, deps))) {
+      busy = true;
+      continue;
+    }
+    // Another request may have struck this provider while we waited for our slot.
+    if (coolingDown(name, clock())) {
+      busy = true;
+      continue;
+    }
+    const left = deadline - (clock() - started);
+    if (left < MIN_ATTEMPT_MS) {
+      busy = true;
+      break;
+    }
     try {
-      const aircraft = await run(Math.min(sourceTimeout, remaining));
+      const aircraft = await run(Math.min(sourceTimeout, left));
       sourceBackoff.delete(name);
       const value: FeedResponse = {
         aircraft,
@@ -252,13 +330,57 @@ export async function loadFeedCircle(
       console.warn(`[adsb] ${name} failed:`, err instanceof Error ? err.message : err);
     }
   }
+  return busyFeed(clock());
+}
+
+function busyFeed(at: number): FeedResponse {
   return {
     aircraft: [],
     source: "none",
-    fetchedAt: clock(),
+    fetchedAt: at,
     busy: true,
     error: DATA_BUSY_MESSAGE,
   };
+}
+
+/**
+ * Cached + coalesced feed lookup. `lat`, `lon` and `radiusNm` are already snapped by the caller;
+ * the cache key is exactly `${lat},${lon},${radiusNm}` as before.
+ * - Fresh cache hit: returned without any upstream request.
+ * - Same key already in flight in this instance: wait for that request instead of starting another.
+ * - Failed results are never cached. On failure an older cached result (if any) is returned with
+ *   `busy: true` and the busy message, for every caller.
+ * Each caller gets its own response object built from the shared plain data.
+ */
+export async function loadFeedCached(
+  lat: number,
+  lon: number,
+  radiusNm: number,
+  deps?: SourceDeps,
+): Promise<FeedResponse> {
+  const clock = deps?.now ?? Date.now;
+  const key = `${lat},${lon},${radiusNm}`;
+  const hit = feedCache.get(key);
+  if (hit && clock() - hit.at < FEED_TTL_MS) return { ...hit.value };
+
+  const value = await coalesce(
+    key,
+    async () => {
+      const v = await loadFeedCircle(lat, lon, radiusNm, deps);
+      if (!v.error) {
+        prune(feedCache, FEED_TTL_MS, 200, clock());
+        feedCache.set(key, { at: clock(), value: v });
+      }
+      return v;
+    },
+    {
+      maxMs: (deps?.deadlineMs ?? FEED_DEADLINE_MS) + WAITER_MARGIN_MS,
+      onTimeout: () => busyFeed(clock()),
+    },
+  );
+  if (!value.error) return { ...value };
+  if (hit) return { ...hit.value, busy: true, error: DATA_BUSY_MESSAGE };
+  return { ...value };
 }
 
 export interface SearchResult {
@@ -302,8 +424,22 @@ export async function searchAircraftSources(q: string, deps?: SourceDeps): Promi
         sourceFailed = true;
         break;
       }
+      // Each path is its own upstream request, so each takes a slot.
+      if (!(await takeSlot(name, left, clock, deps)) || coolingDown(name, clock())) {
+        busy = true;
+        sourceFailed = true;
+        break;
+      }
+      const afterWait = deadline - (clock() - started);
+      if (afterWait < MIN_ATTEMPT_MS) {
+        busy = true;
+        sourceFailed = true;
+        break;
+      }
       try {
-        const list = parseReadsb(await getJson(`${base}/${path}`, Math.min(timeout, left), deps));
+        const list = parseReadsb(
+          await getJson(`${base}/${path}`, Math.min(timeout, afterWait), deps),
+        );
         if (list.length) {
           sourceBackoff.delete(name);
           return { aircraft: list.slice(0, 10), source: name, ...(busy ? { busy } : {}) };

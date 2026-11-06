@@ -1,12 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import {
-  DATA_BUSY_MESSAGE,
-  type FeedResponse,
-  type FlightRoute,
-  type RouteAirport,
-} from "./aircraft";
-import { getJson, loadFeedCircle, searchAircraftSources } from "./adsb-sources";
+import { type FeedResponse, type FlightRoute, type RouteAirport } from "./aircraft";
+import { getJson, loadFeedCached, searchAircraftSources } from "./adsb-sources";
+import { prune, type CacheEntry } from "./request-control";
 
 /*
  * Server-side proxy for free community ADS-B sources.
@@ -14,26 +10,13 @@ import { getJson, loadFeedCircle, searchAircraftSources } from "./adsb-sources";
  * - Primary: adsb.lol (readsb v2 JSON)
  * - Secondary: airplanes.live (same format; may refuse unapproved callers)
  * - Fallback: OpenSky Network REST (state vectors)
- * Responses are cached in-memory for ~5 s per rounded viewport.
+ * Feed responses are cached in-memory for ~5 s per rounded viewport, and identical in-flight
+ * requests are shared (both in adsb-sources.ts, loadFeedCached).
  */
 
-const FEED_TTL_MS = 5000;
 const ROUTE_TTL_MS = 60 * 60 * 1000;
 
-type CacheEntry<T> = { at: number; value: T };
-const feedCache = new Map<string, CacheEntry<FeedResponse>>();
 const routeCache = new Map<string, CacheEntry<FlightRoute | null>>();
-
-function prune<T>(cache: Map<string, CacheEntry<T>>, ttl: number, max: number) {
-  if (cache.size < max) return;
-  const now = Date.now();
-  for (const [k, v] of cache) if (now - v.at > ttl) cache.delete(k);
-  while (cache.size > max) {
-    const first = cache.keys().next().value;
-    if (first === undefined) break;
-    cache.delete(first);
-  }
-}
 
 const feedInput = z.object({
   lat: z.number().min(-90).max(90),
@@ -47,18 +30,7 @@ export const getAircraftFeed = createServerFn({ method: "GET" })
     const lat = Math.round(data.lat * 20) / 20;
     const lon = Math.round(data.lon * 20) / 20;
     const r = Math.max(5, Math.min(250, Math.ceil(data.radiusNm / 5) * 5));
-    const key = `${lat},${lon},${r}`;
-    const hit = feedCache.get(key);
-    if (hit && Date.now() - hit.at < FEED_TTL_MS) return hit.value;
-
-    const value = await loadFeedCircle(lat, lon, r);
-    if (!value.error) {
-      prune(feedCache, FEED_TTL_MS, 200);
-      feedCache.set(key, { at: Date.now(), value });
-      return value;
-    }
-    if (hit) return { ...hit.value, busy: true, error: DATA_BUSY_MESSAGE };
-    return value;
+    return loadFeedCached(lat, lon, r);
   });
 
 const searchInput = z.object({ q: z.string().trim().min(2).max(12) });
