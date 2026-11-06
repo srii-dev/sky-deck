@@ -33,6 +33,7 @@ import {
   reachableListNote,
 } from "@/lib/reachable-airports";
 import type { GlideStatus } from "./FlightMap";
+import { AcarsMessages } from "./AcarsMessages";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -227,6 +228,8 @@ export function AircraftPanel(props: Props) {
         <Cell label="Category">{a.kindLabel}</Cell>
         <Cell label="Position age">{`${Math.round(a.seenPos)}s`}</Cell>
       </div>
+
+      <AcarsMessages hex={a.hex} />
 
       <div className="space-y-3 rounded-md border border-border/60 bg-background/40 px-3 py-3">
         <div className="flex items-center justify-between">
