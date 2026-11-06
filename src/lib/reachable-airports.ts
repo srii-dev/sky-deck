@@ -2,8 +2,15 @@ import type { FeatureCollection, Point } from "geojson";
 import { AIRPORTS, type Airport } from "./airports";
 import { haversineNm } from "./glide-ring";
 
-export const REACHABLE_LIST_NOTE =
+const NOTE_SHORT =
   "From a short list of major airports. Small fields are not included, so “none” does not mean none reachable.";
+const NOTE_LARGE =
+  "Large and medium airports only (OurAirports data). Small airfields are not included, so “none” does not mean none reachable.";
+
+/** Caveat shown under the reachable-airports list and matching the list actually in use. */
+export function reachableListNote(largeListLoaded: boolean): string {
+  return largeListLoaded ? NOTE_LARGE : NOTE_SHORT;
+}
 
 /** How many airports the panel list and the map markers show. */
 export const REACHABLE_LIMIT = 5;

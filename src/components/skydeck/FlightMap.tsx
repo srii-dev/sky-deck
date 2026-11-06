@@ -25,7 +25,12 @@ import {
   TERRAIN_EXAGGERATION,
   type ElevationCacheEntry,
 } from "@/lib/glide-ring";
-import { reachableAirports, reachableAirportsGeoJSON } from "@/lib/reachable-airports";
+import { currentAirportList, isLargeLoaded, loadLargeAirports } from "@/lib/airport-list";
+import {
+  REACHABLE_LIMIT,
+  reachableAirports,
+  reachableAirportsGeoJSON,
+} from "@/lib/reachable-airports";
 import { buildPlaneSdf, buildSvgSdf } from "./plane-icon";
 import { LEGEND_KINDS, svgMarkup } from "./aircraft-icons";
 import {
@@ -602,7 +607,20 @@ export default function FlightMap(props: FlightMapProps) {
       src.setData(empty());
       return;
     }
-    src.setData(reachableAirportsGeoJSON(reachableAirports(ac.lat, ac.lon, status.rangeNm)));
+    if (!isLargeLoaded()) {
+      // Show the short list now; redraw with the larger list as soon as it has loaded.
+      loadLargeAirports()
+        .then(() => {
+          const m = mapRef.current;
+          if (m && !m._removed) updateReachMarkers();
+        })
+        .catch(() => {});
+    }
+    src.setData(
+      reachableAirportsGeoJSON(
+        reachableAirports(ac.lat, ac.lon, status.rangeNm, REACHABLE_LIMIT, currentAirportList()),
+      ),
+    );
   };
 
   const drawGlideRing = () => {

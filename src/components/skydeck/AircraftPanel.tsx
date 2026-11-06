@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, ChevronDown, ChevronUp, Crosshair, Plane, X } from "lucide-react";
 
@@ -25,7 +25,8 @@ import {
   type UnitSystem,
 } from "@/lib/units";
 import { GLIDE_DISCLAIMER, GLIDE_RATIO_LABEL, fmtRange, glideRatioBounds } from "@/lib/glide-ring";
-import { REACHABLE_LIST_NOTE, reachableAirports } from "@/lib/reachable-airports";
+import { currentAirportList, isLargeLoaded, loadLargeAirports } from "@/lib/airport-list";
+import { REACHABLE_LIMIT, reachableAirports, reachableListNote } from "@/lib/reachable-airports";
 import type { GlideStatus } from "./FlightMap";
 import { cn } from "@/lib/utils";
 
@@ -79,9 +80,28 @@ export function AircraftPanel(props: Props) {
   const currentRatio = props.glideRatio ?? bounds?.defaultRatio ?? 12;
   const glideRangeNm =
     props.glideRing && props.glideStatus?.elevationAvailable ? props.glideStatus.rangeNm : null;
+  // The larger airport list is loaded the first time a glide range is available.
+  const wantsAirports = glideRangeNm != null;
+  const [listVersion, setListVersion] = useState(0);
+  useEffect(() => {
+    if (!wantsAirports || isLargeLoaded()) return;
+    let live = true;
+    loadLargeAirports()
+      .then(() => {
+        if (live) setListVersion((v) => v + 1);
+      })
+      .catch(() => {
+        // Keep showing the short built-in list.
+      });
+    return () => {
+      live = false;
+    };
+  }, [wantsAirports]);
   const reachable = useMemo(
-    () => reachableAirports(a.lat, a.lon, glideRangeNm),
-    [a.lat, a.lon, glideRangeNm],
+    () => reachableAirports(a.lat, a.lon, glideRangeNm, REACHABLE_LIMIT, currentAirportList()),
+    // listVersion changes when the larger list finishes loading.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [a.lat, a.lon, glideRangeNm, listVersion],
   );
 
   const route = useQuery({
@@ -295,7 +315,7 @@ export function AircraftPanel(props: Props) {
                       </p>
                     )}
                     <p className="text-[10px] leading-tight text-muted-foreground/80">
-                      {REACHABLE_LIST_NOTE}
+                      {reachableListNote(isLargeLoaded())}
                     </p>
                   </div>
                 )}

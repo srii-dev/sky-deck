@@ -89,6 +89,7 @@ SkyDeck relies on free community data. Please be gentle with it and respect each
 
 - **Aircraft positions:** [adsb.lol](https://adsb.lol), [airplanes.live](https://airplanes.live) and the [OpenSky Network](https://opensky-network.org)
 - **Routes:** the community route data published by adsb.lol
+- **Airports (reachable-airport list and map markers):** large and medium airports from [OurAirports](https://ourairports.com/data/) open data (Unlicense), filtered by `scripts/build-airports.mjs`
 - **Map data:** OpenStreetMap contributors, served through [OpenFreeMap](https://openfreemap.org)
 - **Satellite imagery:** Esri, Maxar, Earthstar Geographics
 - **Terrain:** Mapzen / AWS Terrain Tiles
