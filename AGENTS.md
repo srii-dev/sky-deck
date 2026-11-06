@@ -18,3 +18,5 @@
 - Responsive variants (desktop side panel vs mobile bottom sheet) switch with CSS breakpoints, not JS, so SSR and first paint match.
 - App name lives in `src/config/brand.ts`.
 - Aircraft category (`kind`/`kindLabel`) is assigned server-side in `adsb.functions.ts` via `classifyAircraft` (`src/lib/aircraft-kind.ts`), so map icons, the panel and future features read one stored value.
+- Exception to the proxy rule above: ACARS messages are fetched on demand, straight from the browser, from the public Airframes API (`src/lib/airframes-client.ts`, anonymous, no key). Each visitor then has their own rate-limit budget and no message passes through or is stored on our server. Keep it on demand, plain-text-only and attributed. Do not proxy, store or republish messages without revisiting Airframes' terms and the legal notes in the README.
+- Upstream ADS-B requests are spaced per provider (`PROVIDER_MIN_GAP_MS`) and identical in-flight requests are shared (`src/lib/request-control.ts`). This is per server instance only.
