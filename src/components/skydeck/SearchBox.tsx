@@ -89,7 +89,7 @@ export function SearchBox({ aircraft, onAircraft, onAirport }: Props) {
             if (e.key === "ArrowUp") setActive((i) => Math.max(0, i - 1));
             if (e.key === "Escape") setOpen(false);
           }}
-          placeholder="Callsign, registration, hex or airport"
+          placeholder="Callsign, reg., hex or airport"
           aria-label="Search flights and airports"
           className="data-value h-10 border-0 bg-transparent text-sm uppercase shadow-none placeholder:normal-case placeholder:text-muted-foreground focus-visible:ring-0"
         />

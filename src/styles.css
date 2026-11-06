@@ -242,6 +242,13 @@
   font-family: var(--font-mono);
   font-size: 10px;
 }
+/* On phones the expanded credit would run over the altitude legend (w-48 + left-3), so it wraps in the space to its right. */
+@media (max-width: 639px) {
+  .maplibregl-ctrl-attrib.maplibregl-compact.maplibregl-compact-show {
+    box-sizing: border-box;
+    max-width: calc(100vw - 224px);
+  }
+}
 .maplibregl-ctrl-attrib a {
   color: var(--muted-foreground) !important;
 }
