@@ -4,6 +4,7 @@ import { Link, createFileRoute } from "@tanstack/react-router";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { CreditsButton } from "@/components/skydeck/CreditsDialog";
 import { APP_NAME } from "@/config/brand";
 import {
   decodeFrame,
@@ -215,6 +216,7 @@ function Inspector() {
         Educational tool. Not decoded: Gillham-coded altitude, GNSS height, surface position, status
         messages, Comm-B and ACAS contents. Not for operational or safety use.
       </p>
+      <CreditsButton className="self-start text-xs text-primary underline-offset-2 hover:underline" />
     </main>
   );
 }
