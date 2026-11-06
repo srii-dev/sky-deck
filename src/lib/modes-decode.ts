@@ -352,3 +352,37 @@ export function globalPosition(
   if (lon >= 180) lon -= 360;
   return { lat, lon };
 }
+
+export interface ResolvedPosition {
+  lat: number;
+  lon: number;
+  /** Index of the earlier, opposite-parity frame that this position was combined with. */
+  pairedWith: number;
+}
+
+/**
+ * For a list of frames in time order, resolve a global position for each airborne position frame that has an
+ * earlier opposite-parity position frame from the same aircraft (valid CRC only). No timestamps are available,
+ * so list order is taken as time order and the pair is assumed to be close in time.
+ */
+export function resolvePositions(frames: readonly DecodedFrame[]): (ResolvedPosition | null)[] {
+  const last = new Map<
+    string,
+    { even?: { i: number; p: CprPart }; odd?: { i: number; p: CprPart } }
+  >();
+  return frames.map((f, i) => {
+    const m = f.message;
+    if (!m || m.kind !== "airborne-position" || f.crcOk !== true) return null;
+    const entry = last.get(f.icao) ?? {};
+    const mine = { i, p: { cprLat: m.cprLat, cprLon: m.cprLon } };
+    const other = m.cprOdd ? entry.even : entry.odd;
+    if (m.cprOdd) entry.odd = mine;
+    else entry.even = mine;
+    last.set(f.icao, entry);
+    if (!other) return null;
+    const pos = m.cprOdd
+      ? globalPosition(other.p, mine.p, true)
+      : globalPosition(mine.p, other.p, false);
+    return pos ? { ...pos, pairedWith: other.i } : null;
+  });
+}

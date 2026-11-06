@@ -5,6 +5,7 @@ import {
   decodeFrame,
   globalPosition,
   normaliseFrameHex,
+  resolvePositions,
   type AdsbMessage,
   type DecodedFrame,
 } from "@/lib/modes-decode";
@@ -211,5 +212,34 @@ describe("other messages", () => {
     const m = msg(withParity("8D4840D6F8000000000000"), "other");
     expect(m.typeCode).toBe(31);
     expect(m.name).toMatch(/not decoded/);
+  });
+});
+
+describe("resolvePositions", () => {
+  const f = (hex: string) => frame(hex);
+
+  it("pairs an even and an odd frame of the same aircraft in list order", () => {
+    const [first, second] = resolvePositions([f(ODD), f(EVEN)]);
+    expect(first).toBeNull();
+    expect(second!.pairedWith).toBe(0);
+    expect(second!.lat).toBeCloseTo(52.2572, 3);
+    expect(second!.lon).toBeCloseTo(3.91937, 3);
+
+    const [, other] = resolvePositions([f(EVEN), f(ODD)]);
+    expect(Math.abs(other!.lat - 52.2572)).toBeLessThan(0.02);
+  });
+
+  it("does not pair frames of different aircraft, same parity, or with a bad CRC", () => {
+    // Same frames but a different address: re-parity a synthetic odd frame for another aircraft.
+    const otherOdd = ODD.slice(0, 2) + "AAAAAA" + ODD.slice(8, 22);
+    const other = withParity(otherOdd);
+    expect(resolvePositions([f(EVEN), f(other)])).toEqual([null, null]);
+    expect(resolvePositions([f(EVEN), f(EVEN)])).toEqual([null, null]);
+    const corrupt = ODD.slice(0, 20) + (ODD[20] === "0" ? "1" : "0") + ODD.slice(21);
+    expect(resolvePositions([f(EVEN), f(corrupt)])).toEqual([null, null]);
+  });
+
+  it("ignores frames that are not airborne positions", () => {
+    expect(resolvePositions([f(KLM), f(VELOCITY)])).toEqual([null, null]);
   });
 });
