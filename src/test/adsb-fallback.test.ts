@@ -108,10 +108,8 @@ describe("feed fallback", () => {
       },
     });
     expect(res).toMatchObject({ source: "none", busy: true, error: DATA_BUSY_MESSAGE });
-    expect(urls).toHaveLength(2);
-    expect(urls[0]).toContain("adsb.lol");
-    expect(urls[1]).toContain("airplanes.live");
-    expect(urls.some((u) => u.includes("opensky"))).toBe(false);
+    // An allowlist of hosts, in order: any new or third provider would fail this, not just OpenSky.
+    expect(urls.map((u) => new URL(u).hostname)).toEqual(["api.adsb.lol", "api.airplanes.live"]);
   });
 });
 
