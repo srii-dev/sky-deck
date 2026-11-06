@@ -4,7 +4,7 @@ A live 3D flight tracker for the web. See aircraft move in real time on a terrai
 
 SkyDeck is an independent project. It is inspired by the general category of flight-tracker apps and is not affiliated with, endorsed by, or a copy of any commercial app.
 
-> **Status:** early work in progress (Phase 1). The live map, search, filters, trails and aircraft categories work. Everything under [Roadmap](#roadmap) is planned, not built.
+> **Status:** early work in progress. The live map, search, filters, trails and aircraft categories work, and so do the glide-range ring with reachable airports, an ADS-B message inspector and on-demand ACARS messages. Unchecked items under [Roadmap](#roadmap) are planned, not built.
 
 ## Features
 
@@ -18,7 +18,11 @@ SkyDeck is an independent project. It is inspired by the general category of fli
 - **Emergency alerts** for squawks 7500, 7600 and 7700
 - **Units**: aviation, metric or imperial
 - **Wide-area coverage**: zoomed-out views are split into up to six overlapping circles, merged and de-duplicated, with a notice when a view is only partly covered
-- **Provider back-off**: when a data source rate-limits or fails, SkyDeck backs off and falls back to the next one
+- **Provider back-off and pacing**: when a data source rate-limits or fails, SkyDeck backs off and falls back to the next one. Requests to each provider are spaced out, and identical in-flight requests are shared
+- **Glide-range ring** (educational estimate only): for the selected aircraft, a ring showing how far it could glide from its height above the terrain, with a slider for the rule-of-thumb glide ratio
+- **Reachable airports**: airports inside the ring are listed in the aircraft panel, shown on the map, and the nearest is named in the panel header. About 4,500 large and medium airports from OurAirports, loaded on demand
+- **ADS-B message inspector** at `/inspector` (also linked from the Filters popover): paste raw Mode S frames and see the downlink format, ICAO address, CRC check and decoded fields. It runs entirely in your browser
+- **ACARS messages** for the selected aircraft, loaded only when you press a button, from the public Airframes API (see "How it works" and the notes under Known limitations)
 
 ## Tech stack
 
@@ -40,7 +44,7 @@ bun run dev
 
 Then open the URL that Vite prints (usually http://localhost:3000 or http://localhost:5173).
 
-**No API keys or environment variables are needed.** All data sources and map tiles are free and keyless.
+**No API keys or environment variables are needed.** All data sources and map tiles are free and keyless (ACARS messages use Airframes' anonymous public API).
 
 ### Scripts
 
@@ -67,6 +71,8 @@ Free community ADS-B sources
 ```
 
 - **The browser never calls ADS-B providers directly.** All requests go through server functions, which avoids CORS problems and keeps provider changes in one place.
+- **The one exception is ACARS messages** (`src/lib/airframes-client.ts`): the browser calls the public Airframes API directly, on demand and only for the selected aircraft. That way each visitor has their own request budget and no message passes through or is stored on our server. Message text is cleaned and shown as plain text only.
+- **Pacing and sharing** (`src/lib/request-control.ts`, `PROVIDER_MIN_GAP_MS` in `src/lib/adsb-sources.ts`): requests to each ADS-B provider are spaced out, and callers asking for the same area at the same time share one upstream request. Both work per server instance only.
 - **Coverage** (`src/lib/coverage.ts`): each source caps a query at 250 nm. A large view is covered with up to six circles of about 247 nm on a fixed grid, so small pans reuse the same circles.
 - **Feed** (`src/hooks/use-aircraft-feed.ts`): fetches circles a few at a time, merges them, keeps the freshest position per ICAO hex, and schedules the next refresh only after the previous one finishes.
 - **Categories** (`src/lib/aircraft-kind.ts`): the aircraft kind comes from the ADS-B emitter category when present, then from ICAO type-code rules, and falls back to a generic plane. It is assigned server-side so the map, panel and future features read one value.
@@ -78,9 +84,11 @@ Free community ADS-B sources
 src/
   components/skydeck/   map, panels, legends, search, filters
   hooks/                aircraft feed and polling
-  lib/                  ADS-B proxy, coverage planner, aircraft types, units
-  routes/               app routes
+  lib/                  ADS-B proxy, coverage planner, aircraft types, glide and airport
+                        maths, Mode S decoder, ACARS client, request pacing, units
+  routes/               app routes (the map at /, the message inspector at /inspector)
   test/                 tests
+scripts/                build-airports.mjs (regenerates the airport list from OurAirports)
 ```
 
 ## Data sources and attribution
@@ -91,7 +99,8 @@ SkyDeck relies on free community data. Please be gentle with it and respect each
 - **Routes:** the community route data published by adsb.lol
 - **Airports (reachable-airport list and map markers):** large and medium airports from [OurAirports](https://ourairports.com/data/) open data (Unlicense), filtered by `scripts/build-airports.mjs`
 - **Map data:** OpenStreetMap contributors, served through [OpenFreeMap](https://openfreemap.org)
-- **Satellite imagery:** Esri, Maxar, Earthstar Geographics
+- **ACARS messages:** [Airframes](https://airframes.io), through its anonymous public API. Data provided by Airframes.io and its community of feeders. The API is still pre-release and its terms are still being finalized
+- **Satellite imagery:** Esri, Vantor, Earthstar Geographics, and the GIS User Community
 - **Terrain:** Mapzen / AWS Terrain Tiles
 
 Each of these has its own licence and usage terms. Check them before deploying publicly or commercially.
@@ -99,19 +108,23 @@ Each of these has its own licence and usage terms. Check them before deploying p
 ## Known limitations
 
 - Free sources have no flight history, so a trail only shows the time you have been watching.
-- Airport search covers about 110 major airports.
+- Airport search covers about 115 major airports. The reachable-airports list uses a larger set (about 4,500 large and medium airports), so small airfields are missing and "none listed" does not mean none reachable.
+- The glide ring and reachable airports are straight-line, still-air estimates that ignore terrain, wind and runway suitability. They are for education only.
+- ACARS messages come from a pre-release third-party API: anonymous access, CORS and the rate limit (60 requests a minute per visitor) can change without notice. The messages are received by volunteers, can be incomplete or wrong, and may contain sensitive details. Nothing is stored. Whether and how you may receive, show or republish radio messages depends on your country, so check the law before deploying this publicly. This project is not legal advice.
 - Some flights show "Route not available" because the free route lookup does not know every flight.
 - Wide views still hit provider rate limits. The nearest three circles refresh every poll; farther circles refresh every other poll and keep their last positions. A cold view with nothing cached can come back empty until a provider answers.
-- The in-memory cache and back-off state live per server instance, so they behave differently on serverless hosting.
+- The in-memory cache, request sharing, pacing and back-off state live per server instance, so they behave differently on serverless hosting.
 - The emergency-squawk banner has been tested automatically but rarely seen with live data.
 
 ## Roadmap
 
-Planned, not yet built:
+Done and planned:
 
-- [ ] Glide range ring and reachable airports (educational estimate only)
-- [ ] ADS-B message inspector, with decoding of raw frames from your own receiver
-- [ ] ACARS message viewer using a self-hosted decoder feed
+- [x] Glide range ring and reachable airports (educational estimate only)
+- [x] ADS-B message inspector for pasted raw frames
+- [ ] ADS-B message inspector with live frames from your own receiver
+- [x] ACARS messages for the selected aircraft (Airframes, on demand)
+- [ ] ACARS browse page, and a viewer for your own decoder's output
 - [ ] Airport pages with weather and crowd-sourced security wait times
 - [ ] Replay, plain-English alerts and a watchlist
 - [ ] Expanded aircraft silhouettes
