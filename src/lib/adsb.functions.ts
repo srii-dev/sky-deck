@@ -1,7 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
+import { setResponseHeader } from "@tanstack/react-start/server";
 import { z } from "zod";
 import { type FeedResponse, type FlightRoute, type RouteAirport } from "./aircraft";
-import { getJson, loadFeedCached, searchAircraftSources } from "./adsb-sources";
+import { getJson, loadFeedCached, searchAircraftSources, snapFeedCircle } from "./adsb-sources";
 import { prune, type CacheEntry } from "./request-control";
 
 /*
@@ -27,10 +28,8 @@ const feedInput = z.object({
 export const getAircraftFeed = createServerFn({ method: "GET" })
   .validator((d: unknown) => feedInput.parse(d))
   .handler(async ({ data }): Promise<FeedResponse> => {
-    const lat = Math.round(data.lat * 20) / 20;
-    const lon = Math.round(data.lon * 20) / 20;
-    const r = Math.max(5, Math.min(250, Math.ceil(data.radiusNm / 5) * 5));
-    return loadFeedCached(lat, lon, r);
+    const { lat, lon, radiusNm } = snapFeedCircle(data.lat, data.lon, data.radiusNm);
+    return loadFeedCached(lat, lon, radiusNm);
   });
 
 const searchInput = z.object({ q: z.string().trim().min(2).max(12) });
@@ -71,6 +70,8 @@ function toAirport(a: Raw): RouteAirport | null {
 export const getFlightRoute = createServerFn({ method: "GET" })
   .validator((d: unknown) => routeInput.parse(d))
   .handler(async ({ data }): Promise<FlightRoute | null> => {
+    // A route rarely changes within a day: let browsers and any shared cache keep the answer.
+    setResponseHeader("Cache-Control", "public, max-age=3600, stale-while-revalidate=86400");
     const cs = data.callsign.toUpperCase().replace(/[^A-Z0-9]/g, "");
     if (cs.length < 3) return null;
     const hit = routeCache.get(cs);

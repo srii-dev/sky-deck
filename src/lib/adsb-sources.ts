@@ -323,6 +323,18 @@ function busyFeed(at: number): FeedResponse {
   };
 }
 
+/**
+ * The request a tile becomes on the server: centre snapped to 0.05 degrees (about 3 nm) and radius
+ * rounded UP to a multiple of 5 nm, within 5 to 250 nm. Used by the server function and the load test.
+ */
+export function snapFeedCircle(lat: number, lon: number, radiusNm: number) {
+  return {
+    lat: Math.round(lat * 20) / 20,
+    lon: Math.round(lon * 20) / 20,
+    radiusNm: Math.max(5, Math.min(250, Math.ceil(radiusNm / 5) * 5)),
+  };
+}
+
 /** A cached response aged by `ageMs`: `seenPos` grows by the age so dead reckoning stays correct. */
 function withAge(value: FeedResponse, ageMs: number): FeedResponse {
   if (ageMs < 500) return { ...value };
