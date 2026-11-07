@@ -135,6 +135,8 @@ Done and planned:
 
 - This project was started in Lovable and syncs with GitHub. If you still use Lovable, avoid force-pushing or rewriting pushed history, and keep the connected branch in a working state.
 - The app name lives in one place: `src/config/brand.ts`.
+- Pull requests are checked by GitHub Actions (`.github/workflows/ci.yml`: install, test, type check, lint, build). Run the same four commands locally before opening one.
+- `GET /api/health` answers 200 while the server is running (for uptime checks). Browser errors that reach the root error boundary are written to the server log as `[client-error]` lines.
 - Architecture rules for contributors and coding agents are in `AGENTS.md`.
 
 ## Disclaimer

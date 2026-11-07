@@ -1,0 +1,32 @@
+name: CI
+
+# Runs the same checks as the half-phase test gate on every pull request and on pushes to dev.
+on:
+  pull_request:
+    branches: [dev, main]
+  push:
+    branches: [dev]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: oven-sh/setup-bun@v2
+      # bun.lock is the source of truth: fail if package.json and the lockfile disagree.
+      - run: bun install --frozen-lockfile
+      - run: bun run test
+      - run: bun x tsc --noEmit
+      - run: bun run lint
+      - run: bun run build
