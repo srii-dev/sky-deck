@@ -1,11 +1,13 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { DATA_BUSY_MESSAGE } from "@/lib/aircraft";
 import {
+  getFeedStats,
   loadFeedCached,
   loadFeedCircle,
   PROVIDER_MIN_GAP_MS,
   resetAdsbSourceState,
   searchAircraftSources,
+  STALE_MAX_MS,
   type SourceDeps,
 } from "@/lib/adsb-sources";
 
@@ -135,7 +137,7 @@ describe("feed coalescing", () => {
       },
     };
     await loadFeedCached(40.7, -74, 25, deps);
-    c.advance(200_000); // cache expired
+    c.advance(20_000); // cache expired, but not too old to use as a fallback
     fail = true;
     calls = 0;
     const [a, b] = await Promise.all([
@@ -146,9 +148,99 @@ describe("feed coalescing", () => {
       expect(r.error).toBe(DATA_BUSY_MESSAGE);
       expect(r.busy).toBe(true);
       expect(r.aircraft).toHaveLength(1);
+      expect(r.ageMs).toBeGreaterThanOrEqual(20_000);
     }
     // one shared request: adsb.lol and airplanes.live once each
     expect(calls).toBe(2);
+  });
+
+  it("does not serve a cached result older than STALE_MAX_MS when the fetch fails", async () => {
+    const c = clock();
+    let fail = false;
+    const deps: SourceDeps = {
+      ...fast,
+      now: c.now,
+      fetchImpl: async () => (fail ? new Response("no", { status: 503 }) : json({ ac: [ac] })),
+    };
+    await loadFeedCached(40.7, -74, 25, deps);
+    c.advance(STALE_MAX_MS + 1000);
+    fail = true;
+    const r = await loadFeedCached(40.7, -74, 25, deps);
+    expect(r.error).toBe(DATA_BUSY_MESSAGE);
+    expect(r.aircraft).toHaveLength(0);
+    expect(getFeedStats().staleOnError).toBe(0);
+  });
+
+  it("ages the aircraft of a cache hit so dead reckoning is not fooled", async () => {
+    const c = clock();
+    const deps: SourceDeps = {
+      ...fast,
+      now: c.now,
+      fetchImpl: async () => json({ ac: [ac] }),
+    };
+    const first = await loadFeedCached(40.7, -74, 25, deps);
+    expect(first.aircraft[0]!.seenPos).toBe(1);
+    c.advance(3000);
+    const hit = await loadFeedCached(40.7, -74, 25, deps);
+    expect(hit.ageMs).toBe(3000);
+    expect(hit.aircraft[0]!.seenPos).toBeCloseTo(4, 5);
+    // the cached copy itself is not changed
+    c.advance(1000);
+    const hit2 = await loadFeedCached(40.7, -74, 25, deps);
+    expect(hit2.aircraft[0]!.seenPos).toBeCloseTo(5, 5);
+    expect(getFeedStats().hits).toBe(2);
+    expect(getFeedStats().upstream).toBe(1);
+  });
+
+  it("serves a cached tile instead of waiting when the provider queue is long", async () => {
+    const c = clock();
+    let calls = 0;
+    const deps: SourceDeps = {
+      now: c.now,
+      readsbTimeoutMs: 40,
+      deadlineMs: 9000,
+      paceGapMs: 1000,
+      sleep: async () => {},
+      fetchImpl: async () => {
+        calls++;
+        return json({ ac: [ac] });
+      },
+    };
+    await loadFeedCached(40.7, -74, 25, deps); // tile cached
+    c.advance(6000); // tile is stale (> 5 s) but usable (< 30 s)
+    // build a queue: other tiles each reserve the next 1 s slot
+    await Promise.all([
+      loadFeedCached(41.7, -74, 25, deps),
+      loadFeedCached(42.7, -74, 25, deps),
+      loadFeedCached(43.7, -74, 25, deps),
+      loadFeedCached(44.7, -74, 25, deps),
+    ]);
+    const before = calls;
+    const r = await loadFeedCached(40.7, -74, 25, deps);
+    expect(r.error).toBeUndefined();
+    expect(r.aircraft).toHaveLength(1);
+    expect(calls).toBe(before); // no new upstream request
+    expect(getFeedStats().shed).toBe(1);
+  });
+
+  it("counts a caller that waited for a running fetch as shared", async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    const deps: SourceDeps = {
+      ...fast,
+      fetchImpl: async () => {
+        await gate;
+        return json({ ac: [ac] });
+      },
+    };
+    const a = loadFeedCached(40.7, -74, 25, deps);
+    const b = loadFeedCached(40.7, -74, 25, deps);
+    release();
+    await Promise.all([a, b]);
+    const s = getFeedStats();
+    expect(s.misses).toBe(2);
+    expect(s.upstream).toBe(1);
+    expect(s.shared).toBe(1);
   });
 
   it("clears the in-flight entry after a timed-out request", async () => {

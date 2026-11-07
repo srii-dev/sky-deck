@@ -91,8 +91,9 @@ async function refreshCoverage(
       serveCache();
       return;
     }
-    // Far circles alternate. A skip is not a failure and still merges aged positions.
-    if (!wideCircleDue(index, !!hit, pollIndex)) {
+    // Wide views only: far circles alternate. A skip is not a failure and still merges aged
+    // positions. Zoomed-in tiles are few and small, so every one is fetched each poll.
+    if (plan.tier === "wide" && !wideCircleDue(index, !!hit, pollIndex)) {
       serveCache();
       return;
     }

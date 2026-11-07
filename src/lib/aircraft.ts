@@ -40,6 +40,11 @@ export interface FeedResponse {
   error?: string;
   /** A source was rate-limited/failed (a fallback may still have answered). */
   busy?: boolean;
+  /**
+   * How old this data was when the server answered, from a cache hit or load shedding.
+   * `seenPos` of each aircraft already includes this age. Absent on a fresh upstream fetch.
+   */
+  ageMs?: number;
 }
 
 export interface RouteAirport {
