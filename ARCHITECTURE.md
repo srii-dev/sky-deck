@@ -39,6 +39,13 @@ MapLibre loads only through `React.lazy` behind `<ClientOnly>` (`FlightMap.tsx`)
 
 Desktop side panel and mobile bottom sheet are both in the DOM; CSS breakpoints choose one, so server render and first paint match.
 
+## Backend (planned, Phase 18)
+
+- Sign-in and user data: Supabase (Postgres with row-level security, email and Google sign-in). Migrations are in `supabase/migrations/`; no project exists yet.
+- Hosting, caching and AI: Cloudflare (Workers deployment, shared cache, Workers AI as the AI fallback). Gemini is the first AI provider.
+- FAA NOTAMs: a small always-on service reads the FAA SWIM feed and stores NOTAMs in MongoDB Atlas (free tier). The app reads them through that service or a cache.
+- Secrets: server-side environment variables only, read through `src/lib/server-config.server.ts`. `.env.example` lists names, never values. A variable that starts with `VITE_` is sent to every browser and must never hold a secret.
+
 ## Operations
 
 `.github/workflows/ci.yml` runs the four checks on every pull request. `GET /api/health` is the uptime-check target. Errors that reach the root error boundary are written to the server log as `[client-error]` lines. Feature flags are in `src/lib/flags.ts`.
