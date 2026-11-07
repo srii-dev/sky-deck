@@ -21,6 +21,7 @@ All notable changes to SkyDeck. The format follows [Keep a Changelog](https://ke
 - Requests to each data provider are spaced out, and identical in-flight requests are shared (#3).
 - The last good aircraft stay on screen for up to 2 minutes when every provider fails (#18).
 - The route lookup answers with a one-hour browser cache header (#18).
+- Dependencies updated to clear 27 of 28 known vulnerabilities, including zod 4 (server input validation) and vite 8.1.6.
 - The status chip says "Loading" before the first response, and the search placeholder fits a 375 px screen (#15).
 
 ### Removed
