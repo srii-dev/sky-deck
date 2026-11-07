@@ -43,7 +43,7 @@ Terms were not fully read for any source. Read each source's terms before buildi
 
 ## Numbering note
 
-The original plan had five phases: 1 live map, 2 glide and reach, 3 message inspector, 4 airports, 5 personal features. The ACARS card was later labelled "Phase 4a" in local plan files and PR history, which clashed with the original Phase 4 (airports). This plan keeps Phases 1 to 5 and moves ACARS to **Phase 6** (the built card is 6a; it was called "4a" before). Weather and the other feature areas continue from Phase 7. Because a backend is now allowed, **Phase B** (backend foundation) is added and comes before the backend-dependent features.
+The original plan had five phases: 1 live map, 2 glide and reach, 3 message inspector, 4 airports, 5 personal features. The ACARS card was later labelled "Phase 4a" in local plan files and PR history, which clashed with the original Phase 4 (airports). This plan keeps Phases 1 to 5 and moves ACARS to **Phase 6** (the built card is 6a; it was called "4a" before). Weather and the other feature areas continue from Phase 7. Because a backend is now allowed, **Phase B** (backend foundation) is added and comes before the backend-dependent features. Other **letters** mark cross-cutting foundation phases (B backend, C scale and data pipeline, D operations, E app polish, F community and help); **numbers** mark feature areas.
 
 ## Done so far
 
@@ -156,6 +156,36 @@ New. Needed before 4k, 5g, 6f, 6h, 9b, 10f and any stored data.
 | B6    | Shared cache and scheduled jobs (provider cache that survives across isolates, keep-alive for the free Supabase project that pauses, nightly data refresh). Fixes the "per server instance only" limit of pacing and caching. Also the SWIM consumer: a small always-on service that reads the FAA JMS queue and writes NOTAMs to the database. Workers cannot be that long-lived consumer, so it needs somewhere free to run; none has been chosen or researched yet. |
 | B7    | AI service wrapper over two providers (Workers AI, Gemini): one interface, a budget counter per provider, fallback order (Gemini first, then Workers AI), a cache table that records which provider answered, kill switch, labelled output.                                                                                                                                                                                                                            |
 | B8    | Privacy basics: what is stored, how long, how to delete it, written in the privacy page (Phase 16e).                                                                                                                                                                                                                                                                                                                                                                   |
+
+## Phase C: Scale and data pipeline
+
+New. The app works for one visitor. A public launch changes the load, and the free data providers have limits we do not control (adsb.lol publishes none, airplanes.live already blocks our server). This phase decides how many visitors the app can serve without being blocked.
+
+| Phase | Work                                                                                                                                                                                                                                                                       |
+| ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| C1    | Measure today's upstream request rate per visitor and per server instance, then estimate it for 10, 100 and 1,000 visitors. Write the result down before building.                                                                                                         |
+| C2    | Central ingestion: a scheduled job (or one poller per region) fetches each map tile once per interval into the shared cache (Cloudflare KV or a Durable Object), and every visitor reads from that cache. Upstream load then depends on the number of tiles, not visitors. |
+| C3    | Tile-based coverage that matches the ingestion tiles, replacing per-view circles on the server side (client keeps its dead-reckoning).                                                                                                                                     |
+| C4    | Provider strategy: ask adsb.lol for guidance on expected traffic, decide whether to run a feeder of our own and contribute data, and keep airplanes.live as an approved fallback only if the operator agrees.                                                              |
+| C5    | Cache headers and a CDN layer for static data (airports, airspace, route lookups) so they are not refetched per visitor.                                                                                                                                                   |
+| C6    | Load test with a scripted crowd (against our own cache, never against the providers) and record the numbers.                                                                                                                                                               |
+| C7    | Graceful overload: when the feed is rate-limited, show the last good data with its age, and say so.                                                                                                                                                                        |
+
+## Phase D: Operations and developer workflow
+
+New. Removing Lovable (15a) also removes its error reporting and editor tooling, and there are currently no automated checks on pull requests.
+
+| Phase | Work                                                                                                                                                                        |
+| ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D1    | Continuous integration: run test, type check, build and lint on every pull request (GitHub Actions; check its free minutes).                                                |
+| D2    | Preview deployments per pull request and a staging environment that mirrors production.                                                                                     |
+| D3    | Error reporting that replaces `lovable-error-reporting.ts`: a free tool or our own endpoint (to evaluate; any third party that receives error data needs a privacy note).   |
+| D4    | Logging, uptime checks and alerts, including quota alarms for every free tier (Gemini, Workers AI, Supabase, D1, data providers).                                           |
+| D5    | Privacy-friendly traffic analytics, or none. Decide first; if used, no cookies and no personal data.                                                                        |
+| D6    | Database backups and a restore rehearsal.                                                                                                                                   |
+| D7    | Dependency updates (automated pull requests) and a vulnerability check in CI.                                                                                               |
+| D8    | Versioning, a changelog and a release process (tags, release notes).                                                                                                        |
+| D9    | Documentation for contributors: setup, architecture overview, decision records, how to add a data source safely. A `CLAUDE.md` proposal is part of this and needs Sri's OK. |
 
 ## Phase 2f: Descent path
 
@@ -298,6 +328,40 @@ Rule-based first; the AI versions use the free AI plan.
 | 14b   | Airport brief (see 4j)                                                        |
 | 14c   | AI insights: per-flight and airport briefs, on demand, cached, labelled       |
 
+## Phase E: App polish and everyday features
+
+Features that every flight tracker is expected to have and that the first list missed.
+
+| Phase | Feature                    | Notes                                                                                                                                                         |
+| ----- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| E1    | Shareable links            | The address holds the map view, the selected aircraft or airport, and the basemap, so a link reopens the same view. (Sharing as an image stays post-release.) |
+| E2    | Layer panel                | One place to switch layers on and off (airports, trails, weather, airspace, glide ring), with remembered choices.                                             |
+| E3    | My location                | A button that centres the map on the user's location, only if they allow it.                                                                                  |
+| E4    | Distance and bearing ruler | Measure between two points or from the selected aircraft.                                                                                                     |
+| E5    | Saved views                | Named map views (for example "my airport") stored in the browser, synced after sign-in.                                                                       |
+| E6    | Per-flight charts          | Altitude, speed and vertical-rate graphs built from the samples the browser has seen; later from stored history.                                              |
+| E7    | Search upgrades            | Fuzzy matching, recent searches, search by airline name and aircraft type.                                                                                    |
+| E8    | Aircraft details upgrades  | Type description, age and operator from open aircraft databases (sources to research), with "unknown" when missing.                                           |
+| E9    | Settings page              | Units, default basemap, remembered view, data-saver mode, reduced motion, language, notification choices.                                                     |
+| E10   | Keyboard shortcuts         | Search, close panel, next and previous aircraft, toggle layers, with a help sheet.                                                                            |
+| E11   | Fullscreen and kiosk mode  | A clean view for a second screen or an airport display.                                                                                                       |
+| E12   | Data export                | Export a trail or a list as GPX, KML or CSV; export and delete the user's own saved data.                                                                     |
+| E13   | First-run guide            | A short, skippable tour of the map, panel and search.                                                                                                         |
+| E14   | Phone behaviour            | Touch gestures, bottom sheet tuning, orientation changes, a battery-saving mode with fewer map updates.                                                       |
+
+## Phase F: Community, help and moderation
+
+| Phase | Feature                      | Notes                                                                                                                                   |
+| ----- | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| F1    | Help and FAQ                 | How to read the map, what the data sources are, what the limits are.                                                                    |
+| F2    | Feedback and bug report      | A simple form or link, with spam protection, and an inbox the owner can read.                                                           |
+| F3    | What's new page              | Built from the changelog (D8).                                                                                                          |
+| F4    | Status page                  | A page showing whether data providers, the feed and AI are working, based on D4.                                                        |
+| F5    | Moderation tools             | A small private page for the owner to hide or delete crowd-sourced security wait reports and message feedback, and to see abuse counts. |
+| F6    | Terms for user content       | What users may submit (wait reports, feedback), how it is used, and how to ask for removal.                                             |
+| F7    | Takedown and contact process | A working contact address and a written process for complaints (needed for ACARS and credits).                                          |
+| F8    | Press and about kit          | Short description, screenshots, logo files and attribution wording.                                                                     |
+
 ## Phase 15: Independence, brand and landing page
 
 Near the end, before final testing. Design work for the release: removing Lovable, identity, themes, header, footer and a landing page.
@@ -348,7 +412,7 @@ Landing page: where to build it (Decision 8)
 ## Suggested order
 
 1. **Phase 0 blockers** that need only Sri's decisions (Esri, fonts, credits), and **Decisions D1 and D2**.
-2. **Phase B** (B1 to B3 first), then the rest as needed.
+2. **Phase B** (B1 to B3 first), **Phase C** (measure first, C1) and **Phase D** (D1, D3 early), then the rest as needed.
 3. **Phase 4a to 4c, 4f, 4j**: airport pages, weather, nearby airports, FAA status.
 4. **Phase 5a, 5b, 5e, 5f**: watchlist, alerts, states and accessibility.
 5. **Phase 8a, 8b, 8d**: route line, terrain profile, airspace.
@@ -356,7 +420,7 @@ Landing page: where to build it (Decision 8)
 7. **Phase 4g, 4k, 5g**: ATIS and NOTAMs, crowd waits, sign-in.
 8. **Phase 6b to 6d**, then **6f**, after the legal review.
 9. **Phase 9a, 10b to 10d, 11a, 13, 14**.
-10. **Phase 12**, then **Phase 15** (independence, brand and landing page), **Phase 16** (platform) and **Phase 17** (final testing and release).
+10. **Phase 12**, **Phase E and F** (polish, help and moderation), then **Phase 15** (independence, brand and landing page), **Phase 16** (platform) and **Phase 17** (final testing and release).
 
 ## Decisions needed
 
@@ -370,7 +434,9 @@ Settled on 2026-11-07: D1 backend (Supabase + Cloudflare), D2 AI (Gemini first, 
 6. Gemini free limits and terms, read from Google's own pages, before any message text is sent to it.
 7. Project name: "SkyDeck" is still a placeholder. Check that the name, a domain and social handles are free and not confusingly close to an existing product before the logo is drawn (15b).
 8. Landing page approach (see 15e): build in this repo (recommended), or design elsewhere first.
-9. When to disconnect the repository from Lovable on both ends (15a). Until then, the no-history-rewrite rule in AGENTS.md stays.
+9. Monitoring and error-reporting tools, and whether to use analytics at all (D3 to D5).
+10. How far the app should scale at launch (C1 numbers) and whether to run an own ADS-B feeder (C4).
+11. When to disconnect the repository from Lovable on both ends (15a). Until then, the no-history-rewrite rule in AGENTS.md stays.
 
 ## Post-release phases
 
@@ -391,6 +457,16 @@ Ideas for after the first public release. Not researched, not scheduled. Anythin
 | 18k   | Non-US weather, charts and airspace                     | The release sources are mostly US.                                                                                                                    |
 | 18l   | Lightning layer from GOES GLM (if not done in 7d)       |                                                                                                                                                       |
 | 18m   | Quiet hours and digest emails for alerts                |                                                                                                                                                       |
+| 18n   | Airframe and airline pages                              | A page per registration (photos, incidents, recent flights) and per airline (fleet, routes)                                                           |                                                           |
+| 18o   | Departures and arrivals boards                          | Airport boards with scheduled times                                                                                                                   | Needs a schedule source (see 18c).                        |
+| 18p   | Arrival and delay predictions                           | Estimated arrival time and delay trends from stored history                                                                                           | Needs the 30-day history (9b).                            |
+| 18q   | AR "planes overhead"                                    | Point a phone at the sky to identify aircraft                                                                                                         | Needs device sensors and careful accuracy notes.          |
+| 18r   | Overhead alerts                                         | "A heavy jet will pass over your home" notifications                                                                                                  | Needs web push (10f) and a saved location.                |
+| 18s   | Statistics pages                                        | Busiest airports, most common types, records                                                                                                          | Needs stored history.                                     |
+| 18t   | Aircraft type encyclopedia                              | Type pages with specifications and photos                                                                                                             | Needs an open source with a clear licence.                |
+| 18u   | Chat bot and calendar integrations                      | Discord or Telegram alerts, calendar feeds for watched flights                                                                                        |                                                           |
+| 18v   | Public API for others                                   | Read-only API for hobby projects                                                                                                                      | Only with strong rate limits; check provider terms first. |
+| 18w   | Data contribution                                       | Own ADS-B and ACARS receivers feeding community networks                                                                                              | Ties to C4 and 6e.                                        |
 
 ## Not planned
 
