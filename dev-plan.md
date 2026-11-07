@@ -9,7 +9,7 @@ The full phase plan for SkyDeck, as of 2026-11-07. SkyDeck is meant to become Sr
 - **Done**: merged into `dev`.
 - **Open**: planned for the first public release, not started.
 - **Needs decision**: waiting on a choice from Sri (listed in "Decisions needed").
-- **Post-release**: deliberately after the first public release (Phase 16 and later).
+- **Post-release**: deliberately after the first public release (Phase 18 and later).
 - **Not planned**: considered and left out.
 
 **Three questions for every feature**, so a feature never depends on data we do not have:
@@ -80,7 +80,7 @@ The original plan had five phases: 1 live map, 2 glide and reach, 3 message insp
 | Groq free tier              | Limits vary by model and are set per organisation; sources list different numbers.                                                                                             | Needs a key. Fast, small daily pools.                                                                                                                                                 |
 | OpenRouter free models      | One secondary source says about 50 requests per day across free models.                                                                                                        | Needs a key. Weakest guarantee.                                                                                                                                                       |
 
-**Decided 2026-11-07 (D2): two providers, Cloudflare Workers AI and Gemini.** This works if the server hides both behind one small "AI provider" interface: try Workers AI first, fall back to Gemini when the Workers AI daily pool is used up (or the other way round, to compare quality). Each provider has its own budget counter, so the free pools add up. Gemini needs an API key kept as a server-side secret, and its free limits must be read from Google's own pages before building (sources disagree). The cache is shared, so the provider that produced a summary is stored with it.
+**Decided 2026-11-07 (D2): two providers, Gemini first and Cloudflare Workers AI as the fallback.** The server hides both behind one small "AI provider" interface: try Gemini first, and when Gemini returns its rate-limit or daily-cap error (or the server's own counter says the cap is reached), switch to Workers AI for the rest of that period. Each provider has its own budget counter, so the free pools add up. Sri will supply a Gemini API key. It is kept only as a server-side secret (a Cloudflare secret in production, an uncommitted local file in development): never pasted into chat, issues or pull requests, and never committed. Gemini's free limits must be read from Google's own pages before building (sources disagree). Free-tier prompts may be used by the provider, so no message text goes to Gemini until that is checked. If it is not acceptable, Workers AI becomes the only provider for message text. The cache is shared, so the provider that produced a summary is stored with it.
 
 How AI would be used so free quotas are enough:
 
@@ -154,8 +154,8 @@ New. Needed before 4k, 5g, 6f, 6h, 9b, 10f and any stored data.
 | B4    | Sign-in (email and Google) with sessions; sign-out; account deletion. Used by Phase 5g.                                                                                                                                                                                                                                                                                                                                                                                |
 | B5    | Abuse protection: per-visitor rate limits on every write endpoint, input validation, size limits, a way to hide or delete bad reports.                                                                                                                                                                                                                                                                                                                                 |
 | B6    | Shared cache and scheduled jobs (provider cache that survives across isolates, keep-alive for the free Supabase project that pauses, nightly data refresh). Fixes the "per server instance only" limit of pacing and caching. Also the SWIM consumer: a small always-on service that reads the FAA JMS queue and writes NOTAMs to the database. Workers cannot be that long-lived consumer, so it needs somewhere free to run; none has been chosen or researched yet. |
-| B7    | AI service wrapper over two providers (Workers AI, Gemini): one interface, a budget counter per provider, fallback order, a cache table that records which provider answered, kill switch, labelled output.                                                                                                                                                                                                                                                            |
-| B8    | Privacy basics: what is stored, how long, how to delete it, written in the privacy page (Phase 15e).                                                                                                                                                                                                                                                                                                                                                                   |
+| B7    | AI service wrapper over two providers (Workers AI, Gemini): one interface, a budget counter per provider, fallback order (Gemini first, then Workers AI), a cache table that records which provider answered, kill switch, labelled output.                                                                                                                                                                                                                            |
+| B8    | Privacy basics: what is stored, how long, how to delete it, written in the privacy page (Phase 16e).                                                                                                                                                                                                                                                                                                                                                                   |
 
 ## Phase 2f: Descent path
 
@@ -298,18 +298,52 @@ Rule-based first; the AI versions use the free AI plan.
 | 14b   | Airport brief (see 4j)                                                        |
 | 14c   | AI insights: per-flight and airport briefs, on demand, cached, labelled       |
 
-## Phase 15: Platform and release
+## Phase 15: Independence, brand and landing page
 
-| Phase | Feature                                                                                                                               |
-| ----- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| 15a   | Self-hosted fonts (see Phase 0)                                                                                                       |
-| 15b   | Cloudflare Workers deployment, including a working preview and shared caching                                                         |
-| 15c   | Installable PWA and offline shell                                                                                                     |
-| 15d   | Performance: split the large map chunk (about 1 MB)                                                                                   |
-| 15e   | Legal pages: about, privacy, terms, disclaimer, takedown contact                                                                      |
-| 15f   | End-to-end tests of the main flows                                                                                                    |
-| 15g   | Settings beyond units (theme, language)                                                                                               |
-| 15h   | Release checklist: Phase 0 blockers closed, credits and README match every source's terms, monitoring and quota alarms for free tiers |
+Near the end, before final testing. Design work for the release: removing Lovable, identity, themes, header, footer and a landing page.
+
+| Phase | Feature                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 15a   | Remove Lovable. Found in the repo today: the build config `vite.config.ts` is built on `@lovable.dev/vite-tanstack-config` (a dependency plus matching entries in `package.json`, `bun.lock` and `bunfig.toml`), `src/lib/lovable-error-reporting.ts` (used by the root error component in `src/routes/__root.tsx`), the Lovable block at the top of `AGENTS.md`, and a Lovable paragraph in the README. Replacing the config package means writing the plain TanStack Start, Cloudflare and Nitro Vite config ourselves, so this is real work, not only deleting links. Sri also has to disconnect the project on the Lovable and GitHub side. After that the "never rewrite history" rule can be relaxed. Needs Sri's OK to edit `AGENTS.md` and to change dependencies. |
+| 15b   | Brand identity: name and domain check (Decision 7), logo mark and wordmark, favicon and app icons, colour palette and type, a short brand note in the repo. Fonts must be the self-hosted ones from 16a.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| 15c   | Themes: design tokens for colour, spacing and type in one place, a finished dark theme and light theme, a high-contrast check, and a theme switch (this replaces the theme part of the old settings item). The map styles stay separate from the page theme.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| 15d   | Header and footer on every page: header with logo, navigation (Map, Airports, Inspector, My flights when they exist), search entry and sign-in; footer with Credits and data sources, legal pages, disclaimer, GitHub link and contact. The map page may use a compact header.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| 15e   | Landing page: a page that explains SkyDeck in a few seconds (hero with a live map preview or video, feature highlights, data sources and honesty notes, a call to action to open the map, footer). Moving it to `/` means the map moves to `/map`; update links, the inspector's back link, the README and redirects. Must be server-rendered for fast first paint and search, work on phone, tablet and desktop, and respect reduced motion.                                                                                                                                                                                                                                                                                                                              |
+| 15f   | Banners and share images: Open Graph and social preview images, README banner, GitHub social image, screenshots.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| 15g   | Page metadata and search: titles, descriptions, canonical URLs, `sitemap.xml`, `robots.txt`, structured data where it fits.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| 15h   | Design QA: every page checked at 1280, ~746 and 375 px, in both themes, with keyboard only and with a screen reader pass.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+
+Landing page: where to build it (Decision 8)
+
+| Option                                                                            | Good                                                                                                                                        | Watch out for                                                                                                                                                                                                                                                      |
+| --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Build it in this repo** (recommended)                                           | One codebase, one deploy, one header and footer, server-rendered by TanStack Start, same design tokens as the app, no extra hosting or cost | You do the layout work (with help from me)                                                                                                                                                                                                                         |
+| Draft in an AI design tool (for example v0), then paste the code                  | Fast first draft in React, Tailwind and shadcn, the same stack as this app                                                                  | Generated code needs review, cleanup and accessibility fixes; check the tool's output and terms                                                                                                                                                                    |
+| Design in Framer, then publish                                                    | Strong visual editor and animation                                                                                                          | From memory, not verified: Framer sites are hosted by Framer and are not exported as a React project, so the landing page would live on a separate site with its own header and footer that must be kept in sync by hand, and a custom domain may need a paid plan |
+| Prototype visually first (Claude design tools or similar), then build in the repo | The look is settled before coding                                                                                                           | An extra step                                                                                                                                                                                                                                                      |
+
+## Phase 16: Platform
+
+| Phase | Feature                                                                       |
+| ----- | ----------------------------------------------------------------------------- |
+| 16a   | Self-hosted fonts (see Phase 0)                                               |
+| 16b   | Cloudflare Workers deployment, including a working preview and shared caching |
+| 16c   | Installable PWA and offline shell                                             |
+| 16d   | Performance: split the large map chunk (about 1 MB)                           |
+| 16e   | Legal pages: about, privacy, terms, disclaimer, takedown contact              |
+| 16f   | End-to-end tests of the main flows                                            |
+| 16g   | Language setting (the theme setting moved to 15c)                             |
+
+## Phase 17: Final testing and release
+
+| Phase | Feature                                                                                                                                                                                    |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 17a   | Full feature test pass in a visible browser: every feature on desktop, tablet and phone, including the ones not yet tested (follow mode, 3D trail, Light basemap, filters, the ACARS card) |
+| 17b   | Security review: secrets (none in the repo or the bundle), rate limits, database row-level security, input validation, dependency check                                                    |
+| 17c   | Quota and failure drills: what the user sees when each free quota (Gemini, Workers AI, data providers, database) is used up                                                                |
+| 17d   | Accessibility and performance audit on the live build                                                                                                                                      |
+| 17e   | Release checklist: Phase 0 blockers closed, credits and README match every source's terms, Lovable removed (15a), monitoring and quota alarms for free tiers                               |
+| 17f   | Soft launch to a few people, a rollback plan and a known-issues list                                                                                                                       |
 
 ## Suggested order
 
@@ -322,11 +356,11 @@ Rule-based first; the AI versions use the free AI plan.
 7. **Phase 4g, 4k, 5g**: ATIS and NOTAMs, crowd waits, sign-in.
 8. **Phase 6b to 6d**, then **6f**, after the legal review.
 9. **Phase 9a, 10b to 10d, 11a, 13, 14**.
-10. **Phase 12, 15**, then release.
+10. **Phase 12**, then **Phase 15** (independence, brand and landing page), **Phase 16** (platform) and **Phase 17** (final testing and release).
 
 ## Decisions needed
 
-Settled on 2026-11-07: D1 backend (Supabase + Cloudflare), D2 AI (Workers AI + Gemini), NOTAMs through FAA SWIM, TSA lanes (Regular, PreCheck, Touchless ID, CLEAR+).
+Settled on 2026-11-07: D1 backend (Supabase + Cloudflare), D2 AI (Gemini first, Workers AI as fallback; Sri supplies the Gemini key), NOTAMs through FAA SWIM (confirmed), TSA lanes (Regular, PreCheck, Touchless ID, CLEAR+).
 
 1. Esri, airplanes.live and Airframes (Phase 0).
 2. Whether Phase 2f (descent path) is still wanted and what it means.
@@ -334,6 +368,9 @@ Settled on 2026-11-07: D1 backend (Supabase + Cloudflare), D2 AI (Workers AI + G
 4. Approval to edit AGENTS.md for the new rules.
 5. Where the SWIM consumer runs for free (B6), and reading the SWIM Service Access Agreement for non-commercial use.
 6. Gemini free limits and terms, read from Google's own pages, before any message text is sent to it.
+7. Project name: "SkyDeck" is still a placeholder. Check that the name, a domain and social handles are free and not confusingly close to an existing product before the logo is drawn (15b).
+8. Landing page approach (see 15e): build in this repo (recommended), or design elsewhere first.
+9. When to disconnect the repository from Lovable on both ends (15a). Until then, the no-history-rewrite rule in AGENTS.md stays.
 
 ## Post-release phases
 
@@ -341,19 +378,19 @@ Ideas for after the first public release. Not researched, not scheduled. Anythin
 
 | Phase | Idea                                                    | Notes                                                                                                                                                 |
 | ----- | ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 16a   | Landing gear animation                                  | Decision on 2026-11-07: after release. Needs a data source for gear state (probably inferred from altitude, speed and phase), and 3D models from 12b. |
-| 16b   | Airline colour schemes (generic)                        | Airline liveries are trademarks, so use plain colour-by-airline rather than reproductions.                                                            |
-| 16c   | Flight schedules, inbound aircraft and gates (11b, 11c) | Needs a data source that fits a free quota.                                                                                                           |
-| 16d   | Day and night terminator and sunrise/sunset overlay     |                                                                                                                                                       |
-| 16e   | Share a view or a flight (link, image)                  |                                                                                                                                                       |
-| 16f   | Embeddable map widget                                   |                                                                                                                                                       |
-| 16g   | Native wrapper, push on phones                          | PWA push first.                                                                                                                                       |
-| 16h   | Languages other than English                            |                                                                                                                                                       |
-| 16i   | Spotting photo uploads, profiles, leaderboards          | Needs moderation and a larger backend.                                                                                                                |
-| 16j   | Open-ended aviation chat assistant                      | Needs grounding and a bigger AI budget.                                                                                                               |
-| 16k   | Non-US weather, charts and airspace                     | The release sources are mostly US.                                                                                                                    |
-| 16l   | Lightning layer from GOES GLM (if not done in 7d)       |                                                                                                                                                       |
-| 16m   | Quiet hours and digest emails for alerts                |                                                                                                                                                       |
+| 18a   | Landing gear animation                                  | Decision on 2026-11-07: after release. Needs a data source for gear state (probably inferred from altitude, speed and phase), and 3D models from 12b. |
+| 18b   | Airline colour schemes (generic)                        | Airline liveries are trademarks, so use plain colour-by-airline rather than reproductions.                                                            |
+| 18c   | Flight schedules, inbound aircraft and gates (11b, 11c) | Needs a data source that fits a free quota.                                                                                                           |
+| 18d   | Day and night terminator and sunrise/sunset overlay     |                                                                                                                                                       |
+| 18e   | Share a view or a flight (link, image)                  |                                                                                                                                                       |
+| 18f   | Embeddable map widget                                   |                                                                                                                                                       |
+| 18g   | Native wrapper, push on phones                          | PWA push first.                                                                                                                                       |
+| 18h   | Languages other than English                            |                                                                                                                                                       |
+| 18i   | Spotting photo uploads, profiles, leaderboards          | Needs moderation and a larger backend.                                                                                                                |
+| 18j   | Open-ended aviation chat assistant                      | Needs grounding and a bigger AI budget.                                                                                                               |
+| 18k   | Non-US weather, charts and airspace                     | The release sources are mostly US.                                                                                                                    |
+| 18l   | Lightning layer from GOES GLM (if not done in 7d)       |                                                                                                                                                       |
+| 18m   | Quiet hours and digest emails for alerts                |                                                                                                                                                       |
 
 ## Not planned
 
