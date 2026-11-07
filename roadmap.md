@@ -30,6 +30,8 @@ Planned phases only. What is already built is described in the README. The full 
 | 16     | Platform: self-hosted fonts, deployment, PWA, performance, legal pages, end-to-end tests, language setting                                                                        |                                                                                                                                                                                    |
 | 17     | Final testing and release: full feature test pass, security review, quota drills, audits, release checklist, soft launch                                                          |                                                                                                                                                                                    |
 
+Delivery: each phase is built in two halves. Every half gets its own branch, is tested at the end, and then becomes a pull request (see "Delivery plan" in `dev-plan.md`).
+
 ## After release
 
 Landing gear animation, generic airline colour schemes, flight schedules and gates, day/night overlay, sharing, embeddable widget, native wrapper, more languages, spotting photos and leaderboards, aviation chat assistant, non-US data, lightning from GOES, alert digests, airframe and airline pages, departure boards, arrival and delay predictions, AR planes overhead, overhead alerts, statistics pages, aircraft type encyclopedia, chat bot and calendar integrations, public API, data contribution.

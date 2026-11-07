@@ -49,8 +49,8 @@ The original plan had five phases: 1 live map, 2 glide and reach, 3 message insp
 
 | Phase | What                                                                                                                                                          | PR        |
 | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 1     | Live map, aircraft panel, category icons, search, filters, trails, wide-area coverage, provider fallback and back-off, notices, emergency squawk confirmation | before #3 |
-| 1.1   | Request sharing and per-provider pacing                                                                                                                       | #3        |
+| 1a    | Live map, aircraft panel, category icons, search, filters, trails, wide-area coverage, provider fallback and back-off, notices, emergency squawk confirmation | before #3 |
+| 1b    | Request sharing and per-provider pacing                                                                                                                       | #3        |
 | 2a    | Glide-range ring with rule-of-thumb ratios and height above terrain                                                                                           | before #3 |
 | 2b    | Airports inside the ring listed in the aircraft panel                                                                                                         | #4        |
 | 2c    | Those airports as map dots and IATA labels                                                                                                                    | #5        |
@@ -58,7 +58,7 @@ The original plan had five phases: 1 live map, 2 glide and reach, 3 message insp
 | 2e    | "Nearest in range" line in the panel header                                                                                                                   | #7        |
 | 3a    | ADS-B message inspector at `/inspector` (paste Mode S frames)                                                                                                 | #8, #9    |
 | 6a    | On-demand ACARS card in the aircraft panel (was called "4a")                                                                                                  | #10       |
-| 1.2   | Housekeeping: lint fix #11, docs refresh #12, OpenSky removed #13, credits dialog #14, final testing pass and layout fixes #15, docs #16                      |           |
+| 1c    | Housekeeping: lint fix #11, docs refresh #12, OpenSky removed #13, credits dialog #14, final testing pass and layout fixes #15, docs #16                      |           |
 
 ## Backend and AI options (research)
 
@@ -128,19 +128,19 @@ How AI would be used so free quotas are enough:
 
 Not features, but nothing is deployed until these are settled.
 
-| Item                                                    | Status  | What is needed                                                                                                                                                   |
-| ------------------------------------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Esri satellite imagery terms                            | Open    | Read Esri's terms in a normal browser. Keep, use a free API key (now possible with a backend), swap the style, or drop Satellite.                                |
-| airplanes.live returns 403 to our server                | Open    | Email the operator for approval, or accept adsb.lol as the only provider.                                                                                        |
-| Airframes anonymous API                                 | Open    | Send the draft email (kept locally) and recheck anonymous access, CORS and limits.                                                                               |
-| ACARS legal review                                      | Open    | Showing radio messages publicly touches 47 U.S.C. 605. Consult a lawyer before deploying. Not legal advice.                                                      |
-| Self-host the two Google fonts                          | Open    | Sri must approve the font downloads (names, source, size) first.                                                                                                 |
-| Credits wording                                         | Open    | Match each source's current terms once Esri and airplanes.live are decided.                                                                                      |
-| Route data freshness                                    | Checked | The hosted route file checked was about 7 weeks old and the upstream repo's last commit is a year old. Add a README note; treat "Route not available" as normal. |
-| Cold-start console errors and Vite worker errors in dev | Open    | Cause unknown; reproduce before fixing.                                                                                                                          |
-| Server feed stale-cache quirk                           | Open    | On failure the handler may return an older cached result with no age limit.                                                                                      |
-| Cloudflare deployment                                   | Open    | Nothing is deployed; `bun run preview` does not work with the Cloudflare build.                                                                                  |
-| AGENTS.md and README wording                            | Open    | Replace the old no-backend and keyless rules once Phase 18 is approved (needs Sri's OK to edit AGENTS.md).                                                       |
+| Phase | Item                                                    | Status  | What is needed                                                                                                                                                   |
+| ----- | ------------------------------------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0a    | Esri satellite imagery terms                            | Open    | Read Esri's terms in a normal browser. Keep, use a free API key (now possible with a backend), swap the style, or drop Satellite.                                |
+| 0b    | airplanes.live returns 403 to our server                | Open    | Email the operator for approval, or accept adsb.lol as the only provider.                                                                                        |
+| 0c    | Airframes anonymous API                                 | Open    | Send the draft email (kept locally) and recheck anonymous access, CORS and limits.                                                                               |
+| 0d    | ACARS legal review                                      | Open    | Showing radio messages publicly touches 47 U.S.C. 605. Consult a lawyer before deploying. Not legal advice.                                                      |
+| 0e    | Self-host the two Google fonts                          | Open    | Sri must approve the font downloads (names, source, size) first.                                                                                                 |
+| 0f    | Credits wording                                         | Open    | Match each source's current terms once Esri and airplanes.live are decided.                                                                                      |
+| 0g    | Route data freshness                                    | Checked | The hosted route file checked was about 7 weeks old and the upstream repo's last commit is a year old. Add a README note; treat "Route not available" as normal. |
+| 0h    | Cold-start console errors and Vite worker errors in dev | Open    | Cause unknown; reproduce before fixing.                                                                                                                          |
+| 0i    | Server feed stale-cache quirk                           | Open    | On failure the handler may return an older cached result with no age limit.                                                                                      |
+| 0j    | Cloudflare deployment                                   | Open    | Nothing is deployed; `bun run preview` does not work with the Cloudflare build.                                                                                  |
+| 0k    | AGENTS.md and README wording                            | Open    | Replace the old no-backend and keyless rules once Phase 18 is approved (needs Sri's OK to edit AGENTS.md).                                                       |
 
 ## Phase 18: Backend foundation
 
@@ -156,6 +156,7 @@ New. Needed before 4k, 5g, 6f, 6h, 9b, 10f and any stored data.
 | 18f   | Shared cache and scheduled jobs (provider cache that survives across isolates, keep-alive for the free Supabase project that pauses, nightly data refresh). Fixes the "per server instance only" limit of pacing and caching. Also the SWIM consumer: a small always-on service that reads the FAA JMS queue and writes NOTAMs to the database. Workers cannot be that long-lived consumer, so it needs somewhere free to run; none has been chosen or researched yet. |
 | 18g   | AI service wrapper over two providers (Workers AI, Gemini): one interface, a budget counter per provider, fallback order (Gemini first, then Workers AI), a cache table that records which provider answered, kill switch, labelled output.                                                                                                                                                                                                                            |
 | 18h   | Privacy basics: what is stored, how long, how to delete it, written in the privacy page (Phase 16e).                                                                                                                                                                                                                                                                                                                                                                   |
+| 18i   | Test accounts and seed data: a fixed set of test users, test reports and sample data for development and for each half-phase test pass, kept in the repo (no real data, no secrets).                                                                                                                                                                                                                                                                                   |
 
 ## Phase 19: Scale and data pipeline
 
@@ -177,19 +178,19 @@ New. Goal: motion that looks continuous and live, like the commercial trackers: 
 
 Why it needs a deliberate delay: today the browser polls every 7 s and moves each aircraft forward by dead reckoning (speed and track), then corrects with an easing step when the next poll arrives. Extrapolating forward is a guess, so planes drift, snap or freeze when data is late. If the display instead shows the world a few seconds in the past, every point on screen sits between two real samples, so it can be interpolated and never guessed. The price is latency: the display runs about one and a half sample intervals behind the data. The sample interval is the lever: with 7 s polling the delay would be about 10 s, with a faster shared feed (Phase 19) it can drop to roughly 3 to 5 s. These numbers are targets to test, not measured. The data itself (receivers, aggregator, our provider) already carries some seconds of delay that we cannot remove, and no source is guaranteed to be gap-free.
 
-| Phase | Work                                                                                                                                                                                                                                                                      |
-| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 20a   | Sample buffer: keep the last samples of every aircraft with their true timestamps (the provider's age of position, not our arrival time), instead of only the latest.                                                                                                     |
-| 20b   | Delayed renderer: draw every aircraft at "now minus delay" by interpolating between its two surrounding samples (position, altitude, heading, speed). Dead reckoning is used only past the newest sample, capped to a few seconds, and then the aircraft is marked stale. |
-| 20c   | Adaptive delay: measure how late samples really arrive (jitter, skipped polls) and set the delay to cover it, with a floor and a ceiling; a "Live / Smooth" setting lets the user trade latency for smoothness.                                                           |
-| 20d   | Gap handling: an aircraft missing from one or two updates stays on screen and keeps moving along its last heading, then fades out after a time limit with its "last seen" age shown; no sudden vanishing and reappearing.                                                 |
-| 20e   | Push instead of poll: the server sends changes to the browser as they arrive (server-sent events or a WebSocket through a Durable Object) from the shared tile cache, instead of every visitor polling. Cuts latency and requests; depends on 19b and 19c.                |
-| 20f   | Change-only updates: send only aircraft that changed since the last update, with compact fields, to keep bandwidth small at faster refresh rates.                                                                                                                         |
-| 20g   | Clock alignment: estimate the offset between browser and server clocks so timestamps compare correctly, and tell the user the current delay (for example "Live, 8 s behind") in the status chip.                                                                          |
-| 20h   | Consistent panel and trails: the selected aircraft's panel values, trail and glide ring come from the same delayed moment as its icon, so numbers and picture agree.                                                                                                      |
-| 20i   | Pan and zoom without holes: prefetch the tiles around the view and keep a short buffer for them, so moving the map does not show an empty area while data loads.                                                                                                          |
-| 20j   | Tests and metrics: simulated feeds with jitter, dropped updates and late packets; count visible jumps, freezes and gaps; a small debug overlay with delay, buffer length and update age.                                                                                  |
-| 20k   | Reuse the buffer for session replay (9a) and for the 30-day replay design (9b).                                                                                                                                                                                           |
+| Phase | Work                                                                                                                                                                                                                                                                              |
+| ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 20a   | Sample buffer: keep the last samples of every aircraft with their true timestamps (the provider's age of position, not our arrival time), instead of only the latest.                                                                                                             |
+| 20b   | Delayed renderer: draw every aircraft at "now minus delay" by interpolating between its two surrounding samples (position, altitude, heading, speed). Dead reckoning is used only past the newest sample, capped to a few seconds, and then the aircraft is marked stale.         |
+| 20c   | Adaptive delay: measure how late samples really arrive (jitter, skipped polls) and set the delay to cover it, with a floor and a ceiling; the default delay is about 10 s (Sri's decision, 2026-11-07), and a "Live / Smooth" setting lets the user trade latency for smoothness. |
+| 20d   | Gap handling: an aircraft missing from one or two updates stays on screen and keeps moving along its last heading, then fades out after a time limit with its "last seen" age shown; no sudden vanishing and reappearing.                                                         |
+| 20e   | Push instead of poll: the server sends changes to the browser as they arrive (server-sent events or a WebSocket through a Durable Object) from the shared tile cache, instead of every visitor polling. Cuts latency and requests; depends on 19b and 19c.                        |
+| 20f   | Change-only updates: send only aircraft that changed since the last update, with compact fields, to keep bandwidth small at faster refresh rates.                                                                                                                                 |
+| 20g   | Clock alignment: estimate the offset between browser and server clocks so timestamps compare correctly, and tell the user the current delay (for example "Live, 8 s behind") in the status chip.                                                                                  |
+| 20h   | Consistent panel and trails: the selected aircraft's panel values, trail and glide ring come from the same delayed moment as its icon, so numbers and picture agree.                                                                                                              |
+| 20i   | Pan and zoom without holes: prefetch the tiles around the view and keep a short buffer for them, so moving the map does not show an empty area while data loads.                                                                                                                  |
+| 20j   | Tests and metrics: simulated feeds with jitter, dropped updates and late packets; count visible jumps, freezes and gaps; a small debug overlay with delay, buffer length and update age.                                                                                          |
+| 20k   | Reuse the buffer for session replay (9a) and for the 30-day replay design (9b).                                                                                                                                                                                                   |
 
 Rules to update when this lands: AGENTS.md says positions are dead-reckoned with an easing correction on each poll, and that polling cadence lives in `use-aircraft-feed.ts`. Both change (needs Sri's OK to edit AGENTS.md).
 
@@ -197,17 +198,19 @@ Rules to update when this lands: AGENTS.md says positions are dead-reckoned with
 
 New. Removing Lovable (15a) also removes its error reporting and editor tooling, and there are currently no automated checks on pull requests.
 
-| Phase | Work                                                                                                                                                                        |
-| ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 21a   | Continuous integration: run test, type check, build and lint on every pull request (GitHub Actions; check its free minutes).                                                |
-| 21b   | Preview deployments per pull request and a staging environment that mirrors production.                                                                                     |
-| 21c   | Error reporting that replaces `lovable-error-reporting.ts`: a free tool or our own endpoint (to evaluate; any third party that receives error data needs a privacy note).   |
-| 21d   | Logging, uptime checks and alerts, including quota alarms for every free tier (Gemini, Workers AI, Supabase, @@21a@@, data providers).                                      |
-| 21e   | Privacy-friendly traffic analytics, or none. Decide first; if used, no cookies and no personal data.                                                                        |
-| 21f   | Database backups and a restore rehearsal.                                                                                                                                   |
-| 21g   | Dependency updates (automated pull requests) and a vulnerability check in CI.                                                                                               |
-| 21h   | Versioning, a changelog and a release process (tags, release notes).                                                                                                        |
-| 21i   | Documentation for contributors: setup, architecture overview, decision records, how to add a data source safely. A `CLAUDE.md` proposal is part of this and needs Sri's OK. |
+| Phase | Work                                                                                                                                                                                                      |
+| ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 21a   | Continuous integration: run test, type check, build and lint on every pull request (GitHub Actions; check its free minutes).                                                                              |
+| 21b   | Preview deployments per pull request and a staging environment that mirrors production.                                                                                                                   |
+| 21c   | Error reporting that replaces `lovable-error-reporting.ts`: a free tool or our own endpoint (to evaluate; any third party that receives error data needs a privacy note).                                 |
+| 21d   | Logging, uptime checks and alerts, including quota alarms for every free tier (Gemini, Workers AI, Supabase, @@21a@@, data providers).                                                                    |
+| 21e   | Privacy-friendly traffic analytics, or none. Decide first; if used, no cookies and no personal data.                                                                                                      |
+| 21f   | Database backups and a restore rehearsal.                                                                                                                                                                 |
+| 21g   | Dependency updates (automated pull requests) and a vulnerability check in CI.                                                                                                                             |
+| 21h   | Versioning, a changelog and a release process (tags, release notes).                                                                                                                                      |
+| 21i   | Documentation for contributors: setup, architecture overview, decision records, how to add a data source safely. A `CLAUDE.md` proposal is part of this and needs Sri's OK.                               |
+| 21j   | Feature flags: unfinished features ship switched off, so each half-phase branch can be merged into `dev` without breaking it. Flags are read on the server and the client; a flag list lives in the repo. |
+| 21k   | Screenshot checks: for every half phase, screenshots of the changed screens at 1280, ~746 and 375 px in both themes, kept with the test report.                                                           |
 
 ## Phase 2f: Descent path
 
@@ -443,6 +446,55 @@ Landing page: where to build it (Decision 8)
 8. **Phase 6b to 6d**, then **6f**, after the legal review.
 9. **Phase 9a, 10b to 10d, 11a, 13, 14**.
 10. **Phase 12**, **Phases 22 and 23** (polish, help and moderation), then **Phase 15** (independence, brand and landing page), **Phase 16** (platform) and **Phase 17** (final testing and release).
+
+## Delivery plan: one branch per half phase
+
+Decision on 2026-11-07: every phase is delivered in two halves. Each half gets its own branch, is tested at the end, and only then becomes a pull request.
+
+Rules:
+
+- **Branch name:** `ide/phase-<number>-half-<1 or 2>`, cut from `origin/dev` (for example `ide/phase-4-half-1`). Phases with a single item use one branch, `ide/phase-<number>`.
+- **Commits:** small, one concern each, with named files staged. Unfinished features sit behind a feature flag (21j) so `dev` always works.
+- **Push once** when the half is finished and tested, by explicit branch name. Never rewrite pushed history.
+- **Test gate before the pull request** (the "half-phase test pass"):
+  1. `bun run test`, `bun x tsc --noEmit`, `bun run build` and `bun run lint` pass (lint: no new warnings).
+  2. A walk through every item of the half in a visible browser at 1280, ~746 and 375 px, with the data-failure and empty states (provider down, quota used up, nothing found).
+  3. New or changed data sources: one real request checked, the terms read, the attribution added to the Credits dialog and the README.
+  4. The plan files, README and roadmap updated for what changed.
+  5. A short report: commits, commands run with counts, what is proven by tests, what is NOT VERIFIED, risks.
+- **Pull request:** targets `dev`, describes the half, includes the report, and says what was not verified. The owner merges. (The Copilot review comment stays paused until Sri resumes it.)
+- **After merge:** fetch, cut the next half from the new `dev`.
+
+Halves by phase (the first half is listed first):
+
+| Phase | Half 1                                                                                | Half 2                                                                                                  |
+| ----- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| 0     | Decisions and terms: 0a to 0d                                                         | Fixes: 0e to 0k (fonts and credits are code; the rest are checks)                                       |
+| 2f    | Descent path (one branch)                                                             |                                                                                                         |
+| 3     | 3c more decoded fields                                                                | 3b live receiver feed (after receiver decisions)                                                        |
+| 4     | 4a to 4f: pages, weather, nearby, active runway, map detail, FAA delays               | 4g to 4k: ATIS and NOTAMs, charts, cameras, brief, security waits                                       |
+| 5     | 5a to 5d: watchlist, alerts, recently viewed, chase-cam                               | 5e to 5g: states, accessibility, sign-in                                                                |
+| 6     | 6b to 6e: browse page, rule-based explanations, original vs summary, own receiver     | 6f to 6i: AI summaries, notifications, history, source categories                                       |
+| 7     | 7a to 7c: radar, timeline, echo tops                                                  | 7d to 7f: lightning, PIREPs and SIGMETs, winds aloft                                                    |
+| 8     | 8a to 8c: route line, terrain profile, TFRs                                           | 8d to 8e: airspace, waypoints                                                                           |
+| 9     | 9a session replay                                                                     | 9b to 9c: 30-day replay, incident history                                                               |
+| 10    | 10b to 10d: alert rules, map-drawn areas, military and government                     | 10e to 10f: natural-language alerts, web push                                                           |
+| 11    | 11a to 11b: stage tracker, inbound aircraft                                           | 11c to 11d: clearance and baggage, lock-screen style updates                                            |
+| 12    | 12a to 12b: silhouettes, 3D aircraft models                                           | 12c: 3D airports                                                                                        |
+| 13    | 13a to 13b: collection, achievements                                                  | 13c to 13d: challenges, aircraft photos                                                                 |
+| 14    | 14a to 14b: flight facts, airport brief                                               | 14c: AI insights                                                                                        |
+| 15    | 15a to 15d: remove Lovable, brand, themes, header and footer                          | 15e to 15h: landing page, share images, metadata, design QA                                             |
+| 16    | 16a to 16d: fonts, deployment, PWA, performance                                       | 16e to 16g: legal pages, end-to-end tests, language                                                     |
+| 17    | 17a to 17c: full feature test, security review, quota drills                          | 17d to 17f: audits, release checklist, soft launch                                                      |
+| 18    | 18a to 18d: platform record, secrets, database, sign-in                               | 18e to 18i: abuse protection, shared cache and jobs, AI wrapper, privacy basics, test data              |
+| 19    | 19a to 19d: measure (done), central ingestion, tile coverage, provider strategy       | 19e to 19g: static data cache, load test, graceful overload                                             |
+| 20    | 20a to 20f: buffer, delayed renderer, adaptive delay, gaps, push, change-only updates | 20g to 20k: clock alignment, consistent panel, pan and zoom, tests and metrics, replay reuse            |
+| 21    | 21a to 21f: CI, previews, error reporting, monitoring, analytics decision, backups    | 21g to 21k: dependency updates, release process, docs, feature flags, screenshot checks                 |
+| 22    | 22a to 22g: shareable links, layers, my location, ruler, saved views, charts, search  | 22h to 22n: aircraft details, settings, shortcuts, fullscreen, export, first-run guide, phone behaviour |
+| 23    | 23a to 23d: help, feedback, what's new, status page                                   | 23e to 23h: moderation, user-content terms, takedown process, press kit                                 |
+| 24    | Post-release: planned separately after launch                                         |                                                                                                         |
+
+Because items depend on each other (for example 4g needs 18f), the build order in "Suggested order" decides which half is cut next, not the phase number.
 
 ## Decisions needed
 
