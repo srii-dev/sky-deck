@@ -52,6 +52,43 @@ export const PROVIDER_MIN_GAP_MS: Record<string, number> = {
 };
 
 const FEED_TTL_MS = 5000;
+/** A cached tile older than this is never served, even when the providers are failing. */
+export const STALE_MAX_MS = 30_000;
+/**
+ * When the first usable provider's pacing queue is longer than this, a cached tile (at most
+ * STALE_MAX_MS old) is served instead of queueing a request that would probably time out.
+ */
+export const SHED_WAIT_MS = 1500;
+/** Provider order used by loadFeedCircle. Keep in sync with it. */
+const FEED_PROVIDER_ORDER = ["adsb.lol", "airplanes.live"] as const;
+
+export interface FeedStats {
+  /** Answered from a fresh cache entry. */
+  hits: number;
+  /** No fresh entry: went on to fetch or to share a running fetch. */
+  misses: number;
+  /** Misses that waited for another caller's running fetch. */
+  shared: number;
+  /** Answered from an older cache entry to avoid waiting on a busy provider. */
+  shed: number;
+  /** Real upstream fetches started. */
+  upstream: number;
+  /** A failed fetch answered from an older cache entry (at most STALE_MAX_MS old). */
+  staleOnError: number;
+}
+const freshStats = (): FeedStats => ({
+  hits: 0,
+  misses: 0,
+  shared: 0,
+  shed: 0,
+  upstream: 0,
+  staleOnError: 0,
+});
+let feedStats = freshStats();
+/** Counters for this server instance only (for load tests and logs). */
+export function getFeedStats(): FeedStats {
+  return { ...feedStats };
+}
 /** A waiter gives up this long after the feed deadline if the shared request never settles. */
 const WAITER_MARGIN_MS = 500;
 const feedCache = new Map<string, CacheEntry<FeedResponse>>();
@@ -59,6 +96,7 @@ const feedCache = new Map<string, CacheEntry<FeedResponse>>();
 export function resetAdsbSourceState() {
   sourceBackoff.clear();
   feedCache.clear();
+  feedStats = freshStats();
   resetInflight();
   resetPacing();
 }
@@ -285,13 +323,37 @@ function busyFeed(at: number): FeedResponse {
   };
 }
 
+/** A cached response aged by `ageMs`: `seenPos` grows by the age so dead reckoning stays correct. */
+function withAge(value: FeedResponse, ageMs: number): FeedResponse {
+  if (ageMs < 500) return { ...value };
+  const s = ageMs / 1000;
+  return {
+    ...value,
+    ageMs,
+    aircraft: value.aircraft.map((a) => ({ ...a, seenPos: a.seenPos + s })),
+  };
+}
+
+/** True when the first usable provider would make a new request wait longer than SHED_WAIT_MS. */
+function providerQueueTooLong(now: number, deps?: SourceDeps): boolean {
+  for (const name of FEED_PROVIDER_ORDER) {
+    if (coolingDown(name, now)) continue;
+    const gap = deps?.paceGapMs ?? PROVIDER_MIN_GAP_MS[name] ?? 0;
+    if (gap <= 0) return false;
+    return pacingWait(name, now) > SHED_WAIT_MS;
+  }
+  return false;
+}
+
 /**
  * Cached + coalesced feed lookup. `lat`, `lon` and `radiusNm` are already snapped by the caller;
  * the cache key is exactly `${lat},${lon},${radiusNm}` as before.
- * - Fresh cache hit: returned without any upstream request.
+ * - Fresh cache hit: returned without any upstream request, aged by its cache age.
+ * - Busy provider (long pacing queue) and a cached tile at most STALE_MAX_MS old: that tile is
+ *   returned instead of waiting.
  * - Same key already in flight in this instance: wait for that request instead of starting another.
- * - Failed results are never cached. On failure an older cached result (if any) is returned with
- *   `busy: true` and the busy message, for every caller.
+ * - Failed results are never cached. On failure a cached result at most STALE_MAX_MS old (if any)
+ *   is returned with `busy: true` and the busy message, for every caller.
  * Each caller gets its own response object built from the shared plain data.
  */
 export async function loadFeedCached(
@@ -303,11 +365,23 @@ export async function loadFeedCached(
   const clock = deps?.now ?? Date.now;
   const key = `${lat},${lon},${radiusNm}`;
   const hit = feedCache.get(key);
-  if (hit && clock() - hit.at < FEED_TTL_MS) return { ...hit.value };
+  const age = hit ? clock() - hit.at : Infinity;
+  if (hit && age < FEED_TTL_MS) {
+    feedStats.hits++;
+    return withAge(hit.value, age);
+  }
+  if (hit && age <= STALE_MAX_MS && providerQueueTooLong(clock(), deps)) {
+    feedStats.shed++;
+    return withAge(hit.value, age);
+  }
 
+  feedStats.misses++;
+  let started = false;
   const value = await coalesce(
     key,
     async () => {
+      started = true;
+      feedStats.upstream++;
       const v = await loadFeedCircle(lat, lon, radiusNm, deps);
       if (!v.error) {
         prune(feedCache, FEED_TTL_MS, 200, clock());
@@ -320,8 +394,15 @@ export async function loadFeedCached(
       onTimeout: () => busyFeed(clock()),
     },
   );
+  if (!started) feedStats.shared++;
   if (!value.error) return { ...value };
-  if (hit) return { ...hit.value, busy: true, error: DATA_BUSY_MESSAGE };
+  if (hit) {
+    const ageNow = clock() - hit.at;
+    if (ageNow <= STALE_MAX_MS) {
+      feedStats.staleOnError++;
+      return { ...withAge(hit.value, ageNow), busy: true, error: DATA_BUSY_MESSAGE };
+    }
+  }
   return { ...value };
 }
 
