@@ -162,6 +162,18 @@ export function pickFresherAircraft<T extends { seenPos: number }>(prev: T, next
 /** User-facing message when live ADS-B providers fail to respond. */
 export const DATA_BUSY_MESSAGE = "Live data is busy. Retrying…";
 
+/**
+ * While every provider fails, the last good aircraft stay on screen for this long (the map stops
+ * moving them after 40 s and the status chip shows the age), then the list is cleared so the map
+ * never shows planes that may have landed minutes ago.
+ */
+export const LAST_GOOD_MAX_MS = 120_000;
+
+/** Whether the last good aircraft may still be shown `ageMs` after they were fetched. */
+export function lastGoodUsable(ageMs: number | null): boolean {
+  return ageMs != null && ageMs >= 0 && ageMs <= LAST_GOOD_MAX_MS;
+}
+
 export function resolveFeedNotices(input: {
   circles: number;
   failed: number;

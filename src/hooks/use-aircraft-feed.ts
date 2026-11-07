@@ -7,6 +7,7 @@ import {
   nextEmergencyMemory,
   presentEmergency,
   pickFresherAircraft,
+  lastGoodUsable,
   resolveFeedNotices,
   type Aircraft,
   type EmergencyMemory,
@@ -248,7 +249,13 @@ export function useAircraftFeed(viewport: Viewport | null, selectedHex: string |
             aircraft = r.merged.map((m) => presentEmergency(m.aircraft, emergencyRef.current));
           }
           setState((prev) => ({
-            aircraft: r.fetchedAt == null && prev.aircraft.length ? prev.aircraft : aircraft,
+            // Every provider failed: keep the last good aircraft for a while, then clear them.
+            aircraft:
+              r.fetchedAt == null && prev.aircraft.length
+                ? lastGoodUsable(prev.fetchedAt == null ? null : Date.now() - prev.fetchedAt)
+                  ? prev.aircraft
+                  : []
+                : aircraft,
             source: r.source ?? prev.source,
             fetchedAt: r.fetchedAt ?? prev.fetchedAt,
             error: r.error,
