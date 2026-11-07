@@ -1,0 +1,20 @@
+version: 2
+
+# Pull requests go to dev, never to main. Updates are grouped so there is one PR per week per kind.
+updates:
+  - package-ecosystem: bun
+    directory: /
+    target-branch: dev
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    target-branch: dev
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3

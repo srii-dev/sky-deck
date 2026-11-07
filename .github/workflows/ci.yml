@@ -19,14 +19,20 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      # Actions are pinned to a commit hash (the tag is in the comment). Dependabot keeps them current.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
-      - uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
       # bun.lock is the source of truth: fail if package.json and the lockfile disagree.
       - run: bun install --frozen-lockfile
       - run: bun run test
       - run: bun x tsc --noEmit
       - run: bun run lint
       - run: bun run build
+      # Vulnerability report. Informational for now (it does not fail the run) because known
+      # issues in development tools are still open; make it blocking once they are cleared.
+      - name: Dependency audit (informational)
+        continue-on-error: true
+        run: bun audit
