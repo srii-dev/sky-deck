@@ -17,14 +17,16 @@ Known issues:
 
 - Wide-view throttling is reduced, not gone. Nearest three circles are fetched every poll; farther circles every other poll, and their last positions stay on the map. On one eastern North America view, mean failed circles on the five steady refreshes fell from 3.4 to 1.0, and aircraft stayed about 1400. A cold reload while providers were cooling logged 0 aircraft once. Logged statuses were 429 and 403, not timeouts or 5xx, so back-off is still immediate. Far-circle emergency confirmation is slower (about 14 to 21 seconds) because a cached sample does not count.
 - `bun run preview` fails because the production build targets Cloudflare and does not emit `dist/server/server.js`.
-- Lint: 81 problems (72 Prettier errors, 9 warnings: 6 `react-refresh/only-export-components`, 3 unused `react-hooks/exhaustive-deps` disables). Not fixed.
-- The MapLibre chunk is over 500 kB (`FlightMap` about 1077 kB in the latest production build).
+- Lint: 0 errors and 8 warnings (the Phase 1 Prettier errors were fixed later). The warnings are `react-refresh` notes in shadcn files, an unused `eslint-disable` directive in `FlightMap.tsx` and a missing-dependency note. Not fixed.
+- The MapLibre chunk is over 500 kB (`FlightMap` about 1056 kB in the latest production build).
+
+Built after Phase 1 (see the README for details): glide-range ring, reachable airports, ADS-B message inspector, on-demand ACARS messages, request pacing and sharing, and the in-app credits dialog.
 
 Planned, not built:
 
-- Glide range and reachable airports
-- ADS-B decoder
-- ACARS
-- Airport pages
+- ADS-B inspector fed by your own receiver
+- ACARS browse page
+- Airport pages (weather, security wait times)
 - Replay
-- Alerts
+- Plain-English alerts and a watchlist
+- Expanded aircraft silhouettes
