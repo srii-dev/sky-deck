@@ -1,0 +1,33 @@
+# Changelog
+
+All notable changes to SkyDeck. The format follows [Keep a Changelog](https://keepachangelog.com/), and the project will use [Semantic Versioning](https://semver.org/) from the first release (see CONTRIBUTING.md, "Releases"). Nothing has been released yet, so everything below is under Unreleased.
+
+## Unreleased
+
+### Added
+
+- Live 3D flight map with aircraft panel, category icons, search, filters, altitude-coloured trails, units and emergency squawk alerts (Phase 1).
+- Glide-range ring, reachable airports in the panel and on the map, about 4,500 airports loaded on demand, and a "nearest in range" line (Phases 2a to 2e, #2, #4 to #7).
+- ADS-B message inspector for pasted Mode S frames, linked from the Filters menu (Phase 3a, #8, #9).
+- On-demand ACARS messages for the selected aircraft from the public Airframes API (#10).
+- Credits and data sources dialog (#14).
+- Continuous integration on pull requests, `GET /api/health`, and browser error reports written to the server log (#19).
+- Feature flags for shipping unfinished work switched off.
+- Dependabot configuration and a dependency audit step in CI.
+
+### Changed
+
+- Zoomed-in views request fixed shared tiles; cached tiles are aged, and a busy provider is answered from a tile up to 30 s old (#17).
+- Requests to each data provider are spaced out, and identical in-flight requests are shared (#3).
+- The last good aircraft stay on screen for up to 2 minutes when every provider fails (#18).
+- The route lookup answers with a one-hour browser cache header (#18).
+- The status chip says "Loading" before the first response, and the search placeholder fits a 375 px screen (#15).
+
+### Removed
+
+- OpenSky Network as a data provider (its terms require a written licence for live use) (#13).
+
+### Fixed
+
+- A failed feed request no longer falls back to a cached result of any age; the limit is 30 s (#17).
+- The Filters button no longer wraps to a second row while loading at 1280 px, and the map credit no longer runs over the altitude legend on phones (#15).
