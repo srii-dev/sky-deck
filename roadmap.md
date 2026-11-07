@@ -20,13 +20,28 @@ Known issues:
 - Lint: 0 errors and 8 warnings (the Phase 1 Prettier errors were fixed later). The warnings are `react-refresh` notes in shadcn files, an unused `eslint-disable` directive in `FlightMap.tsx` and a missing-dependency note. Not fixed.
 - The MapLibre chunk is over 500 kB (`FlightMap` about 1056 kB in the latest production build).
 
-Built after Phase 1 (see the README for details): glide-range ring, reachable airports, ADS-B message inspector, on-demand ACARS messages, request pacing and sharing, and the in-app credits dialog.
+## Phase map
 
-Planned, not built:
+The full plan, with what each feature needs and what happens when its data is missing, is in [`dev-plan.md`](dev-plan.md). Short version:
 
-- ADS-B inspector fed by your own receiver
-- ACARS browse page
-- Airport pages (weather, security wait times)
-- Replay
-- Plain-English alerts and a watchlist
-- Expanded aircraft silhouettes
+| Phase    | Area                                                                                | Status                                  |
+| -------- | ----------------------------------------------------------------------------------- | --------------------------------------- |
+| 1        | Live map, panel, icons, search, filters, fallback                                   | Done                                    |
+| 2a to 2e | Glide ring, reachable airports, large airport list, nearest line                    | Done                                    |
+| 2f       | Descent path                                                                        | Open, scope to confirm                  |
+| 3a       | ADS-B message inspector (pasted frames)                                             | Done                                    |
+| 3b, 3c   | Live receiver feed, more decoded fields                                             | Open (3b gated on receiver decisions)   |
+| 4        | Airports: pages, weather, nearby, charts, cameras, FAA status, security waits       | Open (security waits need a backend)    |
+| 5        | Watchlist, alerts, chase-cam, polish, sign-in                                       | Open (sign-in needs a backend)          |
+| 6        | ACARS: card done (6a, earlier called "4a"); browse page, explanations, own receiver | 6a done, rest open (legal review first) |
+| 7        | Weather layers (radar, lightning, PIREPs)                                           | Open, sources unverified                |
+| 8        | Routes, terrain profile, TFRs, airspace                                             | Open                                    |
+| 9        | Replay and aircraft incident history                                                | Open (30-day replay needs a backend)    |
+| 10       | Alert rules, map-drawn areas, military and government aircraft                      | Open                                    |
+| 11       | My flights                                                                          | Open, needs schedule data               |
+| 12       | 3D visuals and silhouettes                                                          | Open                                    |
+| 13       | Collection and achievements                                                         | Open                                    |
+| 14       | Insights (rule-based first)                                                         | Open                                    |
+| 15       | Platform: fonts, deployment, PWA, legal pages, tests                                | Open                                    |
+
+Before any public launch: settle the Esri imagery terms, airplanes.live access, Airframes terms and the ACARS legal review (Phase 0 in `dev-plan.md`).
