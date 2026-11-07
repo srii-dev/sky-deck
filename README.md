@@ -137,7 +137,7 @@ Done and planned:
 - The app name lives in one place: `src/config/brand.ts`.
 - Pull requests are checked by GitHub Actions (`.github/workflows/ci.yml`: install, test, type check, lint, build). Run the same four commands locally before opening one.
 - `GET /api/health` answers 200 while the server is running (for uptime checks). Browser errors that reach the root error boundary are written to the server log as `[client-error]` lines.
-- Architecture rules for contributors and coding agents are in `AGENTS.md`.
+- Architecture rules for contributors and coding agents are in `AGENTS.md`. `CONTRIBUTING.md` explains how to set up, test and submit changes, `ARCHITECTURE.md` maps the code, and `CHANGELOG.md` lists changes. The phase plan is in `dev-plan.md`.
 
 ## Disclaimer
 
