@@ -13,6 +13,7 @@ import { CreditsDialog } from "@/components/skydeck/CreditsDialog";
 import { EmergencyBanner } from "@/components/skydeck/EmergencyBanner";
 import { AltitudeLegend } from "@/components/skydeck/AltitudeLegend";
 import { AircraftTypesLegend } from "@/components/skydeck/AircraftTypesLegend";
+import { MapTools } from "@/components/skydeck/MapTools";
 import type { Basemap, FlyTarget, Viewport } from "@/components/skydeck/map-config";
 import type { GlideStatus } from "@/components/skydeck/FlightMap";
 import { useAircraftFeed } from "@/hooks/use-aircraft-feed";
@@ -24,6 +25,7 @@ import {
   type Aircraft,
   type Filters,
 } from "@/lib/aircraft";
+import { buildShareSearch, parseShareParams } from "@/lib/share-link";
 import { UNIT_LABELS, type UnitSystem } from "@/lib/units";
 import { APP_NAME, APP_TAGLINE } from "@/config/brand";
 
@@ -127,6 +129,13 @@ function SkyDeck() {
     }
   }, [units, basemap]);
 
+  // A shared link may carry a basemap and a selected aircraft (the map reads the view itself).
+  useEffect(() => {
+    const s = parseShareParams(window.location.search);
+    if (s.basemap) setBasemap(s.basemap);
+    if (s.hex) setSelectedHex(s.hex);
+  }, []);
+
   // Debounce viewport changes so panning doesn't spam the feed.
   const [pendingViewport, setPendingViewport] = useState<Viewport | null>(null);
   useEffect(() => {
@@ -135,6 +144,44 @@ function SkyDeck() {
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingViewport]);
+
+  // The address bar always describes the current view, so copying it shares that view.
+  const currentView = pendingViewport ?? viewport;
+  const shareHex = selectedHex && !selectedHex.startsWith("mock-") ? selectedHex : undefined;
+  const buildSearch = useCallback(
+    (existing: string) =>
+      currentView && currentView.zoom !== undefined
+        ? buildShareSearch(
+            {
+              lat: currentView.lat,
+              lon: currentView.lon,
+              zoom: currentView.zoom,
+              pitch: currentView.pitch,
+              bearing: currentView.bearing,
+              hex: shareHex,
+              basemap,
+            },
+            existing,
+          )
+        : null,
+    [currentView, shareHex, basemap],
+  );
+  useEffect(() => {
+    const t = setTimeout(() => {
+      const search = buildSearch(window.location.search);
+      if (search === null) return;
+      window.history.replaceState(
+        window.history.state,
+        "",
+        `${window.location.pathname}?${search}${window.location.hash}`,
+      );
+    }, 500);
+    return () => clearTimeout(t);
+  }, [buildSearch]);
+  const getShareUrl = useCallback(() => {
+    const search = buildSearch(window.location.search);
+    return `${window.location.origin}${window.location.pathname}${search ? `?${search}` : ""}`;
+  }, [buildSearch]);
 
   const feed = useAircraftFeed(viewport, selectedHex?.startsWith("mock-") ? null : selectedHex);
 
@@ -357,6 +404,14 @@ function SkyDeck() {
             </PopoverContent>
           </Popover>
         </div>
+      </div>
+
+      {/* Map tools: share link, my location, saved views */}
+      <div
+        className="pointer-events-none absolute left-3 z-10"
+        style={{ top: "calc(var(--hud-h, 76px) + 8px)" }}
+      >
+        <MapTools view={currentView} onFly={flyTo} getShareUrl={getShareUrl} />
       </div>
 
       {/* Emergency alert */}

@@ -31,6 +31,7 @@ import {
   reachableAirports,
   reachableAirportsGeoJSON,
 } from "@/lib/reachable-airports";
+import { parseShareParams } from "@/lib/share-link";
 import { buildPlaneSdf, buildSvgSdf } from "./plane-icon";
 import { LEGEND_KINDS, svgMarkup } from "./aircraft-icons";
 import {
@@ -757,6 +758,18 @@ export default function FlightMap(props: FlightMapProps) {
     } catch {
       /* ignore */
     }
+    // A shared link wins over the view remembered in this browser.
+    const shared = parseShareParams(window.location.search);
+    if (shared.lat !== undefined && shared.lon !== undefined) {
+      initial = {
+        ...initial,
+        lat: shared.lat,
+        lon: shared.lon,
+        zoom: shared.zoom ?? initial.zoom,
+        pitch: shared.pitch ?? initial.pitch,
+        bearing: shared.bearing ?? initial.bearing,
+      };
+    }
 
     const map = new MLMap({
       container: containerRef.current,
@@ -813,6 +826,9 @@ export default function FlightMap(props: FlightMapProps) {
         lat: c.lat,
         lon: ((((c.lng + 180) % 360) + 360) % 360) - 180,
         radiusNm: Math.max(5, Math.min(250, r)),
+        zoom: map.getZoom(),
+        pitch: map.getPitch(),
+        bearing: map.getBearing(),
         bounds: { north: ne.lat, south: sw.lat, east: ne.lng, west: sw.lng },
       });
       try {

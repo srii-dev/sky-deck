@@ -6,6 +6,10 @@ export interface Viewport {
   lat: number;
   lon: number;
   radiusNm: number;
+  /** Camera state, used for shareable links and saved views. */
+  zoom?: number | undefined;
+  pitch?: number | undefined;
+  bearing?: number | undefined;
   /** Visible map bounds (longitudes may be unwrapped past ±180). */
   bounds?: { north: number; south: number; east: number; west: number } | undefined;
 }
