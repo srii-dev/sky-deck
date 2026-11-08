@@ -410,7 +410,7 @@ function SkyDeck() {
       {/* Top HUD */}
       <div
         ref={hudRef}
-        className="pointer-events-none absolute inset-x-0 top-0 z-20 flex flex-col gap-2 p-3 md:flex-row md:items-start"
+        className="pointer-events-none absolute inset-x-0 top-0 z-20 flex flex-col gap-2 p-3 pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))] pt-[max(0.75rem,env(safe-area-inset-top))] md:flex-row md:flex-wrap md:items-start lg:flex-nowrap"
       >
         <div className="glass-panel pointer-events-auto flex h-11 items-center gap-4 rounded-md px-3">
           <div className="flex items-baseline gap-1.5">
@@ -443,15 +443,22 @@ function SkyDeck() {
               onValueChange={(v) => v && setBasemap(v as Basemap)}
               aria-label="Map style"
             >
-              <ToggleGroupItem value="dark">Dark</ToggleGroupItem>
-              <ToggleGroupItem value="satellite">Sat</ToggleGroupItem>
-              <ToggleGroupItem value="light">Light</ToggleGroupItem>
+              <ToggleGroupItem value="dark" className="max-md:h-10 max-md:min-w-10">
+                Dark
+              </ToggleGroupItem>
+              <ToggleGroupItem value="satellite" className="max-md:h-10 max-md:min-w-10">
+                Sat
+              </ToggleGroupItem>
+              <ToggleGroupItem value="light" className="max-md:h-10 max-md:min-w-10">
+                Light
+              </ToggleGroupItem>
             </ToggleGroup>
           </div>
           <div className="glass-panel flex h-11 items-center rounded-md px-1">
             <Button
               variant="hud"
               size="sm"
+              className="max-md:h-10 max-md:min-w-10"
               data-active={terrain}
               onClick={() => setTerrain((t) => !t)}
               aria-pressed={terrain}
@@ -466,6 +473,7 @@ function SkyDeck() {
             <Button
               variant="hud"
               size="sm"
+              className="max-md:h-10 max-md:min-w-10"
               data-active={trail3d}
               onClick={() => setTrail3d((t) => !t)}
               aria-pressed={trail3d}
@@ -478,7 +486,8 @@ function SkyDeck() {
               </span>
             </Button>
           </div>
-          <div className="glass-panel flex h-11 items-center rounded-md px-1">
+          {/* On phones the units live in Settings; this saves a whole HUD row. */}
+          <div className="glass-panel flex h-11 items-center rounded-md px-1 max-md:hidden">
             <ToggleGroup
               type="single"
               variant="hud"
@@ -549,7 +558,7 @@ function SkyDeck() {
 
       {/* Map tools: share link, my location, saved views */}
       <div
-        className="pointer-events-none absolute left-3 z-10"
+        className="pointer-events-none absolute left-[max(0.75rem,env(safe-area-inset-left))] z-10"
         style={{ top: "calc(var(--hud-h, 76px) + 8px)" }}
       >
         <MapTools
@@ -623,9 +632,9 @@ function SkyDeck() {
 
       {
         <div
-          className={`pointer-events-none absolute bottom-3 left-3 z-20 ${selected ? "hidden md:block" : ""}`}
+          className={`pointer-events-none absolute bottom-[max(0.75rem,env(safe-area-inset-bottom))] left-[max(0.75rem,env(safe-area-inset-left))] z-20 ${selected ? "hidden md:block" : ""}`}
         >
-          <div className="mb-2 hidden md:block">
+          <div className="mb-2 hidden md:block [@media(max-height:480px)]:hidden">
             <AircraftTypesLegend />
           </div>
           <AltitudeLegend units={units} />

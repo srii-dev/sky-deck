@@ -249,6 +249,13 @@
     max-width: calc(100vw - 224px);
   }
 }
+/* Touch screens: the zoom and compass buttons are 29 px by default, too small for a thumb. */
+@media (pointer: coarse) {
+  .maplibregl-ctrl.maplibregl-ctrl-group button {
+    width: 40px;
+    height: 40px;
+  }
+}
 .maplibregl-ctrl-attrib a {
   color: var(--muted-foreground) !important;
 }
