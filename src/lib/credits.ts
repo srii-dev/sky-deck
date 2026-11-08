@@ -75,7 +75,8 @@ export const CREDITS: readonly CreditEntry[] = [
     id: "awc",
     group: "Aircraft and flight data",
     name: "NOAA Aviation Weather Center",
-    usedFor: "Airport weather (METAR, TAF), runways and elevation on airport pages",
+    usedFor:
+      "Airport weather (METAR, TAF), runways and elevation on airport pages; SIGMETs, AIRMETs and pilot reports on the map",
     credit: "Weather data from the NOAA Aviation Weather Center (aviationweather.gov).",
     licence:
       "US government data. Its data API page (read 2026-11-08) asks for small, infrequent requests, at most 100 a minute, with a custom User-Agent, and does not allow calls from other websites' pages, so SkyDeck calls it from its server and caches the answers. The page states no licence, attribution wording or commercial-use rule.",
@@ -83,6 +84,30 @@ export const CREDITS: readonly CreditEntry[] = [
       { label: "aviationweather.gov", href: "https://aviationweather.gov" },
       { label: "Data API usage notes", href: "https://aviationweather.gov/data/api/" },
     ],
+  },
+  {
+    id: "rainviewer",
+    group: "Aircraft and flight data",
+    name: "RainViewer",
+    usedFor: "Precipitation radar on the map, with a timeline of past frames",
+    credit: "Radar data from RainViewer (rainviewer.com).",
+    licence:
+      "Free for personal and educational use only, with no availability guarantee, as its API page states (read 2026-11-08). It asks for the source to be named with a link. SkyDeck is a non-commercial hobby project; this would need to be revisited before any commercial use.",
+    links: [
+      { label: "rainviewer.com", href: "https://www.rainviewer.com/" },
+      { label: "RainViewer API", href: "https://www.rainviewer.com/api.html" },
+    ],
+  },
+  {
+    id: "iem-echo-tops",
+    group: "Aircraft and flight data",
+    name: "Iowa Environmental Mesonet",
+    usedFor: "Echo tops (storm height) over the US",
+    credit:
+      "Echo-top imagery from the Iowa Environmental Mesonet (Iowa State University), built from NEXRAD radar.",
+    licence:
+      "NEXRAD data are US government data. The Mesonet's own disclaimer page was NOT read in full (2026-11-08), so its terms for this use are not confirmed.",
+    links: [{ label: "mesonet.agron.iastate.edu", href: "https://mesonet.agron.iastate.edu" }],
   },
   {
     id: "faa-nas",
