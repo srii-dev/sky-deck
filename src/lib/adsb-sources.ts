@@ -1,4 +1,5 @@
 import { DATA_BUSY_MESSAGE, type Aircraft, type FeedResponse } from "./aircraft";
+import { isMilitaryFlag, parseYear } from "./aircraft-details";
 import { classifyAircraft } from "./aircraft-kind";
 import {
   coalesce,
@@ -188,7 +189,9 @@ type RawKeys =
   | "t"
   | "track"
   | "true_heading"
-  | "ownOp";
+  | "ownOp"
+  | "year"
+  | "dbFlags";
 type Raw = Partial<Record<RawKeys, unknown>>;
 
 function fromReadsb(ac: Raw): Aircraft | null {
@@ -209,6 +212,8 @@ function fromReadsb(ac: Raw): Aircraft | null {
     type,
     description: str(ac.desc),
     operator: str(ac.ownOp),
+    ...(parseYear(ac.year) != null ? { year: parseYear(ac.year) } : {}),
+    ...(isMilitaryFlag(ac.dbFlags) ? { military: true } : {}),
     lat,
     lon,
     altFt,

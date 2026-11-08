@@ -16,6 +16,7 @@ import {
   type Aircraft,
 } from "@/lib/aircraft";
 import { airlineName } from "@/lib/airlines";
+import { aircraftDetailFields } from "@/lib/aircraft-details";
 import {
   compassPoint,
   fmtAltitude,
@@ -230,6 +231,32 @@ export function AircraftPanel(props: Props) {
         <Cell label="Type">{a.type ?? "—"}</Cell>
         <Cell label="Category">{a.kindLabel}</Cell>
         <Cell label="Position age">{`${Math.round(a.seenPos)}s`}</Cell>
+      </div>
+
+      <div className="rounded-md border border-border/60 bg-background/40 px-3 py-3">
+        <div className="hud-label mb-2">About this aircraft</div>
+        <dl className="space-y-1.5 text-sm">
+          {aircraftDetailFields(a, new Date()).map((f) => (
+            <div key={f.label} className="flex items-baseline justify-between gap-3">
+              <dt className="shrink-0 text-xs text-muted-foreground">{f.label}</dt>
+              <dd
+                className={cn(
+                  "min-w-0 text-right",
+                  f.known ? "text-foreground" : "text-muted-foreground",
+                )}
+              >
+                {f.value}
+                {f.note && (
+                  <span className="block text-[11px] text-muted-foreground">{f.note}</span>
+                )}
+              </dd>
+            </div>
+          ))}
+        </dl>
+        <p className="mt-2 text-[11px] leading-snug text-muted-foreground">
+          From the live feed&apos;s aircraft database. Many aircraft have no entry, so Unknown is
+          common.
+        </p>
       </div>
 
       <FlightCharts trail={props.trail} units={props.units} />
