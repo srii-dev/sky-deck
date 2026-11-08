@@ -50,6 +50,13 @@ describe("credits data", () => {
     );
   });
 
+  it("credits the airport sources and describes their usage notes, not a generic line", () => {
+    expect(byId("atis-info").links.map((l) => l.href)).toContain("https://atis.info");
+    expect(byId("awc").licence).toMatch(/100 a minute/);
+    expect(byId("awc").links.map((l) => l.href)).toContain("https://aviationweather.gov/data/api/");
+    expect(byId("faa-nas").licence).toMatch(/no licence/);
+  });
+
   it("credits only the sources the app actually uses (OpenSky was removed)", () => {
     const text = JSON.stringify(CREDITS).toLowerCase();
     expect(text).not.toContain("opensky");

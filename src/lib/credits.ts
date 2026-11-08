@@ -77,8 +77,12 @@ export const CREDITS: readonly CreditEntry[] = [
     name: "NOAA Aviation Weather Center",
     usedFor: "Airport weather (METAR, TAF), runways and elevation on airport pages",
     credit: "Weather data from the NOAA Aviation Weather Center (aviationweather.gov).",
-    licence: "US government data. See the Aviation Weather Center's site for its usage notes.",
-    links: [{ label: "aviationweather.gov", href: "https://aviationweather.gov" }],
+    licence:
+      "US government data. Its data API page (read 2026-11-08) asks for small, infrequent requests, at most 100 a minute, with a custom User-Agent, and does not allow calls from other websites' pages, so SkyDeck calls it from its server and caches the answers. The page states no licence, attribution wording or commercial-use rule.",
+    links: [
+      { label: "aviationweather.gov", href: "https://aviationweather.gov" },
+      { label: "Data API usage notes", href: "https://aviationweather.gov/data/api/" },
+    ],
   },
   {
     id: "faa-nas",
@@ -86,8 +90,19 @@ export const CREDITS: readonly CreditEntry[] = [
     name: "FAA NAS Status",
     usedFor: "Airport delays, ground delay programs and closure notices",
     credit: "Airport status from the FAA National Airspace System Status service.",
-    licence: "US government data. See the FAA's site for its usage notes.",
+    licence:
+      "US government data. The NAS Status site and its XML feed (read 2026-11-08) state no licence, rate limit or attribution wording; the site links only to FAA privacy, accessibility and contact pages. SkyDeck reads the feed from its server and caches it for a minute.",
     links: [{ label: "nasstatus.faa.gov", href: "https://nasstatus.faa.gov" }],
+  },
+  {
+    id: "atis-info",
+    group: "Aircraft and flight data",
+    name: "atis.info",
+    usedFor: "Current digital ATIS text on airport pages",
+    credit: "Digital ATIS text from atis.info (a third-party service titled FAA Digital ATIS).",
+    licence:
+      "atis.info documents its API but states no licence, terms or attribution wording (page and API docs read 2026-11-08). It is a small third-party service, so SkyDeck reads it from its server, caches answers for a few minutes and shows ATIS as information only.",
+    links: [{ label: "atis.info", href: "https://atis.info" }],
   },
   {
     id: "ourairports",

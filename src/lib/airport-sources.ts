@@ -1,9 +1,11 @@
 import {
   parseAirportInfo,
+  parseAtis,
   parseMetar,
   parseNasStatus,
   parseTaf,
   type AirportInfo,
+  type AtisReport,
   type Metar,
   type NasEvent,
   type Taf,
@@ -23,9 +25,19 @@ export const NAS_URL = "https://nasstatus.faa.gov/api/airport-status-information
 const UA = "SkyDeck/1.0 (hobby flight tracker; educational use)";
 const TIMEOUT_MS = 6000;
 
+/**
+ * Digital ATIS (Phase 4g). datis.clowd.io redirects here (checked 2026-11-08), so we call the target
+ * directly. It answers 404 {"error":"No results found"} for airports without a D-ATIS.
+ */
+export const ATIS_BASE = "https://atis.info/api";
+
 export const INFO_TTL_MS = 12 * 60 * 60 * 1000;
 export const WEATHER_TTL_MS = 2 * 60 * 1000;
 export const NAS_TTL_MS = 60 * 1000;
+/** ATIS broadcasts change about every half hour to hour. */
+export const ATIS_TTL_MS = 2 * 60 * 1000;
+/** "No D-ATIS here" rarely changes, so ask less often. */
+export const ATIS_NONE_TTL_MS = 15 * 60 * 1000;
 
 export interface AirportBrief {
   icao: string;
@@ -47,11 +59,13 @@ export interface AirportDeps {
 const infoCache = new Map<string, CacheEntry<AirportInfo | null>>();
 const weatherCache = new Map<string, CacheEntry<{ metar: Metar | null; taf: Taf | null }>>();
 let nasCache: CacheEntry<string> | null = null;
+const atisCache = new Map<string, CacheEntry<AtisReport[]>>();
 
 export function resetAirportSourceState() {
   infoCache.clear();
   weatherCache.clear();
   nasCache = null;
+  atisCache.clear();
 }
 
 async function getTextOnce(url: string, deps: AirportDeps): Promise<string> {
@@ -166,4 +180,44 @@ export async function loadAirportBrief(
 
   const [info, weather, nas] = await Promise.all([infoP, weatherP, nasP]);
   return { icao, info, metar: weather.metar, taf: weather.taf, nas, failed, fetchedAt: now() };
+}
+
+export interface AirportAtis {
+  icao: string;
+  /** Current reports; [] when this airport has no D-ATIS; null when the service could not be reached. */
+  atis: AtisReport[] | null;
+  fetchedAt: number;
+}
+
+/**
+ * D-ATIS for one airport. Kept apart from loadAirportBrief so a slow or failing third-party service
+ * never delays the weather and FAA status. One attempt, no retry: the panel asks again on its own.
+ */
+export async function loadAirportAtis(
+  icaoIn: string,
+  deps: AirportDeps = {},
+): Promise<AirportAtis> {
+  const now = deps.now ?? Date.now;
+  const icao = icaoIn.trim().toUpperCase();
+  const t0 = now();
+  const hit = atisCache.get(icao);
+  if (hit) {
+    const ttl = hit.value.length ? ATIS_TTL_MS : ATIS_NONE_TTL_MS;
+    if (t0 - hit.at < ttl) return { icao, atis: hit.value, fetchedAt: t0 };
+  }
+  try {
+    let atis: AtisReport[] = [];
+    try {
+      atis = parseAtis(JSON.parse(await getTextOnce(ATIS_BASE + "/" + icao, deps)) as unknown);
+    } catch (err) {
+      // 404 is the service's way of saying "no D-ATIS at this airport", not a failure.
+      if ((err as { status?: number }).status !== 404) throw err;
+    }
+    prune(atisCache, ATIS_NONE_TTL_MS, 1000, t0);
+    atisCache.set(icao, { at: t0, value: atis });
+    return { icao, atis, fetchedAt: now() };
+  } catch (err) {
+    logFailure("atis", err);
+    return { icao, atis: null, fetchedAt: now() };
+  }
 }

@@ -1,15 +1,18 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { X } from "lucide-react";
+import { ExternalLink, X } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { getAirportBrief } from "@/lib/airport.functions";
+import { getAirportAtis, getAirportBrief } from "@/lib/airport.functions";
+import { faaChartsUrl } from "@/lib/airport-charts";
+import { airportSummary } from "@/lib/airport-summary";
+import type { AtisKind } from "@/lib/airport-data";
 import type { FlightCategory } from "@/lib/airport-data";
 import { airportTraffic, TRAFFIC_RADIUS_NM } from "@/lib/airport-traffic";
 import type { Aircraft } from "@/lib/aircraft";
 import type { Airport } from "@/lib/airports";
-import { likelyRunways } from "@/lib/runway-wind";
+import { likelyRunwaysWithTraffic, runwayGuessText } from "@/lib/runway-traffic";
 import { fmtAltitude, type UnitSystem } from "@/lib/units";
 import { cn } from "@/lib/utils";
 
@@ -30,6 +33,12 @@ const CATEGORY_STYLE: Record<FlightCategory, string> = {
   MVFR: "border-blue-400/60 bg-blue-400/15 text-blue-300",
   IFR: "border-red-500/60 bg-red-500/15 text-red-400",
   LIFR: "border-fuchsia-500/60 bg-fuchsia-500/15 text-fuchsia-300",
+};
+
+const ATIS_LABEL: Record<AtisKind, string> = {
+  combined: "Information",
+  arrival: "Arrival information",
+  departure: "Departure information",
 };
 
 const FT_PER_M = 3.28084;
@@ -57,14 +66,49 @@ export function AirportPanel({ airport, aircraft, units, onClose }: Props) {
     staleTime: 60_000,
     refetchInterval: 120_000,
   });
+  // A separate query: a slow or failing ATIS service must not hold back the weather and FAA status.
+  const atisQuery = useQuery({
+    queryKey: ["airport-atis", icao],
+    queryFn: () => getAirportAtis({ data: { icao } }),
+    enabled: icao.length >= 3,
+    staleTime: 60_000,
+    refetchInterval: 180_000,
+  });
+  const atis = atisQuery.data?.atis ?? null;
+  const chartsUrl = useMemo(() => faaChartsUrl(icao), [icao]);
   const b = brief.data;
   const traffic = useMemo(() => airportTraffic(aircraft, airport), [aircraft, airport]);
   const metar = b?.metar ?? null;
   const info = b?.info ?? null;
   const runways = useMemo(() => info?.runways ?? [], [info]);
+  const elevFt = info?.elevM != null ? info.elevM * FT_PER_M : null;
   const likely = useMemo(
-    () => likelyRunways(runways, metar?.windDir ?? null, metar?.windKt ?? null),
-    [runways, metar],
+    () =>
+      likelyRunwaysWithTraffic(
+        runways,
+        metar?.windDir ?? null,
+        metar?.windKt ?? null,
+        aircraft,
+        airport,
+        elevFt,
+      ),
+    [runways, metar, aircraft, airport, elevFt],
+  );
+
+  const summary = useMemo(
+    () =>
+      b
+        ? airportSummary({
+            metar: b.metar,
+            weatherFailed: b.failed.includes("weather"),
+            nas: b.nas,
+            nasFailed: b.failed.includes("nas"),
+            atis,
+            traffic,
+            runway: likely,
+          })
+        : [],
+    [b, atis, traffic, likely],
   );
 
   const wind = !metar
@@ -126,6 +170,14 @@ export function AirportPanel({ airport, aircraft, units, onClose }: Props) {
 
         {b && (
           <>
+            <section aria-label="Airport brief" className="space-y-1">
+              <div className="hud-label">Brief</div>
+              <p className="text-sm">{summary.join(" ")}</p>
+              <p className="text-xs text-muted-foreground">
+                Written by fixed rules from the data below, not by AI.
+              </p>
+            </section>
+
             <section aria-label="FAA status" className="space-y-1">
               <div className="hud-label">FAA status</div>
               {b.nas === null ? (
@@ -192,23 +244,51 @@ export function AirportPanel({ airport, aircraft, units, onClose }: Props) {
               )}
             </section>
 
+            <section aria-label="ATIS" className="space-y-1.5">
+              <div className="hud-label">ATIS</div>
+              {atisQuery.isPending ? (
+                <p className="text-sm text-muted-foreground">Loading…</p>
+              ) : atisQuery.isError || atisQuery.data?.atis === null ? (
+                <div className="flex items-center justify-between gap-2 text-sm">
+                  <span className="text-muted-foreground">ATIS is not available right now.</span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={atisQuery.isFetching}
+                    onClick={() => void atisQuery.refetch()}
+                  >
+                    Try again
+                  </Button>
+                </div>
+              ) : atis && atis.length > 0 ? (
+                atis.map((r, i) => (
+                  <div key={i} className="space-y-1">
+                    <div className="text-xs text-muted-foreground">
+                      {ATIS_LABEL[r.kind]}
+                      {r.code ? " " + r.code : ""}
+                      {r.time ? ", " + r.time + "Z" : ""}
+                    </div>
+                    <p className="break-words rounded-md bg-background/40 p-2 font-mono text-xs">
+                      {r.text}
+                    </p>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-muted-foreground">No digital ATIS for this airport.</p>
+              )}
+            </section>
+
             <section aria-label="Runways" className="space-y-1.5">
               <div className="hud-label">Runways</div>
               {b.info?.elevM != null && (
                 <Row label="Elevation">{fmtAltitude(b.info.elevM * FT_PER_M, units)}</Row>
               )}
               {likely ? (
-                <p className="text-sm">
-                  Likely in use: <strong>{likely.ends.map((e) => e.label).join(", ")}</strong>{" "}
-                  <span className="text-muted-foreground">
-                    (facing the wind, {likely.headwindKt} kt headwind). A guess from wind only; air
-                    traffic control decides.
-                  </span>
-                </p>
+                <p className="text-sm">{runwayGuessText(likely)}</p>
               ) : (
                 metar && (
                   <p className="text-sm text-muted-foreground">
-                    No runway preferred by the wind right now.
+                    No runway stands out from the wind or the traffic right now.
                   </p>
                 )
               )}
@@ -245,9 +325,27 @@ export function AirportPanel({ airport, aircraft, units, onClose }: Props) {
           </p>
         </section>
 
+        {chartsUrl && (
+          <section aria-label="Charts" className="space-y-1">
+            <div className="hud-label">Charts</div>
+            <a
+              href={chartsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-sm text-primary underline-offset-2 hover:underline"
+            >
+              FAA airport diagram and approach charts
+              <ExternalLink className="size-3.5" aria-hidden="true" />
+            </a>
+            <p className="text-xs text-muted-foreground">
+              Opens the FAA chart search in a new tab. Small airports may have no charts.
+            </p>
+          </section>
+        )}
+
         <p className="text-xs text-muted-foreground">
-          Weather: NOAA Aviation Weather Center. Delays: FAA NAS Status. For information only, not
-          for flight planning.
+          Weather: NOAA Aviation Weather Center. Delays: FAA NAS Status. ATIS: atis.info. For
+          information only, not for flight planning.
         </p>
       </div>
     </aside>
