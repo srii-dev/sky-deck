@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, ChevronDown, ChevronUp, Crosshair, Plane, X } from "lucide-react";
 
@@ -17,6 +17,7 @@ import {
 } from "@/lib/aircraft";
 import { airlineName } from "@/lib/airlines";
 import { aircraftDetailFields } from "@/lib/aircraft-details";
+import { sheetGesture } from "@/lib/sheet-gesture";
 import {
   compassPoint,
   fmtAltitude,
@@ -85,6 +86,8 @@ function Cell({
 export function AircraftPanel(props: Props) {
   const { aircraft: a } = props;
   const [expanded, setExpanded] = useState(false);
+  const dragStartY = useRef<number | null>(null);
+  const swiped = useRef(false);
   const status = flightStatus(a);
   const emg = isEmergency(a.squawk);
   const code = airlineCode(a.callsign);
@@ -162,13 +165,20 @@ export function AircraftPanel(props: Props) {
           <Button
             variant="hud"
             size="icon"
+            className="size-10"
             aria-label={expanded ? "Collapse details" : "Expand details"}
             onClick={() => setExpanded((v) => !v)}
           >
             {expanded ? <ChevronDown /> : <ChevronUp />}
           </Button>
         )}
-        <Button variant="hud" size="icon" aria-label="Close" onClick={props.onClose}>
+        <Button
+          variant="hud"
+          size="icon"
+          className="size-10"
+          aria-label="Close"
+          onClick={props.onClose}
+        >
           <X />
         </Button>
       </div>
@@ -386,11 +396,33 @@ export function AircraftPanel(props: Props) {
         className="glass-panel pointer-events-auto fixed inset-x-0 bottom-0 z-40 flex flex-col rounded-t-xl pb-[env(safe-area-inset-bottom)] md:hidden"
         style={{ maxHeight: "min(70vh, calc(100dvh - var(--hud-h, 76px) - 8px))" }}
       >
+        {/* The handle is a 40 px tall touch target; a swipe up or down opens or closes the details. */}
         <button
+          type="button"
           aria-label="Toggle details"
-          onClick={() => setExpanded((v) => !v)}
-          className="mx-auto mt-2 h-1.5 w-12 rounded-full bg-muted-foreground/40"
-        />
+          aria-expanded={expanded}
+          onPointerDown={(e) => {
+            dragStartY.current = e.clientY;
+          }}
+          onPointerUp={(e) => {
+            const g =
+              dragStartY.current == null ? "tap" : sheetGesture(dragStartY.current, e.clientY);
+            dragStartY.current = null;
+            if (g === "tap") return; // the click handler toggles
+            swiped.current = true;
+            setExpanded(g === "expand");
+          }}
+          onClick={() => {
+            if (swiped.current) {
+              swiped.current = false;
+              return;
+            }
+            setExpanded((v) => !v);
+          }}
+          className="mx-auto flex h-10 w-full touch-none items-center justify-center"
+        >
+          <span className="h-1.5 w-12 rounded-full bg-muted-foreground/40" />
+        </button>
         <div className="px-4 pb-3 pt-3">{header(true)}</div>
         {!expanded && (
           <div className="grid grid-cols-3 gap-2 px-4 pb-4">
