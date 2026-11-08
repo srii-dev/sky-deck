@@ -42,8 +42,13 @@ export interface MotionState {
 
 /** Samples kept per aircraft. */
 export const MAX_SAMPLES = 12;
-/** Past the newest sample the aircraft is moved along its heading for at most this long, then held. */
-export const EXTRAPOLATE_CAP_MS = 12_000;
+/**
+ * Past the newest sample the aircraft is moved along its heading for at most this long, then held and drawn
+ * dimmer. Measured on 2026-11-08 against the real feed: it sometimes stalls for 25 s or more (the provider asks
+ * us to back off), and a short cap froze every aircraft and made them jump when data resumed. The old renderer
+ * used 40 s. With the adaptive delay this guess is rarely needed.
+ */
+export const EXTRAPOLATE_CAP_MS = 30_000;
 /** Before the first sample (a newly seen aircraft) it is moved backwards along its heading for at most this long. */
 export const BACKFILL_CAP_MS = 12_000;
 /** An aircraft missing from the data stays on screen this long after its last sample, then disappears. */

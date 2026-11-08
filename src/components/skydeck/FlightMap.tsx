@@ -1023,6 +1023,8 @@ export default function FlightMap(props: FlightMapProps) {
           fade = o;
         }
         const m = trackState(tr, drawT);
+        // No new report for longer than dead reckoning is trusted: the aircraft is held and drawn dimmer.
+        if (m.phase === "stale") fade = Math.min(fade, 0.55);
         const lat = m.lat;
         const lon = m.lon;
         const isSel = hex === sel;
