@@ -14,6 +14,7 @@ All notable changes to SkyDeck. The format follows [Keep a Changelog](https://ke
 - Continuous integration on pull requests, `GET /api/health`, and browser error reports written to the server log (#19).
 - Feature flags for shipping unfinished work switched off.
 - Dependabot configuration and a dependency audit step in CI.
+- Server configuration module and `.env.example` for secrets, and a first database migration (profiles with row-level security), neither used by the app yet.
 
 ### Changed
 

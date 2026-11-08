@@ -13,6 +13,13 @@ bun run dev
 
 No API keys are needed to run the app. Never commit secrets, `.env` files or real captured data (messages, positions of private aircraft, personal details).
 
+## Configuration and secrets
+
+- Copy `.env.example` to `.env` for local work. `.env` is ignored by git; `.env.example` holds names only.
+- Secrets are read on the server only, through `src/lib/server-config.server.ts` (`requireConfig("supabase")`). Never read `process.env` directly in a feature and never print a value.
+- A variable that starts with `VITE_` is sent to every browser. Never put a secret there.
+- Database changes are SQL files in `supabase/migrations/` (see `supabase/README.md`): row-level security on for every table, no secrets in the SQL.
+
 ## The four checks
 
 Run these before opening a pull request. CI runs the same four on every pull request.

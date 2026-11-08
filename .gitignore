@@ -16,6 +16,11 @@ dist-ssr
 .nitro
 *.local
 
+# Secrets: never commit. Only .env.example (names, no values) is tracked.
+.env
+.env.*
+!.env.example
+
 # Wrangler / Cloudflare
 .wrangler/
 .dev.vars
