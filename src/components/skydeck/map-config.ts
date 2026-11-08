@@ -27,6 +27,9 @@ export interface TrailPoint {
   altFt: number | null;
   onGround: boolean;
   t: number;
+  /** Ground speed (kt) and vertical rate (ft/min) at this sample, for the flight charts. */
+  gs?: number | null | undefined;
+  vRate?: number | null | undefined;
 }
 
 export const DEFAULT_VIEW = { lat: 40.72, lon: -73.95, zoom: 8.3, pitch: 45, bearing: -15 };
