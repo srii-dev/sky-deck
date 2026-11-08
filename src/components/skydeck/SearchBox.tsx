@@ -1,11 +1,12 @@
-import { useMemo, useRef, useState } from "react";
-import { Loader2, MapPin, Plane, Search, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { History, Loader2, MapPin, Plane, Search, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { Input } from "@/components/ui/input";
 import { searchAircraft } from "@/lib/adsb.functions";
 import { findAirport, searchAirports, type Airport } from "@/lib/airports";
 import type { Aircraft } from "@/lib/aircraft";
+import { addRecent, loadRecent, rankAircraft, storeRecent } from "@/lib/search-rank";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -14,7 +15,8 @@ interface Props {
   onAirport: (a: Airport) => void;
 }
 
-type Item = { kind: "ac"; a: Aircraft } | { kind: "apt"; a: Airport };
+type Item =
+  { kind: "ac"; a: Aircraft } | { kind: "apt"; a: Airport } | { kind: "recent"; term: string };
 
 export function SearchBox({ aircraft, onAircraft, onAirport }: Props) {
   const [q, setQ] = useState("");
@@ -22,24 +24,31 @@ export function SearchBox({ aircraft, onAircraft, onAirport }: Props) {
   const [busy, setBusy] = useState(false);
   const [active, setActive] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  const [recent, setRecent] = useState<string[]>([]);
+  // Read after hydration so the first render matches the server.
+  useEffect(() => setRecent(loadRecent()), []);
 
   const items = useMemo<Item[]>(() => {
     const s = q.trim().toUpperCase();
-    if (s.length < 2) return [];
-    const ac = aircraft
-      .filter(
-        (a) =>
-          a.callsign?.toUpperCase().startsWith(s) ||
-          a.registration?.toUpperCase().replace("-", "").startsWith(s.replace("-", "")) ||
-          a.hex.toUpperCase().startsWith(s),
-      )
-      .slice(0, 6)
-      .map((a) => ({ kind: "ac" as const, a }));
+    if (s.length < 2) return recent.map((term) => ({ kind: "recent" as const, term }));
+    const ac = rankAircraft(s, aircraft, 6).map((a) => ({ kind: "ac" as const, a }));
     const apt = searchAirports(s, 4).map((a) => ({ kind: "apt" as const, a }));
     return [...apt, ...ac];
-  }, [q, aircraft]);
+  }, [q, aircraft, recent]);
+
+  const remember = (term: string) => {
+    const next = addRecent(recent, term);
+    setRecent(next);
+    storeRecent(next);
+  };
 
   const pick = (it: Item) => {
+    if (it.kind === "recent") {
+      setQ(it.term);
+      setActive(0);
+      return;
+    }
+    remember(q);
     if (it.kind === "ac") onAircraft(it.a);
     else onAirport(it.a);
     setOpen(false);
@@ -106,7 +115,11 @@ export function SearchBox({ aircraft, onAircraft, onAirport }: Props) {
       {open && items.length > 0 && (
         <ul className="glass-panel absolute inset-x-0 top-full z-30 mt-1 overflow-hidden rounded-md py-1">
           {items.map((it, i) => (
-            <li key={it.kind + (it.kind === "ac" ? it.a.hex : it.a.icao)}>
+            <li
+              key={
+                it.kind + (it.kind === "ac" ? it.a.hex : it.kind === "apt" ? it.a.icao : it.term)
+              }
+            >
               <button
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => pick(it)}
@@ -116,7 +129,14 @@ export function SearchBox({ aircraft, onAircraft, onAirport }: Props) {
                   i === active && "bg-secondary",
                 )}
               >
-                {it.kind === "apt" ? (
+                {it.kind === "recent" ? (
+                  <>
+                    <History className="size-4 text-muted-foreground" />
+                    <span className="data-value truncate text-xs text-muted-foreground">
+                      {it.term}
+                    </span>
+                  </>
+                ) : it.kind === "apt" ? (
                   <>
                     <MapPin className="size-4 text-accent" />
                     <span className="data-value w-20 text-xs text-accent">
@@ -131,7 +151,7 @@ export function SearchBox({ aircraft, onAircraft, onAirport }: Props) {
                       {it.a.callsign ?? it.a.hex.toUpperCase()}
                     </span>
                     <span className="data-value truncate text-xs text-muted-foreground">
-                      {[it.a.registration, it.a.type].filter(Boolean).join(" · ")}
+                      {[it.a.registration, it.a.type, it.a.operator].filter(Boolean).join(" · ")}
                     </span>
                   </>
                 )}
