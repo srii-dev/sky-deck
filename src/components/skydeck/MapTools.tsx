@@ -22,6 +22,17 @@ import { addView, loadViews, removeView, storeViews, type SavedView } from "@/li
 import { cn } from "@/lib/utils";
 import type { Viewport } from "./map-config";
 
+export interface WeatherControls {
+  radar: boolean;
+  onRadar: (v: boolean) => void;
+  echoTops: boolean;
+  onEchoTops: (v: boolean) => void;
+  advisories: boolean;
+  onAdvisories: (v: boolean) => void;
+  pireps: boolean;
+  onPireps: (v: boolean) => void;
+}
+
 export interface LayerControls {
   terrain: boolean;
   onTerrain: (v: boolean) => void;
@@ -33,6 +44,7 @@ export interface LayerControls {
   onGlideRing: (v: boolean) => void;
   /** The glide ring needs a selected aircraft. */
   hasSelection: boolean;
+  weather: WeatherControls;
 }
 
 export interface RulerControls {
@@ -233,6 +245,31 @@ export function MapTools({
               checked={layers.glideRing}
               onChange={layers.onGlideRing}
               disabled={!layers.hasSelection}
+            />
+            <div className="hud-label mb-1 mt-3">Weather</div>
+            <LayerRow
+              label="Precipitation radar"
+              hint="Past frames, worldwide, with a timeline"
+              checked={layers.weather.radar}
+              onChange={layers.weather.onRadar}
+            />
+            <LayerRow
+              label="Echo tops"
+              hint="Storm height, US only"
+              checked={layers.weather.echoTops}
+              onChange={layers.weather.onEchoTops}
+            />
+            <LayerRow
+              label="SIGMETs and AIRMETs"
+              hint="Turbulence, storms, icing, low visibility"
+              checked={layers.weather.advisories}
+              onChange={layers.weather.onAdvisories}
+            />
+            <LayerRow
+              label="Pilot reports"
+              hint="Reports from the last 2 hours"
+              checked={layers.weather.pireps}
+              onChange={layers.weather.onPireps}
             />
             <p className="mt-2 text-[11px] text-muted-foreground">
               Your choices are remembered in this browser.

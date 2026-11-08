@@ -6,6 +6,7 @@ All notable changes to SkyDeck. The format follows [Keep a Changelog](https://ke
 
 ### Added
 
+- Weather layers (Phase 7: 7a, 7b, 7c, 7e): precipitation radar with a past-frames timeline, echo tops, SIGMET/AIRMET polygons and pilot reports, with a details card. Lightning (7d) and winds aloft (7f) were not built.
 - Airport pages, rest of Phase 4 (4d, 4e, 4g ATIS part, 4h, 4j): the likely runway now also uses aircraft lined up with a runway (falling back to the wind), the current digital ATIS text, a rule-based airport brief, a link to the FAA charts for US airports, and aprons, taxiway names and gate numbers on the map at high zoom. Credits and README now describe the aviationweather.gov and FAA usage notes as read, and credit atis.info.
 - Airport pages: weather, FAA delays and closures, runways, a wind-based likely runway, nearby traffic counts, and nearby airports after "My location" (Phase 4 half 1: 4a, 4b, 4c, 4d, 4f).
 - Live 3D flight map with aircraft panel, category icons, search, filters, altitude-coloured trails, units and emergency squawk alerts (Phase 1).
