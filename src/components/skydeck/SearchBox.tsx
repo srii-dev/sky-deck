@@ -7,6 +7,7 @@ import { searchAircraft } from "@/lib/adsb.functions";
 import { findAirport, searchAirports, type Airport } from "@/lib/airports";
 import type { Aircraft } from "@/lib/aircraft";
 import { addRecent, loadRecent, rankAircraft, storeRecent } from "@/lib/search-rank";
+import { SEARCH_INPUT_ID } from "@/lib/shortcuts";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -84,6 +85,7 @@ export function SearchBox({ aircraft, onAircraft, onAirport }: Props) {
         )}
         <Input
           ref={inputRef}
+          id={SEARCH_INPUT_ID}
           value={q}
           onChange={(e) => {
             setQ(e.target.value);

@@ -8,6 +8,7 @@ import {
   Maximize,
   Minimize,
   Ruler,
+  Settings,
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -53,6 +54,7 @@ interface Props {
   ruler: RulerControls;
   /** Called with the user's position after My location succeeds (used for nearby airports). */
   onLocated?: (pos: { lat: number; lon: number }) => void;
+  onOpenSettings: () => void;
 }
 
 const btn = "h-10 w-10";
@@ -86,8 +88,16 @@ function LayerRow({
   );
 }
 
-/** Small vertical column of map tools: share link, my location, layers, ruler, saved views, fullscreen. */
-export function MapTools({ view, onFly, getShareUrl, layers, ruler, onLocated }: Props) {
+/** Small vertical column of map tools: share link, my location, layers, ruler, saved views, fullscreen, settings. */
+export function MapTools({
+  view,
+  onFly,
+  getShareUrl,
+  layers,
+  ruler,
+  onLocated,
+  onOpenSettings,
+}: Props) {
   const [views, setViews] = useState<SavedView[]>([]);
   const [name, setName] = useState("");
   const [locating, setLocating] = useState(false);
@@ -312,6 +322,16 @@ export function MapTools({ view, onFly, getShareUrl, layers, ruler, onLocated }:
           onClick={() => void toggleFullscreen()}
         >
           {fullscreen ? <Minimize /> : <Maximize />}
+        </Button>
+        <Button
+          variant="panel"
+          size="icon"
+          className={btn}
+          aria-label="Settings"
+          title="Settings (,)"
+          onClick={onOpenSettings}
+        >
+          <Settings />
         </Button>
       </div>
       {ruler.active && (

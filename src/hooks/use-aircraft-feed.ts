@@ -14,9 +14,10 @@ import {
   type FeedResponse,
 } from "@/lib/aircraft";
 import { planCoverage, wideCircleDue, type Circle } from "@/lib/coverage";
+import { POLL_NORMAL_MS } from "@/lib/local-settings";
 import type { TrailPoint, Viewport } from "@/components/skydeck/map-config";
 
-export const POLL_MS = 7000;
+export const POLL_MS = POLL_NORMAL_MS;
 /** Floor between a slow refresh finishing and the next start, so a long fetch cannot spin. */
 const MIN_GAP_MS = 1000;
 const MAX_TRAIL_POINTS = 600;
@@ -176,7 +177,15 @@ async function refreshCoverage(
   };
 }
 
-export function useAircraftFeed(viewport: Viewport | null, selectedHex: string | null) {
+/**
+ * The live aircraft for a map view. `pollMs` is the refresh interval: the battery saver passes a
+ * longer one (see pollIntervalMs in local-settings.ts). A change applies from the next refresh.
+ */
+export function useAircraftFeed(
+  viewport: Viewport | null,
+  selectedHex: string | null,
+  pollMs: number = POLL_MS,
+) {
   const [state, setState] = useState<FeedState>({
     aircraft: [],
     source: null,
@@ -190,6 +199,8 @@ export function useAircraftFeed(viewport: Viewport | null, selectedHex: string |
 
   const vpRef = useRef(viewport);
   vpRef.current = viewport;
+  const pollRef = useRef(pollMs);
+  pollRef.current = pollMs;
   const cacheRef = useRef(new Map<string, CacheEntry>());
   const wakeRef = useRef<(() => void) | null>(null);
   const dirtyRef = useRef(false);
@@ -266,11 +277,12 @@ export function useAircraftFeed(viewport: Viewport | null, selectedHex: string |
           if (dirtyRef.current && failuresRef.current === 0) continue;
         }
         const f = failuresRef.current;
+        const poll = pollRef.current;
         const delay = f
-          ? Math.min(MAX_BACKOFF_MS, POLL_MS * 2 ** f)
+          ? Math.min(MAX_BACKOFF_MS, poll * 2 ** f)
           : didRefresh
-            ? Math.max(MIN_GAP_MS, POLL_MS - elapsed)
-            : POLL_MS;
+            ? Math.max(MIN_GAP_MS, poll - elapsed)
+            : poll;
         await new Promise<void>((res) => {
           timer = setTimeout(res, delay);
           wakeRef.current = () => {
@@ -306,7 +318,7 @@ export function useAircraftFeed(viewport: Viewport | null, selectedHex: string |
     queryKey: ["aircraft-hex", selectedHex],
     queryFn: () => searchAircraft({ data: { q: selectedHex! } }),
     enabled: !!selectedHex && hasFeed && !inFeed,
-    refetchInterval: POLL_MS,
+    refetchInterval: pollMs,
     refetchOnWindowFocus: false,
   });
 
