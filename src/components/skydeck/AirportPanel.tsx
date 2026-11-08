@@ -9,7 +9,7 @@ import type { FlightCategory } from "@/lib/airport-data";
 import { airportTraffic, TRAFFIC_RADIUS_NM } from "@/lib/airport-traffic";
 import type { Aircraft } from "@/lib/aircraft";
 import type { Airport } from "@/lib/airports";
-import { likelyRunways } from "@/lib/runway-wind";
+import { likelyRunwaysWithTraffic, runwayGuessText } from "@/lib/runway-traffic";
 import { fmtAltitude, type UnitSystem } from "@/lib/units";
 import { cn } from "@/lib/utils";
 
@@ -62,9 +62,18 @@ export function AirportPanel({ airport, aircraft, units, onClose }: Props) {
   const metar = b?.metar ?? null;
   const info = b?.info ?? null;
   const runways = useMemo(() => info?.runways ?? [], [info]);
+  const elevFt = info?.elevM != null ? info.elevM * FT_PER_M : null;
   const likely = useMemo(
-    () => likelyRunways(runways, metar?.windDir ?? null, metar?.windKt ?? null),
-    [runways, metar],
+    () =>
+      likelyRunwaysWithTraffic(
+        runways,
+        metar?.windDir ?? null,
+        metar?.windKt ?? null,
+        aircraft,
+        airport,
+        elevFt,
+      ),
+    [runways, metar, aircraft, airport, elevFt],
   );
 
   const wind = !metar
@@ -198,17 +207,11 @@ export function AirportPanel({ airport, aircraft, units, onClose }: Props) {
                 <Row label="Elevation">{fmtAltitude(b.info.elevM * FT_PER_M, units)}</Row>
               )}
               {likely ? (
-                <p className="text-sm">
-                  Likely in use: <strong>{likely.ends.map((e) => e.label).join(", ")}</strong>{" "}
-                  <span className="text-muted-foreground">
-                    (facing the wind, {likely.headwindKt} kt headwind). A guess from wind only; air
-                    traffic control decides.
-                  </span>
-                </p>
+                <p className="text-sm">{runwayGuessText(likely)}</p>
               ) : (
                 metar && (
                   <p className="text-sm text-muted-foreground">
-                    No runway preferred by the wind right now.
+                    No runway stands out from the wind or the traffic right now.
                   </p>
                 )
               )}

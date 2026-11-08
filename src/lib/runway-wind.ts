@@ -1,8 +1,9 @@
 import type { RunwayInfo } from "./airport-data";
 
 /*
- * Likely runway in use (Phase 4d), from the METAR wind alone. Aircraft traffic is not used yet.
- * This is a guess for curiosity, not operational information: air traffic control picks the runway.
+ * Likely runway in use (Phase 4d), from the METAR wind alone. runway-traffic.ts combines this with
+ * nearby aircraft and falls back to it. This is a guess for curiosity, not operational information:
+ * air traffic control picks the runway.
  */
 
 export interface RunwayEnd {
