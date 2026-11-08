@@ -327,7 +327,15 @@ export function useAircraftFeed(viewport: Viewport | null, selectedHex: string |
       const pts = h.get(a.hex) ?? [];
       const last = pts[pts.length - 1];
       if (!last || Math.abs(last.lat - a.lat) > 1e-5 || Math.abs(last.lon - a.lon) > 1e-5) {
-        pts.push({ lat: a.lat, lon: a.lon, altFt: a.altFt, onGround: a.onGround, t: now });
+        pts.push({
+          lat: a.lat,
+          lon: a.lon,
+          altFt: a.altFt,
+          onGround: a.onGround,
+          t: now,
+          gs: a.gs,
+          vRate: a.vRate,
+        });
         if (pts.length > MAX_TRAIL_POINTS) pts.splice(0, pts.length - MAX_TRAIL_POINTS);
         h.set(a.hex, pts);
       }

@@ -33,12 +33,15 @@ import {
   reachableListNote,
 } from "@/lib/reachable-airports";
 import type { GlideStatus } from "./FlightMap";
+import { FlightCharts } from "./FlightCharts";
+import type { TrailPoint } from "./map-config";
 import { AcarsMessages } from "./AcarsMessages";
 import { cn } from "@/lib/utils";
 
 interface Props {
   aircraft: Aircraft;
   units: UnitSystem;
+  trail: TrailPoint[];
   trail3d: boolean;
   onTrail3d: (v: boolean) => void;
   follow: boolean;
@@ -229,6 +232,7 @@ export function AircraftPanel(props: Props) {
         <Cell label="Position age">{`${Math.round(a.seenPos)}s`}</Cell>
       </div>
 
+      <FlightCharts trail={props.trail} units={props.units} />
       <AcarsMessages hex={a.hex} />
 
       <div className="space-y-3 rounded-md border border-border/60 bg-background/40 px-3 py-3">

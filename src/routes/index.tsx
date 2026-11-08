@@ -25,6 +25,7 @@ import {
   type Aircraft,
   type Filters,
 } from "@/lib/aircraft";
+import { nextRulerPoints, rulerSummary, type LngLat } from "@/lib/measure";
 import { buildShareSearch, parseShareParams } from "@/lib/share-link";
 import { UNIT_LABELS, type UnitSystem } from "@/lib/units";
 import { APP_NAME, APP_TAGLINE } from "@/config/brand";
@@ -67,6 +68,9 @@ function SkyDeck() {
   const [basemap, setBasemap] = useState<Basemap>("dark");
   const [terrain, setTerrain] = useState(true);
   const [trail3d, setTrail3d] = useState(false);
+  const [showTrail, setShowTrail] = useState(true);
+  const [rulerActive, setRulerActive] = useState(false);
+  const [rulerPoints, setRulerPoints] = useState<LngLat[]>([]);
   const [follow, setFollow] = useState(false);
   const [units, setUnits] = useState<UnitSystem>("aviation");
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
@@ -128,6 +132,32 @@ function SkyDeck() {
       /* ignore */
     }
   }, [units, basemap]);
+
+  // Layer choices are remembered in this browser (the glide ring belongs to one aircraft, so it is not).
+  const [layersReady, setLayersReady] = useState(false);
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("skydeck:layers");
+      if (raw) {
+        const l = JSON.parse(raw) as Record<string, unknown>;
+        if (typeof l["terrain"] === "boolean") setTerrain(l["terrain"]);
+        if (typeof l["showTrail"] === "boolean") setShowTrail(l["showTrail"]);
+        if (typeof l["trail3d"] === "boolean") setTrail3d(l["trail3d"]);
+      }
+    } catch {
+      /* ignore */
+    }
+    setLayersReady(true);
+  }, []);
+  useEffect(() => {
+    // Only save after the saved choices were read, so the defaults never overwrite them.
+    if (!layersReady) return;
+    try {
+      localStorage.setItem("skydeck:layers", JSON.stringify({ terrain, showTrail, trail3d }));
+    } catch {
+      /* ignore */
+    }
+  }, [layersReady, terrain, showTrail, trail3d]);
 
   // A shared link may carry a basemap and a selected aircraft (the map reads the view itself).
   useEffect(() => {
@@ -258,6 +288,10 @@ function SkyDeck() {
             glideRing={glideRing}
             glideRatio={glideRatio}
             onGlideStatus={setGlideStatus}
+            showTrail={showTrail}
+            rulerActive={rulerActive}
+            rulerPoints={rulerPoints}
+            onRulerPoint={(p) => setRulerPoints((pts) => nextRulerPoints(pts, p))}
           />
         </Suspense>
       </ClientOnly>
@@ -411,7 +445,32 @@ function SkyDeck() {
         className="pointer-events-none absolute left-3 z-10"
         style={{ top: "calc(var(--hud-h, 76px) + 8px)" }}
       >
-        <MapTools view={currentView} onFly={flyTo} getShareUrl={getShareUrl} />
+        <MapTools
+          view={currentView}
+          onFly={flyTo}
+          getShareUrl={getShareUrl}
+          layers={{
+            terrain,
+            onTerrain: setTerrain,
+            showTrail,
+            onShowTrail: setShowTrail,
+            trail3d,
+            onTrail3d: setTrail3d,
+            glideRing,
+            onGlideRing: setGlideRing,
+            hasSelection: !!selected,
+          }}
+          ruler={{
+            active: rulerActive,
+            onToggle: () => {
+              setRulerActive((a) => !a);
+              setRulerPoints([]);
+            },
+            summary: rulerSummary(rulerPoints, units),
+            hasPoints: rulerPoints.length > 0,
+            onClear: () => setRulerPoints([]),
+          }}
+        />
       </div>
 
       {/* Emergency alert */}
@@ -460,6 +519,7 @@ function SkyDeck() {
           key={selected.hex}
           aircraft={selected}
           units={units}
+          trail={feed.trail}
           trail3d={trail3d}
           onTrail3d={setTrail3d}
           follow={follow}
