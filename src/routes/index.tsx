@@ -11,6 +11,9 @@ import { FiltersPanel } from "@/components/skydeck/FiltersPanel";
 import { AircraftPanel } from "@/components/skydeck/AircraftPanel";
 import { AirportPanel } from "@/components/skydeck/AirportPanel";
 import { NearbyAirports } from "@/components/skydeck/NearbyAirports";
+import { RadarTimeline } from "@/components/skydeck/RadarTimeline";
+import { WeatherInfoCard, type WeatherItem } from "@/components/skydeck/WeatherInfoCard";
+import { useWeatherLayers } from "@/hooks/use-weather-layers";
 import { CreditsDialog } from "@/components/skydeck/CreditsDialog";
 import { FirstRunGuide } from "@/components/skydeck/FirstRunGuide";
 import { SettingsDialog } from "@/components/skydeck/SettingsDialog";
@@ -83,6 +86,11 @@ function SkyDeck() {
   const [basemap, setBasemap] = useState<Basemap>("dark");
   const [terrain, setTerrain] = useState(true);
   const [trail3d, setTrail3d] = useState(false);
+  const [radarOn, setRadarOn] = useState(false);
+  const [echoTopsOn, setEchoTopsOn] = useState(false);
+  const [advisoriesOn, setAdvisoriesOn] = useState(false);
+  const [pirepsOn, setPirepsOn] = useState(false);
+  const [weatherPickId, setWeatherPickId] = useState<string | null>(null);
   const [showTrail, setShowTrail] = useState(true);
   const [rulerActive, setRulerActive] = useState(false);
   const [rulerPoints, setRulerPoints] = useState<LngLat[]>([]);
@@ -163,6 +171,10 @@ function SkyDeck() {
         if (typeof l["terrain"] === "boolean") setTerrain(l["terrain"]);
         if (typeof l["showTrail"] === "boolean") setShowTrail(l["showTrail"]);
         if (typeof l["trail3d"] === "boolean") setTrail3d(l["trail3d"]);
+        if (typeof l["radar"] === "boolean") setRadarOn(l["radar"]);
+        if (typeof l["echoTops"] === "boolean") setEchoTopsOn(l["echoTops"]);
+        if (typeof l["advisories"] === "boolean") setAdvisoriesOn(l["advisories"]);
+        if (typeof l["pireps"] === "boolean") setPirepsOn(l["pireps"]);
       }
     } catch {
       /* ignore */
@@ -173,11 +185,22 @@ function SkyDeck() {
     // Only save after the saved choices were read, so the defaults never overwrite them.
     if (!layersReady) return;
     try {
-      localStorage.setItem("skydeck:layers", JSON.stringify({ terrain, showTrail, trail3d }));
+      localStorage.setItem(
+        "skydeck:layers",
+        JSON.stringify({
+          terrain,
+          showTrail,
+          trail3d,
+          radar: radarOn,
+          echoTops: echoTopsOn,
+          advisories: advisoriesOn,
+          pireps: pirepsOn,
+        }),
+      );
     } catch {
       /* ignore */
     }
-  }, [layersReady, terrain, showTrail, trail3d]);
+  }, [layersReady, terrain, showTrail, trail3d, radarOn, echoTopsOn, advisoriesOn, pirepsOn]);
 
   // First visit: show the quick guide once (not over a shared link). Settings can reopen it.
   useEffect(() => {
@@ -369,6 +392,20 @@ function SkyDeck() {
   };
   useShortcuts(shortcutsOn, handleShortcut);
 
+  const weather = useWeatherLayers(
+    { radar: radarOn, echoTops: echoTopsOn, advisories: advisoriesOn, pireps: pirepsOn },
+    viewport,
+  );
+  // The clicked weather item, looked up in the current data so it disappears when its layer is off.
+  const weatherEntry = useMemo<WeatherItem | null>(() => {
+    if (!weatherPickId) return null;
+    const adv = weather.advisories.find((a) => a.id === weatherPickId);
+    if (adv && advisoriesOn) return { kind: "advisory", item: adv };
+    const pirep = weather.pireps.find((p) => p.id === weatherPickId);
+    if (pirep && pirepsOn) return { kind: "pirep", item: pirep };
+    return null;
+  }, [weatherPickId, weather.advisories, weather.pireps, advisoriesOn, pirepsOn]);
+
   const filterCount = activeFilterCount(filters);
 
   return (
@@ -400,6 +437,8 @@ function SkyDeck() {
             glideRatio={glideRatio}
             onGlideStatus={setGlideStatus}
             showTrail={showTrail}
+            weather={weather.state}
+            onWeatherPick={setWeatherPickId}
             rulerActive={rulerActive}
             rulerPoints={rulerPoints}
             onRulerPoint={(p) => setRulerPoints((pts) => nextRulerPoints(pts, p))}
@@ -577,6 +616,16 @@ function SkyDeck() {
             glideRing,
             onGlideRing: setGlideRing,
             hasSelection: !!selected,
+            weather: {
+              radar: radarOn,
+              onRadar: setRadarOn,
+              echoTops: echoTopsOn,
+              onEchoTops: setEchoTopsOn,
+              advisories: advisoriesOn,
+              onAdvisories: setAdvisoriesOn,
+              pireps: pirepsOn,
+              onPireps: setPirepsOn,
+            },
           }}
           ruler={{
             active: rulerActive,
@@ -659,6 +708,17 @@ function SkyDeck() {
           source={feed.source}
           onClose={() => onSelect(null)}
         />
+      )}
+
+      {(radarOn || weatherEntry) && (
+        <div
+          className={`pointer-events-none absolute inset-x-0 bottom-[max(5.5rem,env(safe-area-inset-bottom))] z-20 flex-col items-center gap-2 px-3 md:bottom-3 ${selected || airport ? "hidden xl:flex" : "flex"}`}
+        >
+          {weatherEntry && (
+            <WeatherInfoCard entry={weatherEntry} onClose={() => setWeatherPickId(null)} />
+          )}
+          {radarOn && <RadarTimeline radar={weather.radar} now={Date.now()} />}
+        </div>
       )}
 
       {airport && !selected && (
