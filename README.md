@@ -13,7 +13,8 @@ SkyDeck is an independent project. It is inspired by the general category of fli
 - **Aircraft details panel**: callsign, registration, type, operator, altitude, speed, vertical rate, heading, squawk, ICAO hex, route (when known), and status (climbing, cruising, descending, on ground)
 - **Category icons**: light aircraft, narrowbody, heavy jet, business jet, helicopter, glider, balloon, drone and ground vehicle, with a collapsible legend
 - **Altitude-coloured trails**, optionally drawn in 3D at real altitude, plus a follow-aircraft mode
-- **Search** by callsign, registration, ICAO hex or airport code
+- **Search** by callsign, registration, ICAO hex, aircraft type, airline name (when known) or airport code, with recent searches
+- **Shareable links, my location and saved views**: the address always describes the current view (map position, selected aircraft, basemap), so you can copy it; one button centres the map on you, and named views are kept in your browser
 - **Filters**: altitude range, aircraft type, airline, hide ground traffic, emergency squawks only
 - **Emergency alerts** for squawks 7500, 7600 and 7700
 - **Units**: aviation, metric or imperial
