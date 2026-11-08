@@ -14,6 +14,7 @@ All notable changes to SkyDeck. The format follows [Keep a Changelog](https://ke
 - Continuous integration on pull requests, `GET /api/health`, and browser error reports written to the server log (#19).
 - Feature flags for shipping unfinished work switched off.
 - Shareable links (the address holds the view, the selected aircraft and the basemap), a Link button, a My location button, saved views, and better search (ranked results, aircraft type, airline name, recent searches).
+- A Layers menu (terrain, trail, 3D trail, glide ring; choices remembered), a distance and bearing ruler, a flight chart (altitude, speed, vertical rate) in the aircraft panel, and a full-screen button.
 - Dependabot configuration and a dependency audit step in CI.
 - Server configuration module and `.env.example` for secrets, and a first database migration (profiles with row-level security), neither used by the app yet.
 

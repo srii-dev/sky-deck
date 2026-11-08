@@ -15,6 +15,7 @@ SkyDeck is an independent project. It is inspired by the general category of fli
 - **Altitude-coloured trails**, optionally drawn in 3D at real altitude, plus a follow-aircraft mode
 - **Search** by callsign, registration, ICAO hex, aircraft type, airline name (when known) or airport code, with recent searches
 - **Shareable links, my location and saved views**: the address always describes the current view (map position, selected aircraft, basemap), so you can copy it; one button centres the map on you, and named views are kept in your browser
+- **Layers, ruler, flight chart and full screen**: a Layers menu switches terrain, the trail, the 3D trail and the glide ring (choices are remembered); the ruler measures distance and bearing between two clicked points; the aircraft panel charts altitude, speed and vertical rate since you started watching
 - **Filters**: altitude range, aircraft type, airline, hide ground traffic, emergency squawks only
 - **Emergency alerts** for squawks 7500, 7600 and 7700
 - **Units**: aviation, metric or imperial
