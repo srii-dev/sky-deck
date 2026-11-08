@@ -37,6 +37,7 @@ import type { GlideStatus } from "./FlightMap";
 import { FlightCharts } from "./FlightCharts";
 import type { TrailPoint } from "./map-config";
 import { AcarsMessages } from "./AcarsMessages";
+import { TrailExport } from "./TrailExport";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -52,6 +53,8 @@ interface Props {
   glideRatio: number | null;
   onGlideRatio: (v: number) => void;
   glideStatus?: GlideStatus | undefined;
+  /** Provider that supplied the positions (for the credit line in exported files). */
+  source?: string | null | undefined;
   onClose: () => void;
 }
 
@@ -260,6 +263,7 @@ export function AircraftPanel(props: Props) {
       </div>
 
       <FlightCharts trail={props.trail} units={props.units} />
+      <TrailExport aircraft={a} trail={props.trail} source={props.source} />
       <AcarsMessages hex={a.hex} />
 
       <div className="space-y-3 rounded-md border border-border/60 bg-background/40 px-3 py-3">

@@ -564,6 +564,7 @@ function SkyDeck() {
           glideRatio={glideRatio}
           onGlideRatio={setGlideRatio}
           glideStatus={glideStatus}
+          source={feed.source}
           onClose={() => onSelect(null)}
         />
       )}
