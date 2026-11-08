@@ -34,6 +34,7 @@ import {
 import { parseShareParams } from "@/lib/share-link";
 import { buildPlaneSdf, buildSvgSdf } from "./plane-icon";
 import { LEGEND_KINDS, svgMarkup } from "./aircraft-icons";
+import { installAirportDetail } from "./airport-detail-layers";
 import {
   DEFAULT_VIEW,
   type Basemap,
@@ -490,6 +491,8 @@ export default function FlightMap(props: FlightMapProps) {
       });
     }
 
+    // Aprons, taxiway names and gates at high zoom (Phase 4e), below trails and aircraft.
+    installAirportDetail(map, propsRef.current.basemap, terrainBeforeId(map));
     applyTrail();
     updateGlideRing();
     styleReadyRef.current = true;
