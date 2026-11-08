@@ -12,6 +12,9 @@ import { AircraftPanel } from "@/components/skydeck/AircraftPanel";
 import { AirportPanel } from "@/components/skydeck/AirportPanel";
 import { NearbyAirports } from "@/components/skydeck/NearbyAirports";
 import { CreditsDialog } from "@/components/skydeck/CreditsDialog";
+import { FirstRunGuide } from "@/components/skydeck/FirstRunGuide";
+import { SettingsDialog } from "@/components/skydeck/SettingsDialog";
+import { ShortcutsDialog } from "@/components/skydeck/ShortcutsDialog";
 import { EmergencyBanner } from "@/components/skydeck/EmergencyBanner";
 import { AltitudeLegend } from "@/components/skydeck/AltitudeLegend";
 import { AircraftTypesLegend } from "@/components/skydeck/AircraftTypesLegend";
@@ -19,6 +22,8 @@ import { MapTools } from "@/components/skydeck/MapTools";
 import type { Basemap, FlyTarget, Viewport } from "@/components/skydeck/map-config";
 import type { GlideStatus } from "@/components/skydeck/FlightMap";
 import { useAircraftFeed } from "@/hooks/use-aircraft-feed";
+import { useFlagPref } from "@/hooks/use-flag-pref";
+import { useShortcuts } from "@/hooks/use-shortcuts";
 import {
   activeFilterCount,
   DEFAULT_FILTERS,
@@ -32,6 +37,9 @@ import { currentAirportList, loadLargeAirports } from "@/lib/airport-list";
 import { nearbyAirports, type NearbyAirport } from "@/lib/nearby-airports";
 import { nextRulerPoints, rulerSummary, type LngLat } from "@/lib/measure";
 import { buildShareSearch, parseShareParams } from "@/lib/share-link";
+import { shouldAutoShowGuide } from "@/lib/first-run";
+import { pollIntervalMs, readFlagPref, STORAGE_KEYS, writeFlagPref } from "@/lib/local-settings";
+import { escapeTarget, SEARCH_INPUT_ID, stepAircraft, type ShortcutAction } from "@/lib/shortcuts";
 import { UNIT_LABELS, type UnitSystem } from "@/lib/units";
 import { APP_NAME, APP_TAGLINE } from "@/config/brand";
 
@@ -87,6 +95,11 @@ function SkyDeck() {
   const [glideStatus, setGlideStatus] = useState<GlideStatus | undefined>(undefined);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [creditsOpen, setCreditsOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [guideOpen, setGuideOpen] = useState(false);
+  const [shortcutsOn, setShortcutsOn] = useFlagPref(STORAGE_KEYS.shortcuts, true);
+  const [batterySaver, setBatterySaver] = useFlagPref(STORAGE_KEYS.batterySaver, false);
   const [hudH, setHudH] = useState(76);
   const hudRef = useRef<HTMLDivElement>(null);
   const [isMock, setIsMock] = useState(false);
@@ -166,6 +179,13 @@ function SkyDeck() {
     }
   }, [layersReady, terrain, showTrail, trail3d]);
 
+  // First visit: show the quick guide once (not over a shared link). Settings can reopen it.
+  useEffect(() => {
+    if (shouldAutoShowGuide(readFlagPref(STORAGE_KEYS.guideSeen, false), window.location.search)) {
+      setGuideOpen(true);
+    }
+  }, []);
+
   // A shared link may carry a basemap and a selected aircraft (the map reads the view itself).
   useEffect(() => {
     const s = parseShareParams(window.location.search);
@@ -220,7 +240,11 @@ function SkyDeck() {
     return `${window.location.origin}${window.location.pathname}${search ? `?${search}` : ""}`;
   }, [buildSearch]);
 
-  const feed = useAircraftFeed(viewport, selectedHex?.startsWith("mock-") ? null : selectedHex);
+  const feed = useAircraftFeed(
+    viewport,
+    selectedHex?.startsWith("mock-") ? null : selectedHex,
+    pollIntervalMs(batterySaver),
+  );
 
   const allAircraft = useMemo(() => {
     if (mockAircraft.length > 0) {
@@ -284,6 +308,67 @@ function SkyDeck() {
     loadLargeAirports().then(compute, () => undefined);
   }, []);
 
+  const toggleRuler = useCallback(() => {
+    setRulerActive((a) => !a);
+    setRulerPoints([]);
+  }, []);
+
+  // Single-key shortcuts (22j). Each case returns true when it used the key.
+  const handleShortcut = (action: ShortcutAction): boolean => {
+    switch (action) {
+      case "search":
+        document.getElementById(SEARCH_INPUT_ID)?.focus();
+        return true;
+      case "help":
+        setShortcutsOpen(true);
+        return true;
+      case "settings":
+        setSettingsOpen(true);
+        return true;
+      case "next":
+      case "previous": {
+        const t = stepAircraft(visible, selectedHex, action === "next" ? 1 : -1);
+        if (!t) return false;
+        setSelectedHex(t.hex);
+        setAirport(null);
+        flyTo(t.lat, t.lon);
+        return true;
+      }
+      case "terrain":
+        setTerrain((v) => !v);
+        return true;
+      case "trail":
+        setShowTrail((v) => !v);
+        return true;
+      case "trail3d":
+        setTrail3d((v) => !v);
+        return true;
+      case "glide":
+        if (!selected) return false;
+        setGlideRing((v) => !v);
+        return true;
+      case "ruler":
+        toggleRuler();
+        return true;
+      case "close": {
+        const target = escapeTarget({
+          ruler: rulerActive,
+          aircraft: !!selectedHex,
+          nearby: !!nearby,
+          airport: !!airport,
+        });
+        if (target === "ruler") toggleRuler();
+        else if (target === "aircraft") onSelect(null);
+        else if (target === "nearby") setNearby(null);
+        else if (target === "airport") setAirport(null);
+        return target !== null;
+      }
+      default:
+        return false;
+    }
+  };
+  useShortcuts(shortcutsOn, handleShortcut);
+
   const filterCount = activeFilterCount(filters);
 
   return (
@@ -325,7 +410,7 @@ function SkyDeck() {
       {/* Top HUD */}
       <div
         ref={hudRef}
-        className="pointer-events-none absolute inset-x-0 top-0 z-20 flex flex-col gap-2 p-3 md:flex-row md:items-start"
+        className="pointer-events-none absolute inset-x-0 top-0 z-20 flex flex-col gap-2 p-3 pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))] pt-[max(0.75rem,env(safe-area-inset-top))] md:flex-row md:flex-wrap md:items-start lg:flex-nowrap"
       >
         <div className="glass-panel pointer-events-auto flex h-11 items-center gap-4 rounded-md px-3">
           <div className="flex items-baseline gap-1.5">
@@ -358,15 +443,22 @@ function SkyDeck() {
               onValueChange={(v) => v && setBasemap(v as Basemap)}
               aria-label="Map style"
             >
-              <ToggleGroupItem value="dark">Dark</ToggleGroupItem>
-              <ToggleGroupItem value="satellite">Sat</ToggleGroupItem>
-              <ToggleGroupItem value="light">Light</ToggleGroupItem>
+              <ToggleGroupItem value="dark" className="max-md:h-10 max-md:min-w-10">
+                Dark
+              </ToggleGroupItem>
+              <ToggleGroupItem value="satellite" className="max-md:h-10 max-md:min-w-10">
+                Sat
+              </ToggleGroupItem>
+              <ToggleGroupItem value="light" className="max-md:h-10 max-md:min-w-10">
+                Light
+              </ToggleGroupItem>
             </ToggleGroup>
           </div>
           <div className="glass-panel flex h-11 items-center rounded-md px-1">
             <Button
               variant="hud"
               size="sm"
+              className="max-md:h-10 max-md:min-w-10"
               data-active={terrain}
               onClick={() => setTerrain((t) => !t)}
               aria-pressed={terrain}
@@ -381,6 +473,7 @@ function SkyDeck() {
             <Button
               variant="hud"
               size="sm"
+              className="max-md:h-10 max-md:min-w-10"
               data-active={trail3d}
               onClick={() => setTrail3d((t) => !t)}
               aria-pressed={trail3d}
@@ -393,7 +486,8 @@ function SkyDeck() {
               </span>
             </Button>
           </div>
-          <div className="glass-panel flex h-11 items-center rounded-md px-1">
+          {/* On phones the units live in Settings; this saves a whole HUD row. */}
+          <div className="glass-panel flex h-11 items-center rounded-md px-1 max-md:hidden">
             <ToggleGroup
               type="single"
               variant="hud"
@@ -464,7 +558,7 @@ function SkyDeck() {
 
       {/* Map tools: share link, my location, saved views */}
       <div
-        className="pointer-events-none absolute left-3 z-10"
+        className="pointer-events-none absolute left-[max(0.75rem,env(safe-area-inset-left))] z-10"
         style={{ top: "calc(var(--hud-h, 76px) + 8px)" }}
       >
         <MapTools
@@ -472,6 +566,7 @@ function SkyDeck() {
           onFly={flyTo}
           getShareUrl={getShareUrl}
           onLocated={showNearby}
+          onOpenSettings={() => setSettingsOpen(true)}
           layers={{
             terrain,
             onTerrain: setTerrain,
@@ -485,10 +580,7 @@ function SkyDeck() {
           }}
           ruler={{
             active: rulerActive,
-            onToggle: () => {
-              setRulerActive((a) => !a);
-              setRulerPoints([]);
-            },
+            onToggle: toggleRuler,
             summary: rulerSummary(rulerPoints, units),
             hasPoints: rulerPoints.length > 0,
             onClear: () => setRulerPoints([]),
@@ -540,9 +632,9 @@ function SkyDeck() {
 
       {
         <div
-          className={`pointer-events-none absolute bottom-3 left-3 z-20 ${selected ? "hidden md:block" : ""}`}
+          className={`pointer-events-none absolute bottom-[max(0.75rem,env(safe-area-inset-bottom))] left-[max(0.75rem,env(safe-area-inset-left))] z-20 ${selected ? "hidden md:block" : ""}`}
         >
-          <div className="mb-2 hidden md:block">
+          <div className="mb-2 hidden md:block [@media(max-height:480px)]:hidden">
             <AircraftTypesLegend />
           </div>
           <AltitudeLegend units={units} />
@@ -564,6 +656,7 @@ function SkyDeck() {
           glideRatio={glideRatio}
           onGlideRatio={setGlideRatio}
           glideStatus={glideStatus}
+          source={feed.source}
           onClose={() => onSelect(null)}
         />
       )}
@@ -579,6 +672,35 @@ function SkyDeck() {
       )}
 
       <CreditsDialog open={creditsOpen} onOpenChange={setCreditsOpen} />
+      <ShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
+      <FirstRunGuide
+        open={guideOpen}
+        onClose={() => {
+          setGuideOpen(false);
+          writeFlagPref(STORAGE_KEYS.guideSeen, true);
+        }}
+      />
+      <SettingsDialog
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
+        units={units}
+        onUnits={setUnits}
+        basemap={basemap}
+        onBasemap={setBasemap}
+        terrain={terrain}
+        onTerrain={setTerrain}
+        showTrail={showTrail}
+        onShowTrail={setShowTrail}
+        trail3d={trail3d}
+        onTrail3d={setTrail3d}
+        batterySaver={batterySaver}
+        onBatterySaver={setBatterySaver}
+        shortcutsOn={shortcutsOn}
+        onShortcutsOn={setShortcutsOn}
+        onOpenGuide={() => setGuideOpen(true)}
+        onOpenShortcuts={() => setShortcutsOpen(true)}
+        onOpenCredits={() => setCreditsOpen(true)}
+      />
     </main>
   );
 }

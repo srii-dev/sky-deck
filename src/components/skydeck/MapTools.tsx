@@ -8,6 +8,7 @@ import {
   Maximize,
   Minimize,
   Ruler,
+  Settings,
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -53,6 +54,7 @@ interface Props {
   ruler: RulerControls;
   /** Called with the user's position after My location succeeds (used for nearby airports). */
   onLocated?: (pos: { lat: number; lon: number }) => void;
+  onOpenSettings: () => void;
 }
 
 const btn = "h-10 w-10";
@@ -86,8 +88,16 @@ function LayerRow({
   );
 }
 
-/** Small vertical column of map tools: share link, my location, layers, ruler, saved views, fullscreen. */
-export function MapTools({ view, onFly, getShareUrl, layers, ruler, onLocated }: Props) {
+/** Small vertical column of map tools: share link, my location, layers, ruler, saved views, fullscreen, settings. */
+export function MapTools({
+  view,
+  onFly,
+  getShareUrl,
+  layers,
+  ruler,
+  onLocated,
+  onOpenSettings,
+}: Props) {
   const [views, setViews] = useState<SavedView[]>([]);
   const [name, setName] = useState("");
   const [locating, setLocating] = useState(false);
@@ -163,7 +173,8 @@ export function MapTools({ view, onFly, getShareUrl, layers, ruler, onLocated }:
 
   return (
     <div className="pointer-events-auto flex items-start gap-2">
-      <div className="flex flex-col gap-2">
+      {/* In a short window (a phone on its side) the column wraps into a second column instead of running off the screen. */}
+      <div className="flex max-h-[calc(100dvh-var(--hud-h,76px)-84px)] flex-col flex-wrap content-start gap-2">
         <Button
           variant="panel"
           size="icon"
@@ -312,6 +323,16 @@ export function MapTools({ view, onFly, getShareUrl, layers, ruler, onLocated }:
           onClick={() => void toggleFullscreen()}
         >
           {fullscreen ? <Minimize /> : <Maximize />}
+        </Button>
+        <Button
+          variant="panel"
+          size="icon"
+          className={btn}
+          aria-label="Settings"
+          title="Settings (,)"
+          onClick={onOpenSettings}
+        >
+          <Settings />
         </Button>
       </div>
       {ruler.active && (

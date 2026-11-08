@@ -8,6 +8,10 @@ export interface Aircraft {
   type: string | null;
   description: string | null;
   operator: string | null;
+  /** Year of manufacture when the feed's aircraft database has it (often missing). */
+  year?: number | null | undefined;
+  /** The feed's database marks this aircraft as military (never shown for other flags). */
+  military?: boolean | undefined;
   lat: number;
   lon: number;
   /** Barometric altitude in feet; null when unknown. */

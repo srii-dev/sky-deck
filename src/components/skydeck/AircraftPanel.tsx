@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, ChevronDown, ChevronUp, Crosshair, Plane, X } from "lucide-react";
 
@@ -16,6 +16,8 @@ import {
   type Aircraft,
 } from "@/lib/aircraft";
 import { airlineName } from "@/lib/airlines";
+import { aircraftDetailFields } from "@/lib/aircraft-details";
+import { sheetGesture } from "@/lib/sheet-gesture";
 import {
   compassPoint,
   fmtAltitude,
@@ -36,6 +38,7 @@ import type { GlideStatus } from "./FlightMap";
 import { FlightCharts } from "./FlightCharts";
 import type { TrailPoint } from "./map-config";
 import { AcarsMessages } from "./AcarsMessages";
+import { TrailExport } from "./TrailExport";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -51,6 +54,8 @@ interface Props {
   glideRatio: number | null;
   onGlideRatio: (v: number) => void;
   glideStatus?: GlideStatus | undefined;
+  /** Provider that supplied the positions (for the credit line in exported files). */
+  source?: string | null | undefined;
   onClose: () => void;
 }
 
@@ -81,6 +86,8 @@ function Cell({
 export function AircraftPanel(props: Props) {
   const { aircraft: a } = props;
   const [expanded, setExpanded] = useState(false);
+  const dragStartY = useRef<number | null>(null);
+  const swiped = useRef(false);
   const status = flightStatus(a);
   const emg = isEmergency(a.squawk);
   const code = airlineCode(a.callsign);
@@ -158,13 +165,20 @@ export function AircraftPanel(props: Props) {
           <Button
             variant="hud"
             size="icon"
+            className="size-10"
             aria-label={expanded ? "Collapse details" : "Expand details"}
             onClick={() => setExpanded((v) => !v)}
           >
             {expanded ? <ChevronDown /> : <ChevronUp />}
           </Button>
         )}
-        <Button variant="hud" size="icon" aria-label="Close" onClick={props.onClose}>
+        <Button
+          variant="hud"
+          size="icon"
+          className="size-10"
+          aria-label="Close"
+          onClick={props.onClose}
+        >
           <X />
         </Button>
       </div>
@@ -232,7 +246,34 @@ export function AircraftPanel(props: Props) {
         <Cell label="Position age">{`${Math.round(a.seenPos)}s`}</Cell>
       </div>
 
+      <div className="rounded-md border border-border/60 bg-background/40 px-3 py-3">
+        <div className="hud-label mb-2">About this aircraft</div>
+        <dl className="space-y-1.5 text-sm">
+          {aircraftDetailFields(a, new Date()).map((f) => (
+            <div key={f.label} className="flex items-baseline justify-between gap-3">
+              <dt className="shrink-0 text-xs text-muted-foreground">{f.label}</dt>
+              <dd
+                className={cn(
+                  "min-w-0 text-right",
+                  f.known ? "text-foreground" : "text-muted-foreground",
+                )}
+              >
+                {f.value}
+                {f.note && (
+                  <span className="block text-[11px] text-muted-foreground">{f.note}</span>
+                )}
+              </dd>
+            </div>
+          ))}
+        </dl>
+        <p className="mt-2 text-[11px] leading-snug text-muted-foreground">
+          From the live feed&apos;s aircraft database. Many aircraft have no entry, so Unknown is
+          common.
+        </p>
+      </div>
+
       <FlightCharts trail={props.trail} units={props.units} />
+      <TrailExport aircraft={a} trail={props.trail} source={props.source} />
       <AcarsMessages hex={a.hex} />
 
       <div className="space-y-3 rounded-md border border-border/60 bg-background/40 px-3 py-3">
@@ -355,11 +396,33 @@ export function AircraftPanel(props: Props) {
         className="glass-panel pointer-events-auto fixed inset-x-0 bottom-0 z-40 flex flex-col rounded-t-xl pb-[env(safe-area-inset-bottom)] md:hidden"
         style={{ maxHeight: "min(70vh, calc(100dvh - var(--hud-h, 76px) - 8px))" }}
       >
+        {/* The handle is a 40 px tall touch target; a swipe up or down opens or closes the details. */}
         <button
+          type="button"
           aria-label="Toggle details"
-          onClick={() => setExpanded((v) => !v)}
-          className="mx-auto mt-2 h-1.5 w-12 rounded-full bg-muted-foreground/40"
-        />
+          aria-expanded={expanded}
+          onPointerDown={(e) => {
+            dragStartY.current = e.clientY;
+          }}
+          onPointerUp={(e) => {
+            const g =
+              dragStartY.current == null ? "tap" : sheetGesture(dragStartY.current, e.clientY);
+            dragStartY.current = null;
+            if (g === "tap") return; // the click handler toggles
+            swiped.current = true;
+            setExpanded(g === "expand");
+          }}
+          onClick={() => {
+            if (swiped.current) {
+              swiped.current = false;
+              return;
+            }
+            setExpanded((v) => !v);
+          }}
+          className="mx-auto flex h-10 w-full touch-none items-center justify-center"
+        >
+          <span className="h-1.5 w-12 rounded-full bg-muted-foreground/40" />
+        </button>
         <div className="px-4 pb-3 pt-3">{header(true)}</div>
         {!expanded && (
           <div className="grid grid-cols-3 gap-2 px-4 pb-4">
