@@ -1,13 +1,47 @@
 import { useEffect, useState } from "react";
-import { Bookmark, Link2, LocateFixed, Loader2, Trash2 } from "lucide-react";
+import {
+  Bookmark,
+  Layers,
+  Link2,
+  Loader2,
+  LocateFixed,
+  Maximize,
+  Minimize,
+  Ruler,
+  Trash2,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Switch } from "@/components/ui/switch";
 import { locate } from "@/lib/geolocate";
 import { addView, loadViews, removeView, storeViews, type SavedView } from "@/lib/saved-views";
+import { cn } from "@/lib/utils";
 import type { Viewport } from "./map-config";
+
+export interface LayerControls {
+  terrain: boolean;
+  onTerrain: (v: boolean) => void;
+  showTrail: boolean;
+  onShowTrail: (v: boolean) => void;
+  trail3d: boolean;
+  onTrail3d: (v: boolean) => void;
+  glideRing: boolean;
+  onGlideRing: (v: boolean) => void;
+  /** The glide ring needs a selected aircraft. */
+  hasSelection: boolean;
+}
+
+export interface RulerControls {
+  active: boolean;
+  onToggle: () => void;
+  /** Distance and bearing once two points are set. */
+  summary: string | null;
+  hasPoints: boolean;
+  onClear: () => void;
+}
 
 interface Props {
   /** The latest map view (not debounced), or null before the map exists. */
@@ -15,18 +49,65 @@ interface Props {
   onFly: (lat: number, lon: number, zoom?: number) => void;
   /** The address that reopens the current view. */
   getShareUrl: () => string;
+  layers: LayerControls;
+  ruler: RulerControls;
 }
 
 const btn = "h-10 w-10";
 
-/** Small vertical column of map tools: share link, my location, saved views. */
-export function MapTools({ view, onFly, getShareUrl }: Props) {
+function LayerRow({
+  label,
+  hint,
+  checked,
+  onChange,
+  disabled,
+}: {
+  label: string;
+  hint?: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <label
+      className={cn(
+        "flex items-center justify-between gap-3 py-2 text-sm",
+        disabled && "opacity-50",
+      )}
+    >
+      <span>
+        {label}
+        {hint && <span className="block text-[11px] text-muted-foreground">{hint}</span>}
+      </span>
+      <Switch checked={checked} onCheckedChange={onChange} disabled={disabled ?? false} />
+    </label>
+  );
+}
+
+/** Small vertical column of map tools: share link, my location, layers, ruler, saved views, fullscreen. */
+export function MapTools({ view, onFly, getShareUrl, layers, ruler }: Props) {
   const [views, setViews] = useState<SavedView[]>([]);
   const [name, setName] = useState("");
   const [locating, setLocating] = useState(false);
   const [open, setOpen] = useState(false);
+  const [fullscreen, setFullscreen] = useState(false);
   // Read after hydration so the first render matches the server.
   useEffect(() => setViews(loadViews()), []);
+  useEffect(() => {
+    const onChange = () => setFullscreen(!!document.fullscreenElement);
+    onChange();
+    document.addEventListener("fullscreenchange", onChange);
+    return () => document.removeEventListener("fullscreenchange", onChange);
+  }, []);
+
+  const toggleFullscreen = async () => {
+    try {
+      if (document.fullscreenElement) await document.exitFullscreen();
+      else await document.documentElement.requestFullscreen();
+    } catch {
+      toast("Full screen is not available here");
+    }
+  };
 
   const copyLink = async () => {
     const url = getShareUrl();
@@ -78,92 +159,177 @@ export function MapTools({ view, onFly, getShareUrl }: Props) {
   };
 
   return (
-    <div className="pointer-events-auto flex flex-col gap-2">
-      <Button
-        variant="panel"
-        size="icon"
-        className={btn}
-        aria-label="Copy link to this view"
-        title="Copy link to this view"
-        onClick={() => void copyLink()}
-      >
-        <Link2 />
-      </Button>
-      <Button
-        variant="panel"
-        size="icon"
-        className={btn}
-        aria-label="Go to my location"
-        title="Go to my location"
-        disabled={locating}
-        onClick={() => void goToMe()}
-      >
-        {locating ? <Loader2 className="animate-spin" /> : <LocateFixed />}
-      </Button>
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <Button
-            variant="panel"
-            size="icon"
-            className={btn}
-            aria-label="Saved views"
-            title="Saved views"
-          >
-            <Bookmark />
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent align="start" side="right" className="glass-panel w-72">
-          <form
-            className="flex gap-2"
-            onSubmit={(e) => {
-              e.preventDefault();
-              save();
-            }}
-          >
-            <Input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Name this view"
-              aria-label="Name for the saved view"
-              maxLength={40}
-              className="h-9 text-sm"
-            />
-            <Button type="submit" size="sm" variant="secondary">
-              Save
+    <div className="pointer-events-auto flex items-start gap-2">
+      <div className="flex flex-col gap-2">
+        <Button
+          variant="panel"
+          size="icon"
+          className={btn}
+          aria-label="Copy link to this view"
+          title="Copy link to this view"
+          onClick={() => void copyLink()}
+        >
+          <Link2 />
+        </Button>
+        <Button
+          variant="panel"
+          size="icon"
+          className={btn}
+          aria-label="Go to my location"
+          title="Go to my location"
+          disabled={locating}
+          onClick={() => void goToMe()}
+        >
+          {locating ? <Loader2 className="animate-spin" /> : <LocateFixed />}
+        </Button>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant="panel"
+              size="icon"
+              className={btn}
+              aria-label="Map layers"
+              title="Map layers"
+            >
+              <Layers />
             </Button>
-          </form>
-          {views.length === 0 ? (
-            <p className="mt-3 text-xs text-muted-foreground">
-              Saved views stay in this browser. Move the map, name it and press Save.
+          </PopoverTrigger>
+          <PopoverContent align="start" side="right" className="glass-panel w-64">
+            <div className="hud-label mb-1">Layers</div>
+            <LayerRow
+              label="Terrain and buildings"
+              checked={layers.terrain}
+              onChange={layers.onTerrain}
+            />
+            <LayerRow
+              label="Aircraft trail"
+              checked={layers.showTrail}
+              onChange={layers.onShowTrail}
+            />
+            <LayerRow
+              label="3D trail"
+              hint="Draws the trail at real altitude"
+              checked={layers.trail3d}
+              onChange={layers.onTrail3d}
+              disabled={!layers.showTrail}
+            />
+            <LayerRow
+              label="Glide range ring"
+              hint={layers.hasSelection ? "For the selected aircraft" : "Select an aircraft first"}
+              checked={layers.glideRing}
+              onChange={layers.onGlideRing}
+              disabled={!layers.hasSelection}
+            />
+            <p className="mt-2 text-[11px] text-muted-foreground">
+              Your choices are remembered in this browser.
             </p>
-          ) : (
-            <ul className="mt-3 max-h-60 space-y-1 overflow-auto">
-              {views.map((v) => (
-                <li key={v.name} className="flex items-center gap-1">
-                  <button
-                    type="button"
-                    className="min-w-0 flex-1 truncate rounded px-2 py-1.5 text-left text-sm hover:bg-secondary"
-                    onClick={() => {
-                      onFly(v.lat, v.lon, v.zoom);
-                      setOpen(false);
-                    }}
-                  >
-                    {v.name}
-                  </button>
-                  <button
-                    type="button"
-                    aria-label={`Delete saved view ${v.name}`}
-                    className="rounded p-1.5 text-muted-foreground hover:text-destructive"
-                    onClick={() => remove(v.name)}
-                  >
-                    <Trash2 className="size-4" />
-                  </button>
-                </li>
-              ))}
-            </ul>
+          </PopoverContent>
+        </Popover>
+        <Button
+          variant="panel"
+          size="icon"
+          className={cn(btn, ruler.active && "border-primary text-primary")}
+          aria-label="Measure distance"
+          aria-pressed={ruler.active}
+          title="Measure distance: click two points on the map"
+          onClick={ruler.onToggle}
+        >
+          <Ruler />
+        </Button>
+        <Popover open={open} onOpenChange={setOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="panel"
+              size="icon"
+              className={btn}
+              aria-label="Saved views"
+              title="Saved views"
+            >
+              <Bookmark />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent align="start" side="right" className="glass-panel w-72">
+            <form
+              className="flex gap-2"
+              onSubmit={(e) => {
+                e.preventDefault();
+                save();
+              }}
+            >
+              <Input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Name this view"
+                aria-label="Name for the saved view"
+                maxLength={40}
+                className="h-9 text-sm"
+              />
+              <Button type="submit" size="sm" variant="secondary">
+                Save
+              </Button>
+            </form>
+            {views.length === 0 ? (
+              <p className="mt-3 text-xs text-muted-foreground">
+                Saved views stay in this browser. Move the map, name it and press Save.
+              </p>
+            ) : (
+              <ul className="mt-3 max-h-60 space-y-1 overflow-auto">
+                {views.map((v) => (
+                  <li key={v.name} className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      className="min-w-0 flex-1 truncate rounded px-2 py-1.5 text-left text-sm hover:bg-secondary"
+                      onClick={() => {
+                        onFly(v.lat, v.lon, v.zoom);
+                        setOpen(false);
+                      }}
+                    >
+                      {v.name}
+                    </button>
+                    <button
+                      type="button"
+                      aria-label={`Delete saved view ${v.name}`}
+                      className="rounded p-1.5 text-muted-foreground hover:text-destructive"
+                      onClick={() => remove(v.name)}
+                    >
+                      <Trash2 className="size-4" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </PopoverContent>
+        </Popover>
+        <Button
+          variant="panel"
+          size="icon"
+          className={btn}
+          aria-label={fullscreen ? "Exit full screen" : "Full screen"}
+          title={fullscreen ? "Exit full screen" : "Full screen"}
+          onClick={() => void toggleFullscreen()}
+        >
+          {fullscreen ? <Minimize /> : <Maximize />}
+        </Button>
+      </div>
+      {ruler.active && (
+        <div
+          className="glass-panel flex items-center gap-2 rounded-md px-3 py-2 text-sm"
+          role="status"
+        >
+          <span className="data-value text-primary">
+            {ruler.summary ?? (ruler.hasPoints ? "Click a second point" : "Click a start point")}
+          </span>
+          {ruler.hasPoints && (
+            <button
+              type="button"
+              className="text-xs text-muted-foreground hover:text-foreground"
+              onClick={ruler.onClear}
+            >
+              Clear
+            </button>
           )}
-        </PopoverContent>
-      </Popover>
+        </div>
+      )}
     </div>
   );
 }

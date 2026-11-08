@@ -230,6 +230,12 @@ export interface FlightMapProps {
   glideRing?: boolean | undefined;
   glideRatio?: number | null | undefined;
   onGlideStatus?: ((status: GlideStatus) => void) | undefined;
+  /** Draw the selected aircraft's trail (default on). */
+  showTrail?: boolean | undefined;
+  /** Ruler: while active, a map click adds a point instead of selecting an aircraft. */
+  rulerActive?: boolean | undefined;
+  rulerPoints?: [number, number][] | undefined;
+  onRulerPoint?: ((point: [number, number]) => void) | undefined;
 }
 
 export default function FlightMap(props: FlightMapProps) {
@@ -270,6 +276,7 @@ export default function FlightMap(props: FlightMapProps) {
       map.addSource("sd-trail-curtain", { type: "geojson", data: empty() });
     if (!map.getSource("sd-aircraft"))
       map.addSource("sd-aircraft", { type: "geojson", data: empty() });
+    if (!map.getSource("sd-ruler")) map.addSource("sd-ruler", { type: "geojson", data: empty() });
 
     if (!map.getLayer("sd-glide-ring-fill")) {
       map.addLayer(
@@ -342,6 +349,33 @@ export default function FlightMap(props: FlightMapProps) {
         },
       });
     }
+
+    // Ruler: a dashed line between two clicked points, above trails, below the aircraft.
+    if (!map.getLayer("sd-ruler-line")) {
+      map.addLayer({
+        id: "sd-ruler-line",
+        type: "line",
+        source: "sd-ruler",
+        filter: ["==", ["geometry-type"], "LineString"],
+        layout: { "line-cap": "round", "line-join": "round" },
+        paint: { "line-color": "#38bdf8", "line-width": 2.5, "line-dasharray": [2, 2] },
+      });
+    }
+    if (!map.getLayer("sd-ruler-dot")) {
+      map.addLayer({
+        id: "sd-ruler-dot",
+        type: "circle",
+        source: "sd-ruler",
+        filter: ["==", ["geometry-type"], "Point"],
+        paint: {
+          "circle-radius": 5,
+          "circle-color": "#38bdf8",
+          "circle-stroke-color": "#0b1220",
+          "circle-stroke-width": 2,
+        },
+      });
+    }
+    applyRuler();
 
     // Airports inside the glide ring: above the ring and trails, below the aircraft.
     if (!map.getLayer("sd-reach-airports-dot")) {
@@ -550,11 +584,31 @@ export default function FlightMap(props: FlightMapProps) {
     else map.setTerrain(null);
   };
 
+  const applyRuler = () => {
+    const map = mapRef.current;
+    const src = map?.getSource("sd-ruler") as GeoJSONSource | undefined;
+    if (!src) return;
+    const pts = propsRef.current.rulerPoints ?? [];
+    const features: GeoJSON.Feature[] = pts.map((p) => ({
+      type: "Feature",
+      properties: {},
+      geometry: { type: "Point", coordinates: p },
+    }));
+    if (pts.length === 2) {
+      features.push({
+        type: "Feature",
+        properties: {},
+        geometry: { type: "LineString", coordinates: pts },
+      });
+    }
+    src.setData({ type: "FeatureCollection", features });
+  };
+
   const applyTrail = () => {
     const map = mapRef.current;
     if (!map) return;
-    const { trail, trail3d, selectedHex } = propsRef.current;
-    const pts = selectedHex ? [...trail] : [];
+    const { trail, trail3d, selectedHex, showTrail } = propsRef.current;
+    const pts = selectedHex && showTrail !== false ? [...trail] : [];
     // Connect trail to the plane's current (interpolated) position.
     const tr = selectedHex ? tracksRef.current.get(selectedHex) : undefined;
     if (tr && pts.length) {
@@ -851,6 +905,10 @@ export default function FlightMap(props: FlightMapProps) {
     emitViewport();
 
     map.on("click", (e) => {
+      if (propsRef.current.rulerActive) {
+        propsRef.current.onRulerPoint?.([e.lngLat.lng, e.lngLat.lat]);
+        return;
+      }
       if (!map.getLayer("sd-aircraft")) return;
       const pad = 10;
       const feats = map.queryRenderedFeatures(
@@ -864,6 +922,10 @@ export default function FlightMap(props: FlightMapProps) {
       propsRef.current.onSelect(hex ?? null);
     });
     map.on("mousemove", (e) => {
+      if (propsRef.current.rulerActive) {
+        map.getCanvas().style.cursor = "crosshair";
+        return;
+      }
       if (!map.getLayer("sd-aircraft")) return;
       const feats = map.queryRenderedFeatures(
         [
@@ -971,7 +1033,13 @@ export default function FlightMap(props: FlightMapProps) {
   useEffect(() => {
     applyTrail();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [props.trail, props.trail3d, props.selectedHex]);
+  }, [props.trail, props.trail3d, props.selectedHex, props.showTrail]);
+
+  useEffect(() => {
+    applyRuler();
+    const map = mapRef.current;
+    if (map && !props.rulerActive) map.getCanvas().style.cursor = "";
+  }, [props.rulerPoints, props.rulerActive]);
 
   useEffect(() => {
     applyTerrain();
