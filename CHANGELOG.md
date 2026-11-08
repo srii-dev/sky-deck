@@ -16,6 +16,9 @@ All notable changes to SkyDeck. The format follows [Keep a Changelog](https://ke
 - Feature flags for shipping unfinished work switched off.
 - Shareable links (the address holds the view, the selected aircraft and the basemap), a Link button, a My location button, saved views, and better search (ranked results, aircraft type, airline name, recent searches).
 - A Layers menu (terrain, trail, 3D trail, glide ring; choices remembered), a distance and bearing ruler, a flight chart (altitude, speed, vertical rate) in the aircraft panel, and a full-screen button.
+- A Settings dialog (units, map style, layer defaults, battery saver, keyboard-shortcut switch, a JSON download of the data kept in your browser, and a delete), single-key keyboard shortcuts with a help list, a skippable first-run guide, and an "About this aircraft" card with Unknown for missing details (Phase 22h, 22i, 22j, 22m).
+- Download the selected aircraft's trail as CSV or GPX, built in the browser with a data credit (Phase 22l).
+- Phone polish: a swipeable 40 px sheet handle, 40 px touch targets, a shorter HUD on phones, safe-area insets, a landscape layout, and a battery saver that refreshes every 15 s (Phase 22n).
 - Dependabot configuration and a dependency audit step in CI.
 - Server configuration module and `.env.example` for secrets, and a first database migration (profiles with row-level security), neither used by the app yet.
 
