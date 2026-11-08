@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getAirportAtis, getAirportBrief } from "@/lib/airport.functions";
 import { faaChartsUrl } from "@/lib/airport-charts";
+import { airportSummary } from "@/lib/airport-summary";
 import type { AtisKind } from "@/lib/airport-data";
 import type { FlightCategory } from "@/lib/airport-data";
 import { airportTraffic, TRAFFIC_RADIUS_NM } from "@/lib/airport-traffic";
@@ -94,6 +95,22 @@ export function AirportPanel({ airport, aircraft, units, onClose }: Props) {
     [runways, metar, aircraft, airport, elevFt],
   );
 
+  const summary = useMemo(
+    () =>
+      b
+        ? airportSummary({
+            metar: b.metar,
+            weatherFailed: b.failed.includes("weather"),
+            nas: b.nas,
+            nasFailed: b.failed.includes("nas"),
+            atis,
+            traffic,
+            runway: likely,
+          })
+        : [],
+    [b, atis, traffic, likely],
+  );
+
   const wind = !metar
     ? "—"
     : metar.windKt == null
@@ -153,6 +170,14 @@ export function AirportPanel({ airport, aircraft, units, onClose }: Props) {
 
         {b && (
           <>
+            <section aria-label="Airport brief" className="space-y-1">
+              <div className="hud-label">Brief</div>
+              <p className="text-sm">{summary.join(" ")}</p>
+              <p className="text-xs text-muted-foreground">
+                Written by fixed rules from the data below, not by AI.
+              </p>
+            </section>
+
             <section aria-label="FAA status" className="space-y-1">
               <div className="hud-label">FAA status</div>
               {b.nas === null ? (
