@@ -260,3 +260,46 @@ export function parseNasStatus(xml: string, iata: string): NasEvent[] {
   }
   return events;
 }
+
+export type AtisKind = "combined" | "arrival" | "departure";
+
+export interface AtisReport {
+  kind: AtisKind;
+  /** Information letter, for example "C". */
+  code: string | null;
+  /** Broadcast text as published, in capitals. */
+  text: string;
+  /** Time of the broadcast in UTC as "HHMM", when published. */
+  time: string | null;
+  /** When the service last stored it, ms since the epoch. */
+  updatedAt: number | null;
+}
+
+const ATIS_MAX_CHARS = 4000;
+
+type AtisRaw = Partial<Record<"type" | "code" | "datis" | "time" | "updatedAt", unknown>>;
+
+/**
+ * Digital ATIS from atis.info: an array of reports (one "combined", or one "arr" and one "dep").
+ * Anything that is not an array of reports with text gives [].
+ */
+export function parseAtis(json: unknown): AtisReport[] {
+  if (!Array.isArray(json)) return [];
+  const out: AtisReport[] = [];
+  for (const item of json) {
+    const r = item && typeof item === "object" && !Array.isArray(item) ? (item as AtisRaw) : null;
+    const text = r ? str(r.datis) : null;
+    if (!r || !text) continue;
+    const type = str(r.type);
+    const updated = str(r.updatedAt);
+    const parsed = updated ? Date.parse(updated) : NaN;
+    out.push({
+      kind: type === "arr" ? "arrival" : type === "dep" ? "departure" : "combined",
+      code: str(r.code),
+      text: text.slice(0, ATIS_MAX_CHARS),
+      time: str(r.time),
+      updatedAt: Number.isFinite(parsed) ? parsed : null,
+    });
+  }
+  return out;
+}
