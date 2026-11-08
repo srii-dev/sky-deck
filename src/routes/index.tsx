@@ -36,6 +36,7 @@ import type { Airport } from "@/lib/airports";
 import { currentAirportList, loadLargeAirports } from "@/lib/airport-list";
 import { nearbyAirports, type NearbyAirport } from "@/lib/nearby-airports";
 import { nextRulerPoints, rulerSummary, type LngLat } from "@/lib/measure";
+import type { MotionState } from "@/lib/smooth-motion";
 import { buildShareSearch, parseShareParams } from "@/lib/share-link";
 import { shouldAutoShowGuide } from "@/lib/first-run";
 import { pollIntervalMs, readFlagPref, STORAGE_KEYS, writeFlagPref } from "@/lib/local-settings";
@@ -100,6 +101,11 @@ function SkyDeck() {
   const [guideOpen, setGuideOpen] = useState(false);
   const [shortcutsOn, setShortcutsOn] = useFlagPref(STORAGE_KEYS.shortcuts, true);
   const [batterySaver, setBatterySaver] = useFlagPref(STORAGE_KEYS.batterySaver, false);
+  const [smoothMotion, setSmoothMotion] = useFlagPref(STORAGE_KEYS.smoothMotion, true);
+  const [motionDelaySec, setMotionDelaySec] = useState<number | null>(null);
+  const [selectedMotion, setSelectedMotion] = useState<{ hex: string; m: MotionState } | null>(
+    null,
+  );
   const [hudH, setHudH] = useState(76);
   const hudRef = useRef<HTMLDivElement>(null);
   const [isMock, setIsMock] = useState(false);
@@ -265,6 +271,25 @@ function SkyDeck() {
     () => allAircraft.find((a) => a.hex === selectedHex) ?? null,
     [allAircraft, selectedHex],
   );
+  // Every aircraft in the data, before filters: the map keeps one that is only filtered out from lingering.
+  const presentHexes = useMemo(() => new Set(allAircraft.map((a) => a.hex)), [allAircraft]);
+  // The panel shows the selected aircraft at the moment the map draws it (a few seconds behind the newest
+  // data), so the numbers and the icon agree. Before the first drawn state it shows the latest data.
+  const panelAircraft = useMemo(() => {
+    if (!selected || !smoothMotion) return selected;
+    if (!selectedMotion || selectedMotion.hex !== selected.hex) return selected;
+    const m = selectedMotion.m;
+    return {
+      ...selected,
+      lat: m.lat,
+      lon: m.lon,
+      altFt: m.altFt,
+      gs: m.gs,
+      track: m.track,
+      vRate: m.vRate,
+      onGround: m.onGround,
+    };
+  }, [selected, selectedMotion, smoothMotion]);
 
   const flyTo = useCallback((lat: number, lon: number, zoom?: number) => {
     setFlyTarget({ id: Date.now(), lat, lon, zoom });
@@ -400,6 +425,11 @@ function SkyDeck() {
             glideRatio={glideRatio}
             onGlideStatus={setGlideStatus}
             showTrail={showTrail}
+            receivedAt={feed.fetchedAt}
+            presentHexes={presentHexes}
+            smoothMotion={smoothMotion}
+            onMotionDelay={setMotionDelaySec}
+            onSelectedMotion={(hex, m) => setSelectedMotion({ hex, m })}
             rulerActive={rulerActive}
             rulerPoints={rulerPoints}
             onRulerPoint={(p) => setRulerPoints((pts) => nextRulerPoints(pts, p))}
@@ -644,7 +674,7 @@ function SkyDeck() {
       {selected && (
         <AircraftPanel
           key={selected.hex}
-          aircraft={selected}
+          aircraft={panelAircraft ?? selected}
           units={units}
           trail={feed.trail}
           trail3d={trail3d}
@@ -694,6 +724,9 @@ function SkyDeck() {
         trail3d={trail3d}
         onTrail3d={setTrail3d}
         batterySaver={batterySaver}
+        smoothMotion={smoothMotion}
+        onSmoothMotion={setSmoothMotion}
+        motionDelaySec={motionDelaySec}
         onBatterySaver={setBatterySaver}
         shortcutsOn={shortcutsOn}
         onShortcutsOn={setShortcutsOn}

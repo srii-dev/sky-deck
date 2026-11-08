@@ -17,6 +17,8 @@ export const STORAGE_KEYS = {
   recentSearches: RECENT_SEARCHES_KEY,
   flags: FLAGS_STORAGE_KEY,
   batterySaver: "skydeck:battery-saver",
+  /** Smooth (default) or live aircraft motion; stored as "false" for live. */
+  smoothMotion: "skydeck:smooth-motion",
   shortcuts: "skydeck:shortcuts",
   guideSeen: "skydeck:guide-seen",
 } as const;

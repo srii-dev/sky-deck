@@ -34,6 +34,10 @@ export interface SettingsProps {
   onTrail3d: (v: boolean) => void;
   batterySaver: boolean;
   onBatterySaver: (v: boolean) => void;
+  smoothMotion: boolean;
+  onSmoothMotion: (v: boolean) => void;
+  /** The display delay in use, in seconds, or null before it is known. */
+  motionDelaySec: number | null;
   shortcutsOn: boolean;
   onShortcutsOn: (v: boolean) => void;
   onOpenGuide: () => void;
@@ -195,6 +199,17 @@ export function SettingsDialog(p: SettingsProps) {
         </Section>
 
         <Section title="Phone and battery">
+          <SwitchRow
+            label="Smooth motion"
+            hint={
+              p.smoothMotion
+                ? "Draws aircraft a few seconds behind the data so they glide without jumps" +
+                  (p.motionDelaySec != null ? " (now " + p.motionDelaySec + " s behind)." : ".")
+                : "Live: a shorter delay, but aircraft positions between updates are estimated and can jump."
+            }
+            checked={p.smoothMotion}
+            onChange={p.onSmoothMotion}
+          />
           <SwitchRow
             label="Battery saver"
             hint={`Refreshes aircraft every ${POLL_SAVER_MS / 1000} s instead of ${POLL_NORMAL_MS / 1000} s. Emergency squawk alerts take longer to appear.`}
