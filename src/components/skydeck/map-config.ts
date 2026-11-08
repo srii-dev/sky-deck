@@ -27,6 +27,8 @@ export interface TrailPoint {
   altFt: number | null;
   onGround: boolean;
   t: number;
+  /** When the position was reported (ms), arrival time minus its age. Used to stop the trail at the drawn moment. */
+  st?: number | undefined;
   /** Ground speed (kt) and vertical rate (ft/min) at this sample, for the flight charts. */
   gs?: number | null | undefined;
   vRate?: number | null | undefined;

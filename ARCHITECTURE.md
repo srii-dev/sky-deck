@@ -22,7 +22,7 @@ Providers: adsb.lol, then airplanes.live   paced, backed off, shared in flight (
 - Views are covered by fixed tiles (fine, medium, a snapped single circle, or the wide 350 nm lattice) so visitors looking at the same area ask for the same tiles and share the server cache.
 - The server cache is 5 s; a cached tile is aged before it is sent; a busy provider is answered from a tile up to 30 s old; a failed fetch never returns a cache entry older than 30 s.
 - All caches, pacing and request sharing live in one server instance (an isolate on Workers). A cross-instance store is planned (plan item 19h).
-- The map moves aircraft between polls by dead reckoning from speed and track, capped at 40 s. A smoother delayed-playback display is planned (Phase 20).
+- The map draws aircraft a few seconds in the past (Phase 20, src/lib/smooth-motion.ts): each aircraft keeps its recent position reports with their true times, and the drawn position is interpolated between two real reports. Dead reckoning from speed and track only runs past the newest report, capped at 30 s, and then the aircraft is held and dimmed. The delay adapts to how late updates really arrive (default about 10 s, slow changes only), and Settings has a Live option with a shorter delay. Aircraft missing from the data stay as fading ghosts for 60 s.
 
 ## Other data
 

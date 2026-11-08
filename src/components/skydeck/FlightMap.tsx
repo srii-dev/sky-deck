@@ -37,6 +37,18 @@ import { LEGEND_KINDS, svgMarkup } from "./aircraft-icons";
 import { installAirportDetail } from "./airport-detail-layers";
 import { applyWeather, NO_WEATHER, pickWeather, type WeatherMapState } from "./weather-layers";
 import {
+  appendSample,
+  initialDelay,
+  missingOpacity,
+  motionAt,
+  observeUpdate,
+  median,
+  stepDelay,
+  type DelayState,
+  type MotionSample,
+  type MotionState,
+} from "@/lib/smooth-motion";
+import {
   DEFAULT_VIEW,
   type Basemap,
   type FlyTarget,
@@ -78,39 +90,56 @@ function styleFor(b: Basemap): string | StyleSpecification {
 const FT_TO_M = 0.3048;
 const KT_TO_MS = 0.514444;
 const M_PER_DEG = 111320;
-const EXTRAPOLATE_MAX_S = 40;
-const CORRECTION_MS = 1600;
 const FRAME_MS = 90;
 
+/*
+ * Aircraft motion (Phase 20). Each aircraft keeps its recent position reports as samples with their true
+ * times. The map draws the world `delay` milliseconds in the past, so a drawn position is interpolated between
+ * two real reports and not guessed. See src/lib/smooth-motion.ts for the rules (delay, gaps, dead reckoning).
+ */
 interface Track {
+  /** Latest data for this aircraft (labels, colour source, panel). */
   a: Aircraft;
-  lat: number;
-  lon: number;
-  t0: number;
-  offLat: number;
-  offLon: number;
-  offT: number;
+  samples: readonly MotionSample[];
   color: string;
   emg: boolean;
+  /** Missing from the data (not just filtered out): kept for a while, then faded and removed. */
+  ghost: boolean;
 }
 
-function extrapolate(tr: Pick<Track, "a" | "lat" | "lon" | "t0">, now: number): [number, number] {
-  const { a } = tr;
-  if (a.onGround || !a.gs || a.track == null || a.gs < 30) return [tr.lat, tr.lon];
-  const dt = Math.min(EXTRAPOLATE_MAX_S, Math.max(0, (now - tr.t0) / 1000));
-  const d = a.gs * KT_TO_MS * dt;
-  const rad = (a.track * Math.PI) / 180;
-  const dLat = (d * Math.cos(rad)) / M_PER_DEG;
-  const dLon =
-    (d * Math.sin(rad)) / (M_PER_DEG * Math.max(0.05, Math.cos((tr.lat * Math.PI) / 180)));
-  return [tr.lat + dLat, tr.lon + dLon];
+function toSample(a: Aircraft, receivedAt: number): MotionSample {
+  return {
+    t: receivedAt - a.seenPos * 1000,
+    lat: a.lat,
+    lon: a.lon,
+    altFt: a.altFt,
+    track: a.track,
+    gs: a.gs,
+    vRate: a.vRate,
+    onGround: a.onGround,
+  };
 }
 
-function renderPos(tr: Track, now: number): [number, number] {
-  const [lat, lon] = extrapolate(tr, now);
-  const k = Math.max(0, 1 - (now - tr.offT) / CORRECTION_MS);
-  const e = k * k * (3 - 2 * k); // smoothstep easing
-  return [lat + tr.offLat * e, lon + tr.offLon * e];
+/** Where a track is drawn at time T (the delayed clock). */
+function trackState(tr: Track, T: number): MotionState {
+  return (
+    motionAt(tr.samples, T) ?? {
+      lat: tr.a.lat,
+      lon: tr.a.lon,
+      altFt: tr.a.altFt,
+      track: tr.a.track,
+      gs: tr.a.gs,
+      vRate: tr.a.vRate,
+      onGround: tr.a.onGround,
+      phase: "stale",
+      beyondNewestMs: 0,
+    }
+  );
+}
+
+function renderPos(tr: Track, T: number): [number, number] {
+  const m = trackState(tr, T);
+  return [m.lat, m.lon];
 }
 
 function haversineNm(lat1: number, lon1: number, lat2: number, lon2: number): number {
@@ -238,6 +267,16 @@ export interface FlightMapProps {
   rulerActive?: boolean | undefined;
   rulerPoints?: [number, number][] | undefined;
   onRulerPoint?: ((point: [number, number]) => void) | undefined;
+  /** When the aircraft data arrived (ms, Date.now()). Sample times are measured from it. */
+  receivedAt?: number | null | undefined;
+  /** Every aircraft in the data, before filters. One missing from here (not just filtered out) fades out. */
+  presentHexes?: ReadonlySet<string> | undefined;
+  /** Smooth (about 10 s behind, no guessing) or Live (shorter delay, more guessing). Default smooth. */
+  smoothMotion?: boolean | undefined;
+  /** The delay in use, in whole seconds, when it changes. */
+  onMotionDelay?: ((seconds: number) => void) | undefined;
+  /** The selected aircraft at the drawn moment, about once a second, so the panel can match the icon. */
+  onSelectedMotion?: ((hex: string, m: MotionState) => void) | undefined;
   /** Weather layers to draw (radar, echo tops, advisories, pilot reports). */
   weather?: WeatherMapState | undefined;
   /** A click on a weather item (its id), or null when the click hit none. */
@@ -248,6 +287,9 @@ export default function FlightMap(props: FlightMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MLMap | null>(null);
   const tracksRef = useRef(new Map<string, Track>());
+  const delayRef = useRef<DelayState>(initialDelay("smooth"));
+  const lastReceivedRef = useRef<number | null>(null);
+  const lastDelaySecRef = useRef<number | null>(null);
   const elevCacheRef = useRef<Map<string, ElevationCacheEntry>>(new Map());
   const lastGlideStatusRef = useRef<GlideStatus | null>(null);
   const propsRef = useRef(props);
@@ -469,6 +511,7 @@ export default function FlightMap(props: FlightMapProps) {
           "icon-color": ["get", "color"],
           "icon-halo-color": ["case", ["get", "sel"], "#f5b83d", "rgba(5,10,18,0.85)"],
           "icon-halo-width": ["case", ["get", "sel"], 0.8, 1],
+          "icon-opacity": ["coalesce", ["get", "fade"], 1],
         },
       });
     }
@@ -492,6 +535,7 @@ export default function FlightMap(props: FlightMapProps) {
           "text-color": ["case", ["get", "emg"], EMERGENCY_COLOR, "#dbe7f0"],
           "text-halo-color": "rgba(5,10,18,0.9)",
           "text-halo-width": 1.4,
+          "text-opacity": ["coalesce", ["get", "fade"], 1],
         },
       });
     }
@@ -618,12 +662,14 @@ export default function FlightMap(props: FlightMapProps) {
     const map = mapRef.current;
     if (!map) return;
     const { trail, trail3d, selectedHex, showTrail } = propsRef.current;
-    const pts = selectedHex && showTrail !== false ? [...trail] : [];
-    // Connect trail to the plane's current (interpolated) position.
+    // The trail stops at the drawn moment (the icon is a few seconds behind the newest data) and joins the icon.
+    const drawT = Date.now() - delayRef.current.delayMs;
+    const pts =
+      selectedHex && showTrail !== false ? trail.filter((p) => (p.st ?? p.t) <= drawT) : [];
     const tr = selectedHex ? tracksRef.current.get(selectedHex) : undefined;
     if (tr && pts.length) {
-      const [lat, lon] = renderPos(tr, performance.now());
-      pts.push({ lat, lon, altFt: tr.a.altFt, onGround: tr.a.onGround, t: Date.now() });
+      const m = trackState(tr, drawT);
+      pts.push({ lat: m.lat, lon: m.lon, altFt: m.altFt, onGround: m.onGround, t: Date.now() });
     }
     const f = trailFeatures(pts);
     (map.getSource("sd-trail") as GeoJSONSource | undefined)?.setData(trail3d ? empty() : f.lines);
@@ -956,30 +1002,63 @@ export default function FlightMap(props: FlightMapProps) {
     // ---------- animation loop ----------
     let raf = 0;
     let last = 0;
+    let lastTickWall = 0;
+    let lastSelectedEmit = 0;
     const tick = (ts: number) => {
       raf = requestAnimationFrame(tick);
       if (ts - last < FRAME_MS || !styleReadyRef.current) return;
       last = ts;
       const src = map.getSource("sd-aircraft") as GeoJSONSource | undefined;
       if (!src) return;
-      const now = performance.now();
+      const wall = Date.now();
+      const elapsed = lastTickWall ? wall - lastTickWall : 0;
+      lastTickWall = wall;
+      const mode = propsRef.current.smoothMotion === false ? "live" : "smooth";
+      delayRef.current = stepDelay(delayRef.current, mode, elapsed);
+      const drawT = wall - delayRef.current.delayMs;
+      const sec = Math.round(delayRef.current.delayMs / 1000);
+      if (sec !== lastDelaySecRef.current) {
+        lastDelaySecRef.current = sec;
+        propsRef.current.onMotionDelay?.(sec);
+      }
       const sel = propsRef.current.selectedHex;
       const features: Feature<Point>[] = [];
       let selPos: [number, number] | null = null;
       for (const [hex, tr] of tracksRef.current) {
-        const [lat, lon] = renderPos(tr, now);
+        let fade = 1;
+        if (tr.ghost) {
+          const last = tr.samples[tr.samples.length - 1];
+          const o = last ? missingOpacity(wall - last.t) : null;
+          if (o == null) {
+            tracksRef.current.delete(hex);
+            continue;
+          }
+          fade = o;
+        }
+        const m = trackState(tr, drawT);
+        // No new report for longer than dead reckoning is trusted: the aircraft is held and drawn dimmer.
+        if (m.phase === "stale") fade = Math.min(fade, 0.55);
+        const lat = m.lat;
+        const lon = m.lon;
         const isSel = hex === sel;
-        if (isSel) selPos = [lat, lon];
+        if (isSel) {
+          selPos = [lat, lon];
+          if (wall - lastSelectedEmit >= 1000) {
+            lastSelectedEmit = wall;
+            propsRef.current.onSelectedMotion?.(hex, m);
+            if (propsRef.current.showTrail !== false) applyTrail();
+          }
+        }
         features.push({
           type: "Feature",
           properties: {
             hex,
             cs: tr.a.callsign,
             kind: tr.a.kind,
-            track:
-              tr.a.track == null && keepUprightWithoutHeading(tr.a.kind) ? 0 : (tr.a.track ?? 0),
+            track: m.track == null && keepUprightWithoutHeading(tr.a.kind) ? 0 : (m.track ?? 0),
             color: tr.emg ? EMERGENCY_COLOR : tr.color,
-            alt: tr.a.altFt ?? 0,
+            alt: m.altFt ?? 0,
+            fade,
             sel: isSel,
             emg: tr.emg,
           },
@@ -1011,36 +1090,38 @@ export default function FlightMap(props: FlightMapProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ---------- data updates → interpolation tracks ----------
+  // ---------- data updates → sample buffers ----------
   useEffect(() => {
-    const now = performance.now();
-    const next = new Map<string, Track>();
+    const wall = Date.now();
+    const received = props.receivedAt ?? wall;
+    const seen = new Set<string>();
+    const next = new Map(tracksRef.current);
+    const ages: number[] = [];
     for (const a of props.aircraft) {
-      const base = { a, lat: a.lat, lon: a.lon, t0: now - a.seenPos * 1000 };
-      const prev = tracksRef.current.get(a.hex);
-      let offLat = 0;
-      let offLon = 0;
-      if (prev) {
-        const [rLat, rLon] = renderPos(prev, now);
-        const [nLat, nLon] = extrapolate(base, now);
-        offLat = rLat - nLat;
-        offLon = rLon - nLon;
-        // Don't smooth over big jumps (bad data / teleport).
-        if (Math.abs(offLat) > 0.3 || Math.abs(offLon) > 0.3) {
-          offLat = 0;
-          offLon = 0;
-        }
-      }
+      seen.add(a.hex);
+      const prev = next.get(a.hex);
       next.set(a.hex, {
-        ...base,
-        offLat,
-        offLon,
-        offT: now,
+        a,
+        samples: appendSample(prev?.samples ?? [], toSample(a, received)),
         color: altitudeColor(a.altFt, a.onGround),
         emg: isEmergency(a.squawk),
+        ghost: false,
       });
+      ages.push(a.seenPos * 1000);
+    }
+    const present = props.presentHexes;
+    for (const [hex, tr] of next) {
+      if (seen.has(hex)) continue;
+      // Filtered out: remove now. Missing from the data: keep as a fading ghost.
+      if (present?.has(hex)) next.delete(hex);
+      else next.set(hex, { ...tr, ghost: true });
     }
     tracksRef.current = next;
+    // Measure how late updates really arrive, once per update (not on filter changes).
+    if (props.receivedAt != null && props.receivedAt !== lastReceivedRef.current && ages.length) {
+      lastReceivedRef.current = props.receivedAt;
+      delayRef.current = observeUpdate(delayRef.current, props.receivedAt, median(ages));
+    }
     applyTrail();
     updateGlideRing();
     // eslint-disable-next-line react-hooks/exhaustive-deps

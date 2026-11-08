@@ -345,6 +345,7 @@ export function useAircraftFeed(
           altFt: a.altFt,
           onGround: a.onGround,
           t: now,
+          st: now - a.seenPos * 1000,
           gs: a.gs,
           vRate: a.vRate,
         });
