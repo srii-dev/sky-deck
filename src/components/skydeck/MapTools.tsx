@@ -51,6 +51,8 @@ interface Props {
   getShareUrl: () => string;
   layers: LayerControls;
   ruler: RulerControls;
+  /** Called with the user's position after My location succeeds (used for nearby airports). */
+  onLocated?: (pos: { lat: number; lon: number }) => void;
 }
 
 const btn = "h-10 w-10";
@@ -85,7 +87,7 @@ function LayerRow({
 }
 
 /** Small vertical column of map tools: share link, my location, layers, ruler, saved views, fullscreen. */
-export function MapTools({ view, onFly, getShareUrl, layers, ruler }: Props) {
+export function MapTools({ view, onFly, getShareUrl, layers, ruler, onLocated }: Props) {
   const [views, setViews] = useState<SavedView[]>([]);
   const [name, setName] = useState("");
   const [locating, setLocating] = useState(false);
@@ -125,6 +127,7 @@ export function MapTools({ view, onFly, getShareUrl, layers, ruler }: Props) {
     try {
       const p = await locate();
       onFly(p.lat, p.lon, 10);
+      onLocated?.(p);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not get your location.");
     } finally {

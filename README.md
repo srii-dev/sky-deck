@@ -15,6 +15,7 @@ SkyDeck is an independent project. It is inspired by the general category of fli
 - **Altitude-coloured trails**, optionally drawn in 3D at real altitude, plus a follow-aircraft mode
 - **Search** by callsign, registration, ICAO hex, aircraft type, airline name (when known) or airport code, with recent searches
 - **Shareable links, my location and saved views**: the address always describes the current view (map position, selected aircraft, basemap), so you can copy it; one button centres the map on you, and named views are kept in your browser
+- **Airport pages**: search an airport code to see its weather (METAR, TAF, flight category), FAA delays and closure notices, runways, elevation, a wind-based guess of the runway in use, and counts of aircraft near it (arriving and departing are inferred from altitude, climb or descent and heading). "My location" also lists the nearest airports. Local time and airport map detail are not included yet
 - **Layers, ruler, flight chart and full screen**: a Layers menu switches terrain, the trail, the 3D trail and the glide ring (choices are remembered); the ruler measures distance and bearing between two clicked points; the aircraft panel charts altitude, speed and vertical rate since you started watching
 - **Filters**: altitude range, aircraft type, airline, hide ground traffic, emergency squawks only
 - **Emergency alerts** for squawks 7500, 7600 and 7700
@@ -99,6 +100,8 @@ SkyDeck relies on free community data. Please be gentle with it and respect each
 
 - **Aircraft positions:** [adsb.lol](https://adsb.lol) and [airplanes.live](https://airplanes.live). The [OpenSky Network](https://opensky-network.org) is deliberately not used: its terms limit the REST API to non-profit research and education, and require a written license for operational use in a live product
 - **Routes:** the community route data published by adsb.lol
+- **Airport weather, runways and elevation:** the [NOAA Aviation Weather Center](https://aviationweather.gov) data API, through a server proxy with a short cache
+- **Airport delays and closures:** the FAA [NAS Status](https://nasstatus.faa.gov) feed, through the same proxy
 - **Airports (reachable-airport list and map markers):** large and medium airports from [OurAirports](https://ourairports.com/data/) open data (Unlicense), filtered by `scripts/build-airports.mjs`
 - **Map data:** OpenStreetMap contributors, served through [OpenFreeMap](https://openfreemap.org)
 - **ACARS messages:** [Airframes](https://airframes.io), through its anonymous public API. Data provided by Airframes.io and its community of feeders. The API is still pre-release and its terms are still being finalized
