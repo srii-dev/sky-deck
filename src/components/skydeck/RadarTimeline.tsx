@@ -21,7 +21,7 @@ export function RadarTimeline({ radar, now }: Props) {
   return (
     <section
       aria-label="Radar timeline"
-      className="glass-panel pointer-events-auto flex w-[min(92vw,420px)] flex-col gap-1 rounded-md px-3 py-2"
+      className="glass-panel pointer-events-auto flex w-[min(92vw,420px)] max-w-full flex-col gap-1 rounded-md px-3 py-2"
     >
       {radar.error ? (
         <p className="text-sm text-muted-foreground">Radar is not available right now.</p>

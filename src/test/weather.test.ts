@@ -277,7 +277,7 @@ describe("weather loader", () => {
     expect(a.failed).toEqual(["isigmet"]);
     expect(a.advisories).toHaveLength(1);
     await loadAdvisories(deps);
-    expect(calls.length).toBe(6);
+    expect(calls.length).toBe(8); // each load: 3 feeds plus one retry of the failing feed
   });
 
   it("rounds and limits the PIREP box and caches per box", async () => {
@@ -289,6 +289,23 @@ describe("weather loader", () => {
     expect(calls[0]).toContain("bbox=40,-76,45,-70");
     await loadPireps({ south: 40.5, west: -75.2, north: 44.9, east: -70.9 }, deps);
     expect(calls).toHaveLength(1);
+  });
+
+  it("retries once after a server error but not after a 4xx", async () => {
+    let n = 0;
+    const flaky = (async (input: RequestInfo | URL) => {
+      if (String(input).includes("/pirep")) {
+        n += 1;
+        return n === 1 ? new Response("x", { status: 503 }) : ok([]);
+      }
+      return new Response("no", { status: 400 });
+    }) as typeof fetch;
+    const r = await loadPireps(
+      { south: 40, west: -76, north: 45, east: -70 },
+      { fetchImpl: flaky, now: () => NOW },
+    );
+    expect(r?.pireps).toEqual([]);
+    expect(n).toBe(2);
   });
 
   it("clamps big boxes and rejects bad ones", () => {

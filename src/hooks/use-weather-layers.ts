@@ -81,8 +81,10 @@ export function useWeatherLayers(
   const framesRef = useRef<RadarFrame[]>(EMPTY_FRAMES);
   // Start on the newest frame, and keep the chosen frame when the list refreshes.
   useEffect(() => {
-    setIndexState((i) => reselectFrame(framesRef.current, i, frames));
+    // Read the old list before replacing it: the state updater below runs later.
+    const previous = framesRef.current;
     framesRef.current = frames;
+    setIndexState((i) => reselectFrame(previous, i, frames));
   }, [frames]);
 
   // Playback: step through the frames, pausing a moment on the newest one.

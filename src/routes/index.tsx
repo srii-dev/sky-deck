@@ -406,6 +406,15 @@ function SkyDeck() {
     return null;
   }, [weatherPickId, weather.advisories, weather.pireps, advisoriesOn, pirepsOn]);
 
+  const weatherNotice =
+    weather.advisoryFailed && weather.pirepFailed
+      ? "Some weather data could not be loaded."
+      : weather.advisoryFailed
+        ? "Some SIGMET and AIRMET data could not be loaded."
+        : weather.pirepFailed
+          ? "Pilot reports could not be loaded."
+          : null;
+
   const filterCount = activeFilterCount(filters);
 
   return (
@@ -710,10 +719,15 @@ function SkyDeck() {
         />
       )}
 
-      {(radarOn || weatherEntry) && (
+      {(radarOn || weatherEntry || weatherNotice) && (
         <div
-          className={`pointer-events-none absolute inset-x-0 bottom-[max(5.5rem,env(safe-area-inset-bottom))] z-20 flex-col items-center gap-2 px-3 md:bottom-3 ${selected || airport ? "hidden xl:flex" : "flex"}`}
+          className={`pointer-events-none absolute inset-x-0 bottom-[max(5.5rem,env(safe-area-inset-bottom))] z-20 flex-col items-center gap-2 pl-14 pr-3 md:px-3 md:bottom-3 ${selected || airport ? "hidden xl:flex" : "flex"}`}
         >
+          {weatherNotice && (
+            <div className="glass-panel pointer-events-auto rounded-md px-3 py-1.5 text-xs text-muted-foreground">
+              {weatherNotice}
+            </div>
+          )}
           {weatherEntry && (
             <WeatherInfoCard entry={weatherEntry} onClose={() => setWeatherPickId(null)} />
           )}

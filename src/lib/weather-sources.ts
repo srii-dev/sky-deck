@@ -16,7 +16,7 @@ import { prune, type CacheEntry } from "./request-control";
 
 export const AWC_BASE = "https://aviationweather.gov/api/data";
 const UA = "SkyDeck/1.0 (hobby flight tracker; educational use)";
-const TIMEOUT_MS = 8000;
+const TIMEOUT_MS = 6000;
 
 export const ADVISORY_TTL_MS = 5 * 60 * 1000;
 export const PIREP_TTL_MS = 2 * 60 * 1000;
@@ -57,18 +57,32 @@ export function resetWeatherSourceState() {
   pirepCache.clear();
 }
 
-async function getJson(url: string, deps: WeatherDeps): Promise<unknown> {
+async function getJsonOnce(url: string, deps: WeatherDeps): Promise<unknown> {
   const f = deps.fetchImpl ?? fetch;
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
   try {
     const res = await f(url, { headers: { "User-Agent": UA }, signal: ctrl.signal });
-    if (!res.ok) throw new Error("HTTP " + res.status);
+    if (!res.ok) throw Object.assign(new Error("HTTP " + res.status), { status: res.status });
     const text = await res.text();
     if (!text.trim()) return [];
     return JSON.parse(text) as unknown;
   } finally {
     clearTimeout(t);
+  }
+}
+
+/**
+ * One retry after a timeout or a server error. aviationweather.gov mostly answers in well under a second but
+ * was measured sometimes taking 6 s or more (see the airport loader), and a PIREP request was seen aborted.
+ */
+async function getJson(url: string, deps: WeatherDeps): Promise<unknown> {
+  try {
+    return await getJsonOnce(url, deps);
+  } catch (err) {
+    const status = (err as { status?: number }).status;
+    if (status !== undefined && status < 500) throw err;
+    return getJsonOnce(url, deps);
   }
 }
 

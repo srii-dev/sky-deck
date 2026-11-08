@@ -44,7 +44,7 @@ export function WeatherInfoCard({ entry, onClose }: { entry: WeatherItem; onClos
     return (
       <section
         aria-label="Weather advisory"
-        className="glass-panel pointer-events-auto w-[min(92vw,360px)] rounded-md p-3"
+        className="glass-panel pointer-events-auto w-[min(92vw,360px)] max-w-full rounded-md p-3"
       >
         <div className="flex items-start justify-between gap-2">
           <div>
@@ -90,7 +90,7 @@ export function WeatherInfoCard({ entry, onClose }: { entry: WeatherItem; onClos
   return (
     <section
       aria-label="Pilot report"
-      className="glass-panel pointer-events-auto w-[min(92vw,360px)] rounded-md p-3"
+      className="glass-panel pointer-events-auto w-[min(92vw,360px)] max-w-full rounded-md p-3"
     >
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-2">
