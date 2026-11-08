@@ -35,6 +35,7 @@ import { parseShareParams } from "@/lib/share-link";
 import { buildPlaneSdf, buildSvgSdf } from "./plane-icon";
 import { LEGEND_KINDS, svgMarkup } from "./aircraft-icons";
 import { installAirportDetail } from "./airport-detail-layers";
+import { applyWeather, NO_WEATHER, pickWeather, type WeatherMapState } from "./weather-layers";
 import {
   appendSample,
   initialDelay,
@@ -276,6 +277,10 @@ export interface FlightMapProps {
   onMotionDelay?: ((seconds: number) => void) | undefined;
   /** The selected aircraft at the drawn moment, about once a second, so the panel can match the icon. */
   onSelectedMotion?: ((hex: string, m: MotionState) => void) | undefined;
+  /** Weather layers to draw (radar, echo tops, advisories, pilot reports). */
+  weather?: WeatherMapState | undefined;
+  /** A click on a weather item (its id), or null when the click hit none. */
+  onWeatherPick?: ((id: string | null) => void) | undefined;
 }
 
 export default function FlightMap(props: FlightMapProps) {
@@ -537,6 +542,8 @@ export default function FlightMap(props: FlightMapProps) {
 
     // Aprons, taxiway names and gates at high zoom (Phase 4e), below trails and aircraft.
     installAirportDetail(map, propsRef.current.basemap, terrainBeforeId(map));
+    // Radar, echo tops, advisories and pilot reports (Phase 7), below trails and aircraft.
+    applyWeather(map, propsRef.current.weather ?? NO_WEATHER, terrainBeforeId(map));
     applyTrail();
     updateGlideRing();
     styleReadyRef.current = true;
@@ -958,7 +965,11 @@ export default function FlightMap(props: FlightMapProps) {
         propsRef.current.onRulerPoint?.([e.lngLat.lng, e.lngLat.lat]);
         return;
       }
-      if (!map.getLayer("sd-aircraft")) return;
+      const weatherPick = pickWeather(map, e.point);
+      if (!map.getLayer("sd-aircraft")) {
+        propsRef.current.onWeatherPick?.(weatherPick?.id ?? null);
+        return;
+      }
       const pad = 10;
       const feats = map.queryRenderedFeatures(
         [
@@ -968,6 +979,8 @@ export default function FlightMap(props: FlightMapProps) {
         { layers: ["sd-aircraft"] },
       );
       const hex = feats[0]?.properties?.["hex"] as string | undefined;
+      // An aircraft under the click wins; otherwise a weather item may be picked.
+      propsRef.current.onWeatherPick?.(hex ? null : (weatherPick?.id ?? null));
       propsRef.current.onSelect(hex ?? null);
     });
     map.on("mousemove", (e) => {
@@ -1118,6 +1131,12 @@ export default function FlightMap(props: FlightMapProps) {
     applyTrail();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.trail, props.trail3d, props.selectedHex, props.showTrail]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !styleReadyRef.current) return;
+    applyWeather(map, props.weather ?? NO_WEATHER, terrainBeforeId(map));
+  }, [props.weather]);
 
   useEffect(() => {
     applyRuler();
