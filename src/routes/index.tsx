@@ -9,6 +9,8 @@ import { LiveIndicator } from "@/components/skydeck/LiveIndicator";
 import { SearchBox } from "@/components/skydeck/SearchBox";
 import { FiltersPanel } from "@/components/skydeck/FiltersPanel";
 import { AircraftPanel } from "@/components/skydeck/AircraftPanel";
+import { AirportPanel } from "@/components/skydeck/AirportPanel";
+import { NearbyAirports } from "@/components/skydeck/NearbyAirports";
 import { CreditsDialog } from "@/components/skydeck/CreditsDialog";
 import { EmergencyBanner } from "@/components/skydeck/EmergencyBanner";
 import { AltitudeLegend } from "@/components/skydeck/AltitudeLegend";
@@ -25,6 +27,9 @@ import {
   type Aircraft,
   type Filters,
 } from "@/lib/aircraft";
+import type { Airport } from "@/lib/airports";
+import { currentAirportList, loadLargeAirports } from "@/lib/airport-list";
+import { nearbyAirports, type NearbyAirport } from "@/lib/nearby-airports";
 import { nextRulerPoints, rulerSummary, type LngLat } from "@/lib/measure";
 import { buildShareSearch, parseShareParams } from "@/lib/share-link";
 import { UNIT_LABELS, type UnitSystem } from "@/lib/units";
@@ -65,6 +70,8 @@ function MapFallback() {
 function SkyDeck() {
   const [viewport, setViewport] = useState<Viewport | null>(null);
   const [selectedHex, setSelectedHex] = useState<string | null>(null);
+  const [airport, setAirport] = useState<Airport | null>(null);
+  const [nearby, setNearby] = useState<NearbyAirport[] | null>(null);
   const [basemap, setBasemap] = useState<Basemap>("dark");
   const [terrain, setTerrain] = useState(true);
   const [trail3d, setTrail3d] = useState(false);
@@ -242,6 +249,7 @@ function SkyDeck() {
   const pickAircraft = useCallback(
     (a: Aircraft) => {
       setSelectedHex(a.hex);
+      setAirport(null);
       flyTo(a.lat, a.lon, 10);
     },
     [flyTo],
@@ -253,9 +261,27 @@ function SkyDeck() {
 
   const onSelect = useCallback((hex: string | null) => {
     setSelectedHex(hex);
+    if (hex) setAirport(null);
     if (!hex) {
       setFollow(false);
     }
+  }, []);
+
+  const openAirport = useCallback(
+    (apt: Airport) => {
+      setSelectedHex(null);
+      setFollow(false);
+      setAirport(apt);
+      flyTo(apt.lat, apt.lon, 11);
+    },
+    [flyTo],
+  );
+
+  const showNearby = useCallback((pos: { lat: number; lon: number }) => {
+    const compute = () => setNearby(nearbyAirports(pos, currentAirportList()));
+    compute();
+    // The short built-in list answers at once; the larger list replaces it when it has loaded.
+    loadLargeAirports().then(compute, () => undefined);
   }, []);
 
   const filterCount = activeFilterCount(filters);
@@ -319,11 +345,7 @@ function SkyDeck() {
         </div>
 
         <div className="pointer-events-auto w-full md:max-w-sm">
-          <SearchBox
-            aircraft={allAircraft}
-            onAircraft={pickAircraft}
-            onAirport={(apt) => flyTo(apt.lat, apt.lon, 11)}
-          />
+          <SearchBox aircraft={allAircraft} onAircraft={pickAircraft} onAirport={openAirport} />
         </div>
 
         <div className="pointer-events-auto flex flex-wrap items-center gap-2 md:ml-auto">
@@ -449,6 +471,7 @@ function SkyDeck() {
           view={currentView}
           onFly={flyTo}
           getShareUrl={getShareUrl}
+          onLocated={showNearby}
           layers={{
             terrain,
             onTerrain: setTerrain,
@@ -471,6 +494,18 @@ function SkyDeck() {
             onClear: () => setRulerPoints([]),
           }}
         />
+        {nearby && (
+          <div className="mt-2">
+            <NearbyAirports
+              items={nearby}
+              units={units}
+              onPick={(a) => {
+                openAirport(a);
+              }}
+              onClose={() => setNearby(null)}
+            />
+          </div>
+        )}
       </div>
 
       {/* Emergency alert */}
@@ -530,6 +565,16 @@ function SkyDeck() {
           onGlideRatio={setGlideRatio}
           glideStatus={glideStatus}
           onClose={() => onSelect(null)}
+        />
+      )}
+
+      {airport && !selected && (
+        <AirportPanel
+          key={airport.icao}
+          airport={airport}
+          aircraft={allAircraft}
+          units={units}
+          onClose={() => setAirport(null)}
         />
       )}
 
