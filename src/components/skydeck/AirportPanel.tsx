@@ -1,10 +1,11 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { X } from "lucide-react";
+import { ExternalLink, X } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getAirportAtis, getAirportBrief } from "@/lib/airport.functions";
+import { faaChartsUrl } from "@/lib/airport-charts";
 import type { AtisKind } from "@/lib/airport-data";
 import type { FlightCategory } from "@/lib/airport-data";
 import { airportTraffic, TRAFFIC_RADIUS_NM } from "@/lib/airport-traffic";
@@ -73,6 +74,7 @@ export function AirportPanel({ airport, aircraft, units, onClose }: Props) {
     refetchInterval: 180_000,
   });
   const atis = atisQuery.data?.atis ?? null;
+  const chartsUrl = useMemo(() => faaChartsUrl(icao), [icao]);
   const b = brief.data;
   const traffic = useMemo(() => airportTraffic(aircraft, airport), [aircraft, airport]);
   const metar = b?.metar ?? null;
@@ -297,6 +299,24 @@ export function AirportPanel({ airport, aircraft, units, onClose }: Props) {
             Counted from aircraft this map can currently see, not from schedules.
           </p>
         </section>
+
+        {chartsUrl && (
+          <section aria-label="Charts" className="space-y-1">
+            <div className="hud-label">Charts</div>
+            <a
+              href={chartsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-sm text-primary underline-offset-2 hover:underline"
+            >
+              FAA airport diagram and approach charts
+              <ExternalLink className="size-3.5" aria-hidden="true" />
+            </a>
+            <p className="text-xs text-muted-foreground">
+              Opens the FAA chart search in a new tab. Small airports may have no charts.
+            </p>
+          </section>
+        )}
 
         <p className="text-xs text-muted-foreground">
           Weather: NOAA Aviation Weather Center. Delays: FAA NAS Status. ATIS: atis.info. For
