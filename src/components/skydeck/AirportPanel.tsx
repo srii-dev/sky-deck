@@ -4,7 +4,8 @@ import { X } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { getAirportBrief } from "@/lib/airport.functions";
+import { getAirportAtis, getAirportBrief } from "@/lib/airport.functions";
+import type { AtisKind } from "@/lib/airport-data";
 import type { FlightCategory } from "@/lib/airport-data";
 import { airportTraffic, TRAFFIC_RADIUS_NM } from "@/lib/airport-traffic";
 import type { Aircraft } from "@/lib/aircraft";
@@ -32,6 +33,12 @@ const CATEGORY_STYLE: Record<FlightCategory, string> = {
   LIFR: "border-fuchsia-500/60 bg-fuchsia-500/15 text-fuchsia-300",
 };
 
+const ATIS_LABEL: Record<AtisKind, string> = {
+  combined: "Information",
+  arrival: "Arrival information",
+  departure: "Departure information",
+};
+
 const FT_PER_M = 3.28084;
 
 function utcTime(ms: number | null): string {
@@ -57,6 +64,15 @@ export function AirportPanel({ airport, aircraft, units, onClose }: Props) {
     staleTime: 60_000,
     refetchInterval: 120_000,
   });
+  // A separate query: a slow or failing ATIS service must not hold back the weather and FAA status.
+  const atisQuery = useQuery({
+    queryKey: ["airport-atis", icao],
+    queryFn: () => getAirportAtis({ data: { icao } }),
+    enabled: icao.length >= 3,
+    staleTime: 60_000,
+    refetchInterval: 180_000,
+  });
+  const atis = atisQuery.data?.atis ?? null;
   const b = brief.data;
   const traffic = useMemo(() => airportTraffic(aircraft, airport), [aircraft, airport]);
   const metar = b?.metar ?? null;
@@ -201,6 +217,40 @@ export function AirportPanel({ airport, aircraft, units, onClose }: Props) {
               )}
             </section>
 
+            <section aria-label="ATIS" className="space-y-1.5">
+              <div className="hud-label">ATIS</div>
+              {atisQuery.isPending ? (
+                <p className="text-sm text-muted-foreground">Loading…</p>
+              ) : atisQuery.isError || atisQuery.data?.atis === null ? (
+                <div className="flex items-center justify-between gap-2 text-sm">
+                  <span className="text-muted-foreground">ATIS is not available right now.</span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={atisQuery.isFetching}
+                    onClick={() => void atisQuery.refetch()}
+                  >
+                    Try again
+                  </Button>
+                </div>
+              ) : atis && atis.length > 0 ? (
+                atis.map((r, i) => (
+                  <div key={i} className="space-y-1">
+                    <div className="text-xs text-muted-foreground">
+                      {ATIS_LABEL[r.kind]}
+                      {r.code ? " " + r.code : ""}
+                      {r.time ? ", " + r.time + "Z" : ""}
+                    </div>
+                    <p className="break-words rounded-md bg-background/40 p-2 font-mono text-xs">
+                      {r.text}
+                    </p>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-muted-foreground">No digital ATIS for this airport.</p>
+              )}
+            </section>
+
             <section aria-label="Runways" className="space-y-1.5">
               <div className="hud-label">Runways</div>
               {b.info?.elevM != null && (
@@ -249,8 +299,8 @@ export function AirportPanel({ airport, aircraft, units, onClose }: Props) {
         </section>
 
         <p className="text-xs text-muted-foreground">
-          Weather: NOAA Aviation Weather Center. Delays: FAA NAS Status. For information only, not
-          for flight planning.
+          Weather: NOAA Aviation Weather Center. Delays: FAA NAS Status. ATIS: atis.info. For
+          information only, not for flight planning.
         </p>
       </div>
     </aside>
