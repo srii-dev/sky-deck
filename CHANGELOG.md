@@ -6,6 +6,7 @@ All notable changes to SkyDeck. The format follows [Keep a Changelog](https://ke
 
 ### Added
 
+- Final testing notes (Phase 17): `RELEASE.md` with the release checklist, the security review, failure drills, the accessibility check, a soft-launch and rollback plan and the known issues. Security headers (`X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`) on server and static responses.
 - Platform (Phase 16a, 16c, 16d, 16e): self-hosted fonts (no request to Google), an installable web app with a small service worker and an offline page, the map library split into its own file, and About, Privacy, Terms and Disclaimer pages (drafts). Cloudflare deployment (16b), end-to-end tests (16f) and a language setting (16g) were not built.
 - Themes, header and footer, and search metadata (Phase 15c, 15d in part, 15g in part): a light theme and a Dark, Light or System choice in Settings, a header and footer on the inspector and not-found pages, `robots.txt` and `sitemap.xml`, canonical links when `SITE_URL` is set, and schema.org data on the map page. Removing Lovable (15a), the brand (15b), the landing page (15e), share images (15f) and the full design pass (15h) were not built.
 - Flight facts (Phase 14a): a card in the aircraft panel with the phase, route length, progress along the route, time to the destination and heading against the destination. The airport brief (14b) already existed from Phase 4; AI insights (14c) were not built.
@@ -53,6 +54,8 @@ All notable changes to SkyDeck. The format follows [Keep a Changelog](https://ke
 
 ### Fixed
 
+- The two `profiles` row-level security policies now call `auth.uid()` once per query instead of once per row (database advisor warning).
+- Legal page titles no longer repeat the site name.
 - A Cessna 172 or 177 was classified as a heavy jet (the C-17 pattern matched it) and drawn with the heavy jet icon.
 - The tracked flights hook changed the length of a React dependency list when flights were added or removed.
 - A failed feed request no longer falls back to a cached result of any age; the limit is 30 s (#17).
