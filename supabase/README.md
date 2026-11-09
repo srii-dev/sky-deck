@@ -24,6 +24,8 @@ With the Supabase CLI later: `supabase db push` after linking the project.
 | --- | --- | --- |
 | `profiles` | one row per signed-in user (optional display name); created by a trigger when a user signs up | `20261107000000_profiles.sql`, `20261109000000_revoke_handle_new_user_execute.sql` |
 
+`watchlist_items` and `recent_flights` (Phase 5g, migrations `20261109020000` and `20261109030000`): the signed-in user's watched flights, aircraft and airports (at most 50, enforced by a trigger) and recently viewed flights (at most 15, trimmed by a trigger). Both have row-level security with own-rows policies. The first version put the 50 item limit in the insert policy as a subquery on the same table; Postgres refuses that ("infinite recursion detected in policy"), found when testing on the real project and fixed by the second migration. Checked on the project in one rolled-back transaction: a user cannot insert, see or delete another user's rows, the 51st watched item is refused and only the 15 newest recent flights stay.
+
 Planned (each in its own migration with its own policies, when its phase starts): `watchlist_items` (5g), `saved_views` (22e), `wait_reports` (4k), `ai_cache` and `ai_budget` (18g), `feedback` (23b), `moderation_actions` (23e).
 
 ## Status of the real project

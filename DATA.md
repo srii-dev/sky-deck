@@ -8,13 +8,15 @@ Saved with localStorage under these keys (the list is `STORAGE_KEYS` in `src/lib
 
 ## With an account (Supabase, only if the visitor creates one)
 
-| Data                                              | Where                                                               | Why               | Deleted                                                |
-| ------------------------------------------------- | ------------------------------------------------------------------- | ----------------- | ------------------------------------------------------ |
-| Email address and password hash                   | Supabase Auth (`auth.users`)                                        | to sign in        | Account dialog, "Delete my account" removes it at once |
-| Profile row (optional display name, created date) | `public.profiles`                                                   | future saved data | removed together with the account (cascade)            |
-| Session token                                     | the visitor's browser (localStorage, key `sb-<project>-auth-token`) | stay signed in    | removed on sign-out or account deletion                |
+| Data                                                                                                | Where                                                               | Why                                     | Deleted                                                           |
+| --------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- | --------------------------------------- | ----------------------------------------------------------------- |
+| Email address and password hash                                                                     | Supabase Auth (`auth.users`)                                        | to sign in                              | Account dialog, "Delete my account" removes it at once            |
+| Profile row (optional display name, created date)                                                   | `public.profiles`                                                   | future saved data                       | removed together with the account (cascade)                       |
+| Watchlist (kind, flight number, airframe code or airport code, a label, date added; at most 50)     | `public.watchlist_items`                                            | alerts and quick access on every device | the entry when the visitor removes it; all of it with the account |
+| Recently viewed flights (airframe code, flight number, registration, type, last viewed; at most 15) | `public.recent_flights`                                             | quick access on every device            | "Clear" in the Watchlist dialog; all of it with the account       |
+| Session token                                                                                       | the visitor's browser (localStorage, key `sb-<project>-auth-token`) | stay signed in                          | removed on sign-out or account deletion                           |
 
-Nothing else about an account is stored yet. Passwords are never visible to SkyDeck: Supabase stores a hash.
+Nothing else about an account is stored yet. The same two lists are also kept in this browser's localStorage whether or not there is an account (keys `skydeck:watchlist` and `skydeck:recent-flights`); signing out keeps them there, and Settings, Delete my saved data removes them. Passwords are never visible to SkyDeck: Supabase stores a hash.
 
 ## On the server
 
