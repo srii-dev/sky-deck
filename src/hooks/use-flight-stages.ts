@@ -59,12 +59,14 @@ export function useFlightStages(opts: {
       staleTime: 30 * 60 * 1000,
     })),
   });
+  // One string, so the dependency list has a fixed length however many flights are tracked.
+  const routesKey = routeQueries.map((q) => q.dataUpdatedAt).join(",");
   const routes = useMemo(() => {
     const m = new Map<string, FlightRoute | null | undefined>();
     flights.forEach((cs, i) => m.set(cs, routeQueries[i]?.data));
     return m;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [flights, ...routeQueries.map((q) => q.data)]);
+  }, [flights, routesKey]);
 
   // The aircraft currently in view for each watched flight number.
   const inView = useMemo(() => {
