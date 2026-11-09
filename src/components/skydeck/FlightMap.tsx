@@ -32,6 +32,7 @@ import {
   reachableAirportsGeoJSON,
 } from "@/lib/reachable-airports";
 import { parseShareParams } from "@/lib/share-link";
+import { advanceClock, trailUpTo, visibleAt, type ReplaySource } from "@/lib/replay";
 import { buildPlaneSdf, buildSvgSdf } from "./plane-icon";
 import { LEGEND_KINDS, svgMarkup } from "./aircraft-icons";
 import { installAirportDetail } from "./airport-detail-layers";
@@ -285,6 +286,8 @@ export interface FlightMapProps {
   onSelectedMotion?: ((hex: string, m: MotionState) => void) | undefined;
   /** Chase camera (Phase 5d): while following, tilt the map and turn it to look along the aircraft's heading. */
   chase?: boolean | undefined;
+  /** Session replay (Phase 9a): draw this recording at its clock time instead of the live aircraft. */
+  replay?: ReplaySource | null | undefined;
   /** Weather layers to draw (radar, echo tops, advisories, pilot reports). */
   weather?: WeatherMapState | undefined;
   /** A click on a weather item (its id), or null when the click hit none. */
@@ -300,6 +303,8 @@ export default function FlightMap(props: FlightMapProps) {
   const mapRef = useRef<MLMap | null>(null);
   const tracksRef = useRef(new Map<string, Track>());
   const delayRef = useRef<DelayState>(initialDelay("smooth"));
+  // Replay (Phase 9a): the recording as tracks in the same shape as live ones.
+  const replayTracksRef = useRef<Map<string, Track> | null>(null);
   const lastReceivedRef = useRef<number | null>(null);
   const lastDelaySecRef = useRef<number | null>(null);
   const elevCacheRef = useRef<Map<string, ElevationCacheEntry>>(new Map());
@@ -675,15 +680,18 @@ export default function FlightMap(props: FlightMapProps) {
     src.setData({ type: "FeatureCollection", features });
   };
 
-  const applyTrail = () => {
+  const applyTrail = (override?: TrailPoint[]) => {
     const map = mapRef.current;
     if (!map) return;
+    // While replaying, only the replay's own trail is drawn (the live trail would flicker over it).
+    if (propsRef.current.replay && !override) return;
     const { trail, trail3d, selectedHex, showTrail } = propsRef.current;
     // The trail stops at the drawn moment (the icon is a few seconds behind the newest data) and joins the icon.
     const drawT = Date.now() - delayRef.current.delayMs;
     const pts =
-      selectedHex && showTrail !== false ? trail.filter((p) => (p.st ?? p.t) <= drawT) : [];
-    const tr = selectedHex ? tracksRef.current.get(selectedHex) : undefined;
+      override ??
+      (selectedHex && showTrail !== false ? trail.filter((p) => (p.st ?? p.t) <= drawT) : []);
+    const tr = selectedHex && !override ? tracksRef.current.get(selectedHex) : undefined;
     if (tr && pts.length) {
       const m = trackState(tr, drawT);
       pts.push({ lat: m.lat, lon: m.lon, altFt: m.altFt, onGround: m.onGround, t: Date.now() });
@@ -1036,7 +1044,9 @@ export default function FlightMap(props: FlightMapProps) {
       lastTickWall = wall;
       const mode = propsRef.current.smoothMotion === false ? "live" : "smooth";
       delayRef.current = stepDelay(delayRef.current, mode, elapsed);
-      const drawT = wall - delayRef.current.delayMs;
+      const rp = propsRef.current.replay ?? null;
+      if (rp) advanceClock(rp.clock, elapsed);
+      const drawT = rp ? rp.clock.t : wall - delayRef.current.delayMs;
       const sec = Math.round(delayRef.current.delayMs / 1000);
       if (sec !== lastDelaySecRef.current) {
         lastDelaySecRef.current = sec;
@@ -1046,9 +1056,10 @@ export default function FlightMap(props: FlightMapProps) {
       const features: Feature<Point>[] = [];
       let selPos: [number, number] | null = null;
       let selTrack: number | null = null;
-      for (const [hex, tr] of tracksRef.current) {
+      for (const [hex, tr] of rp ? (replayTracksRef.current ?? []) : tracksRef.current) {
         let fade = 1;
-        if (tr.ghost) {
+        if (rp && !visibleAt(tr.samples, drawT)) continue;
+        if (!rp && tr.ghost) {
           const last = tr.samples[tr.samples.length - 1];
           const o = last ? missingOpacity(wall - last.t) : null;
           if (o == null) {
@@ -1059,7 +1070,7 @@ export default function FlightMap(props: FlightMapProps) {
         }
         const m = trackState(tr, drawT);
         // No new report for longer than dead reckoning is trusted: the aircraft is held and drawn dimmer.
-        if (m.phase === "stale") fade = Math.min(fade, 0.55);
+        if (!rp && m.phase === "stale") fade = Math.min(fade, 0.55);
         const lat = m.lat;
         const lon = m.lon;
         const isSel = hex === sel;
@@ -1068,8 +1079,10 @@ export default function FlightMap(props: FlightMapProps) {
           selTrack = m.track;
           if (wall - lastSelectedEmit >= 1000) {
             lastSelectedEmit = wall;
-            propsRef.current.onSelectedMotion?.(hex, m);
-            if (propsRef.current.showTrail !== false) applyTrail();
+            if (!rp) propsRef.current.onSelectedMotion?.(hex, m);
+            if (propsRef.current.showTrail !== false) {
+              applyTrail(rp ? trailUpTo(tr.samples, drawT) : undefined);
+            }
           }
         }
         features.push({
@@ -1079,7 +1092,7 @@ export default function FlightMap(props: FlightMapProps) {
             cs: tr.a.callsign,
             kind: tr.a.kind,
             track: m.track == null && keepUprightWithoutHeading(tr.a.kind) ? 0 : (m.track ?? 0),
-            color: tr.emg ? EMERGENCY_COLOR : tr.color,
+            color: rp ? altitudeColor(m.altFt, m.onGround) : tr.emg ? EMERGENCY_COLOR : tr.color,
             alt: m.altFt ?? 0,
             fade,
             sel: isSel,
@@ -1118,6 +1131,50 @@ export default function FlightMap(props: FlightMapProps) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // ---------- replay source → tracks ----------
+  useEffect(() => {
+    const rp = props.replay;
+    if (!rp) {
+      replayTracksRef.current = null;
+      // Back to live: draw the live trail again.
+      applyTrail();
+      return;
+    }
+    const built = new Map<string, Track>();
+    for (const [hex, rt] of rp.tracks) {
+      const last = rt.samples[rt.samples.length - 1];
+      if (!last) continue;
+      const a = {
+        hex,
+        callsign: rt.meta.callsign,
+        registration: rt.meta.registration,
+        type: rt.meta.type,
+        description: null,
+        operator: null,
+        lat: last.lat,
+        lon: last.lon,
+        altFt: last.altFt,
+        onGround: last.onGround,
+        gs: last.gs,
+        track: last.track,
+        vRate: last.vRate,
+        squawk: rt.meta.squawk,
+        category: null,
+        kind: rt.meta.kind,
+        kindLabel: rt.meta.kindLabel,
+        seenPos: 0,
+      } as Aircraft;
+      built.set(hex, {
+        a,
+        samples: rt.samples,
+        color: altitudeColor(last.altFt, last.onGround),
+        emg: false,
+        ghost: false,
+      });
+    }
+    replayTracksRef.current = built;
+  }, [props.replay]);
 
   // ---------- data updates → sample buffers ----------
   useEffect(() => {

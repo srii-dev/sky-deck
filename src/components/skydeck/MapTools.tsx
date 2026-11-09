@@ -8,6 +8,7 @@ import {
   Maximize,
   Minimize,
   Ruler,
+  History,
   Settings,
   Star,
   Trash2,
@@ -78,6 +79,8 @@ interface Props {
   /** Opens the watchlist dialog (Phase 5a). */
   onOpenWatchlist: () => void;
   watchCount: number;
+  /** Session replay (Phase 9a). */
+  replay: { available: boolean; active: boolean; onStart: () => void; onStop: () => void };
 }
 
 const btn = "h-10 w-10";
@@ -122,6 +125,7 @@ export function MapTools({
   onOpenSettings,
   onOpenWatchlist,
   watchCount,
+  replay,
 }: Props) {
   const [views, setViews] = useState<SavedView[]>([]);
   const [name, setName] = useState("");
@@ -397,6 +401,24 @@ export function MapTools({
           onClick={() => void toggleFullscreen()}
         >
           {fullscreen ? <Minimize /> : <Maximize />}
+        </Button>
+        <Button
+          variant="panel"
+          size="icon"
+          className={cn(btn, replay.active && "border-primary text-primary")}
+          aria-label={replay.active ? "Back to live" : "Replay the last minutes"}
+          aria-pressed={replay.active}
+          title={
+            replay.active
+              ? "Back to live"
+              : replay.available
+                ? "Replay what this page has seen"
+                : "Replay needs about 20 seconds of recording"
+          }
+          disabled={!replay.active && !replay.available}
+          onClick={replay.active ? replay.onStop : replay.onStart}
+        >
+          <History />
         </Button>
         <Button
           variant="panel"
