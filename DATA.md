@@ -18,6 +18,10 @@ Saved with localStorage under these keys (the list is `STORAGE_KEYS` in `src/lib
 
 Nothing else about an account is stored yet. The same two lists are also kept in this browser's localStorage whether or not there is an account (keys `skydeck:watchlist` and `skydeck:recent-flights`); signing out keeps them there, and Settings, Delete my saved data removes them. Passwords are never visible to SkyDeck: Supabase stores a hash.
 
+## In the page's memory only (never stored or sent)
+
+- **Session replay (Phase 9a):** the positions, flight numbers, registrations, types and squawk codes of the aircraft the page received over about the last 30 minutes, up to 150,000 position reports. It lives in the page's memory, is never written to disk or sent anywhere, and disappears when the page is closed or reloaded.
+
 ## On the server
 
 - Aircraft, weather and airport answers are cached in memory of the running server for seconds to hours and are not written to disk.

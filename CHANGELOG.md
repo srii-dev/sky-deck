@@ -6,6 +6,7 @@ All notable changes to SkyDeck. The format follows [Keep a Changelog](https://ke
 
 ### Added
 
+- Session replay (Phase 9a): the page records the last 30 minutes of what it received and can play it back with a scrub bar and speeds. The 30-day replay (9b) and incident history (9c) were not built.
 - Personal features (Phase 5): a watchlist of flights, aircraft and airports with in-app takeoff, landing and emergency alerts, recently viewed flights, account sync of both lists, a chase camera, skeleton loading states, reduced-motion support (map camera moves and CSS animations) and an accessibility check of the new controls.
 - Backend foundation, rest of Phase 18 (18d, 18e, 18g, 18h in part): optional email sign-in with sign-out and account deletion backed by a real Supabase project, a per-visitor rate limiter (used on the error-report endpoint), an AI service wrapper (fallback order, daily budgets, kill switch, cache, Gemini and Workers AI adapters; nothing calls it yet), and a data inventory in `DATA.md`.
 - Routes, terrain and airspace (Phase 8: 8a, 8b, 8d, and special use areas from 8c): a route line for the selected flight, a terrain profile along it, FAA Class B/C/D airspace and special use areas on the map with a click card. Temporary flight restrictions (8c) and filed-route waypoints (8e) were not built.
