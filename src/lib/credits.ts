@@ -130,6 +130,17 @@ export const CREDITS: readonly CreditEntry[] = [
     links: [{ label: "atis.info", href: "https://atis.info" }],
   },
   {
+    id: "faa-airspace",
+    group: "Aircraft and flight data",
+    name: "FAA airspace data",
+    usedFor:
+      "Class B, C and D airspace and special use areas (restricted, prohibited, warning, alert, MOA)",
+    credit: "Airspace data from the FAA (FAA open data on ArcGIS).",
+    licence:
+      "US government data. The FAA's terms for these services were NOT read (2026-11-09); only the layer metadata and real answers were checked. The service limits all callers together to 6,000 request units a minute, so SkyDeck asks it through its server and caches answers for 12 hours. Boundaries are simplified. Educational only, not for flight planning.",
+    links: [{ label: "FAA open data", href: "https://adds-faa.opendata.arcgis.com/" }],
+  },
+  {
     id: "ourairports",
     group: "Aircraft and flight data",
     name: "OurAirports",
