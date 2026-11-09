@@ -219,6 +219,7 @@ const CLASS_JSON = {
     { type: "Feature", properties: { OBJECTID: 10, CLASS: "B" }, geometry: null },
   ],
 };
+// The special use layer stores its altitudes as text (checked against a real answer on 2026-11-09).
 const SPECIAL_JSON = {
   type: "FeatureCollection",
   features: [
@@ -228,10 +229,10 @@ const SPECIAL_JSON = {
         OBJECTID: 1,
         NAME: "R-5802D",
         TYPE_CODE: "R",
-        LOWER_VAL: 17000,
+        LOWER_VAL: "17000",
         LOWER_UOM: "FT",
         LOWER_CODE: "MSL",
-        UPPER_VAL: 220,
+        UPPER_VAL: "220",
         UPPER_UOM: "FL",
         UPPER_CODE: "STD",
         TIMESOFUSE: "FEB 15 - MAY 10, 0800 - 2300",
@@ -244,10 +245,10 @@ const SPECIAL_JSON = {
         OBJECTID: 2,
         NAME: "W-106A",
         TYPE_CODE: "W",
-        LOWER_VAL: 0,
+        LOWER_VAL: "0",
         LOWER_UOM: "FT",
         LOWER_CODE: "SFC",
-        UPPER_VAL: 3000,
+        UPPER_VAL: "3000",
         UPPER_UOM: "FT",
         UPPER_CODE: "MSL",
         TIMESOFUSE: "INTERMITTENT BY NOTAM",
@@ -270,6 +271,10 @@ describe("airspace parsing", () => {
     expect(formatLimit(220, "FL", "STD")).toBe("FL220");
     expect(formatLimit(-9998, null, null)).toBeNull();
     expect(formatLimit("x", "FT", "MSL")).toBeNull();
+    // The special use layer stores altitudes as text.
+    expect(formatLimit("17000", "FT", "MSL")).toBe("17,000 ft MSL");
+    expect(formatLimit("220", "FL", "STD")).toBe("FL220");
+    expect(formatLimit("", "FT", "MSL")).toBeNull();
     expect(limitsText({ lower: "surface", upper: "2,700 ft MSL" })).toBe("surface to 2,700 ft MSL");
     expect(limitsText({ lower: null, upper: null })).toBeNull();
   });

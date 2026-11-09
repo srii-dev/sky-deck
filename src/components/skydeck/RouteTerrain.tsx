@@ -43,12 +43,14 @@ export function RouteTerrain({
     if (!summary) return null;
     const progress = routeProgress(origin, destination, aircraft);
     const alt = aircraft.onGround ? 0 : aircraft.altFt;
-    const top = chartTopFt(summary.maxFt, alt);
+    // The chart is scaled to the terrain, so a cruising airliner's altitude does not flatten it.
+    const top = chartTopFt(summary.maxFt, null);
     return {
       summary,
       progress,
       top,
       path: profileAreaPath(data.points, W, H, top),
+      altFt: alt,
       altY: alt == null ? null : altitudeY(alt, H, top),
       x: progress.fraction * W,
     };
@@ -97,10 +99,16 @@ export function RouteTerrain({
             <span>{destination?.iata ?? destination?.icao ?? "Destination"}</span>
           </div>
           <p className="text-sm">
-            Highest terrain about <strong>{fmtAltitude(view.summary.maxFt, units)}</strong>,{" "}
+            Highest sampled terrain about <strong>{fmtAltitude(view.summary.maxFt, units)}</strong>,{" "}
             {fmtRange(view.summary.maxAtNm, units)} from the start. About{" "}
             {fmtRange(view.progress.remainingNm, units)} left on the straight line.
           </p>
+          {view.altFt != null && (
+            <p className="text-xs text-muted-foreground">
+              Aircraft altitude {fmtAltitude(view.altFt, units)}
+              {view.altY == null ? " (above the top of this chart)" : " (the dot)"}.
+            </p>
+          )}
           {view.progress.offLineNm > 60 && (
             <p className="text-xs text-muted-foreground">
               This aircraft is {fmtRange(view.progress.offLineNm, units)} from the straight line, so

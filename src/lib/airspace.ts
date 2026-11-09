@@ -68,8 +68,17 @@ const NO_VALUE_BELOW = -9000;
  * "surface", "1,200 ft MSL", "1,200 ft above ground" or "FL180" from the FAA value, unit and reference code.
  * Returns null when there is no value.
  */
+/** A number, or a string holding one: the special use layer stores its altitudes as text. */
+function numberish(v: unknown): number | null {
+  if (typeof v === "string" && v.trim() !== "") {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  }
+  return num(v);
+}
+
 export function formatLimit(value: unknown, unit: unknown, code: unknown): string | null {
-  const v = num(value);
+  const v = numberish(value);
   if (v == null || v <= NO_VALUE_BELOW) return null;
   const uom = (str(unit) ?? "").toUpperCase();
   const ref = (str(code) ?? "").toUpperCase();
