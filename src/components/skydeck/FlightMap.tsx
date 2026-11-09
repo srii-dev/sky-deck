@@ -37,6 +37,12 @@ import { LEGEND_KINDS, svgMarkup } from "./aircraft-icons";
 import { installAirportDetail } from "./airport-detail-layers";
 import { applyWeather, NO_WEATHER, pickWeather, type WeatherMapState } from "./weather-layers";
 import {
+  applyRouteAirspace,
+  NO_ROUTE_AIRSPACE,
+  pickAirspace,
+  type RouteAirspaceState,
+} from "./route-airspace-layers";
+import {
   appendSample,
   initialDelay,
   missingOpacity,
@@ -281,6 +287,10 @@ export interface FlightMapProps {
   weather?: WeatherMapState | undefined;
   /** A click on a weather item (its id), or null when the click hit none. */
   onWeatherPick?: ((id: string | null) => void) | undefined;
+  /** The route line and airspace areas to draw (Phase 8). */
+  routeAirspace?: RouteAirspaceState | undefined;
+  /** A click on an airspace area (its id), or null when the click hit none. */
+  onAirspacePick?: ((id: string | null) => void) | undefined;
 }
 
 export default function FlightMap(props: FlightMapProps) {
@@ -544,6 +554,11 @@ export default function FlightMap(props: FlightMapProps) {
     installAirportDetail(map, propsRef.current.basemap, terrainBeforeId(map));
     // Radar, echo tops, advisories and pilot reports (Phase 7), below trails and aircraft.
     applyWeather(map, propsRef.current.weather ?? NO_WEATHER, terrainBeforeId(map));
+    applyRouteAirspace(
+      map,
+      propsRef.current.routeAirspace ?? NO_ROUTE_AIRSPACE,
+      terrainBeforeId(map),
+    );
     applyTrail();
     updateGlideRing();
     styleReadyRef.current = true;
@@ -966,8 +981,11 @@ export default function FlightMap(props: FlightMapProps) {
         return;
       }
       const weatherPick = pickWeather(map, e.point);
+      // Weather items sit above airspace areas, so an area is only picked when nothing else was.
+      const airspacePick = weatherPick ? null : pickAirspace(map, e.point);
       if (!map.getLayer("sd-aircraft")) {
         propsRef.current.onWeatherPick?.(weatherPick?.id ?? null);
+        propsRef.current.onAirspacePick?.(airspacePick);
         return;
       }
       const pad = 10;
@@ -981,6 +999,7 @@ export default function FlightMap(props: FlightMapProps) {
       const hex = feats[0]?.properties?.["hex"] as string | undefined;
       // An aircraft under the click wins; otherwise a weather item may be picked.
       propsRef.current.onWeatherPick?.(hex ? null : (weatherPick?.id ?? null));
+      propsRef.current.onAirspacePick?.(hex ? null : airspacePick);
       propsRef.current.onSelect(hex ?? null);
     });
     map.on("mousemove", (e) => {
@@ -1137,6 +1156,12 @@ export default function FlightMap(props: FlightMapProps) {
     if (!map || !styleReadyRef.current) return;
     applyWeather(map, props.weather ?? NO_WEATHER, terrainBeforeId(map));
   }, [props.weather]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !styleReadyRef.current) return;
+    applyRouteAirspace(map, props.routeAirspace ?? NO_ROUTE_AIRSPACE, terrainBeforeId(map));
+  }, [props.routeAirspace]);
 
   useEffect(() => {
     applyRuler();

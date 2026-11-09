@@ -45,6 +45,13 @@ export interface LayerControls {
   /** The glide ring needs a selected aircraft. */
   hasSelection: boolean;
   weather: WeatherControls;
+  /** Route line and airspace areas (Phase 8). */
+  routeLine: boolean;
+  onRouteLine: (v: boolean) => void;
+  airspaceControlled: boolean;
+  onAirspaceControlled: (v: boolean) => void;
+  airspaceSpecial: boolean;
+  onAirspaceSpecial: (v: boolean) => void;
 }
 
 export interface RulerControls {
@@ -245,6 +252,30 @@ export function MapTools({
               checked={layers.glideRing}
               onChange={layers.onGlideRing}
               disabled={!layers.hasSelection}
+            />
+            <div className="hud-label mb-1 mt-3">Routes and airspace</div>
+            <LayerRow
+              label="Route line"
+              hint={
+                layers.hasSelection
+                  ? "Straight line between the airports (approximate)"
+                  : "Select an aircraft first"
+              }
+              checked={layers.routeLine}
+              onChange={layers.onRouteLine}
+              disabled={!layers.hasSelection}
+            />
+            <LayerRow
+              label="Controlled airspace"
+              hint="Class B, C and D (US, zoom in)"
+              checked={layers.airspaceControlled}
+              onChange={layers.onAirspaceControlled}
+            />
+            <LayerRow
+              label="Special use areas"
+              hint="Restricted, prohibited, warning, alert, MOA (US, zoom in)"
+              checked={layers.airspaceSpecial}
+              onChange={layers.onAirspaceSpecial}
             />
             <div className="hud-label mb-1 mt-3">Weather</div>
             <LayerRow

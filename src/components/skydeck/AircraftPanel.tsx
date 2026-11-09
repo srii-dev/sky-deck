@@ -36,6 +36,7 @@ import {
 } from "@/lib/reachable-airports";
 import type { GlideStatus } from "./FlightMap";
 import { FlightCharts } from "./FlightCharts";
+import { RouteTerrain } from "./RouteTerrain";
 import type { TrailPoint } from "./map-config";
 import { AcarsMessages } from "./AcarsMessages";
 import { TrailExport } from "./TrailExport";
@@ -273,6 +274,7 @@ export function AircraftPanel(props: Props) {
       </div>
 
       <FlightCharts trail={props.trail} units={props.units} />
+      <RouteTerrain route={r} aircraft={a} units={props.units} />
       <TrailExport aircraft={a} trail={props.trail} source={props.source} />
       <AcarsMessages hex={a.hex} />
 

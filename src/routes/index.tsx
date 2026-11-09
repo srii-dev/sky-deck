@@ -1,5 +1,6 @@
 import { createFileRoute, ClientOnly, Link } from "@tanstack/react-router";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Info, Mountain, Radio, SlidersHorizontal, Box } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -14,6 +15,11 @@ import { NearbyAirports } from "@/components/skydeck/NearbyAirports";
 import { RadarTimeline } from "@/components/skydeck/RadarTimeline";
 import { WeatherInfoCard, type WeatherItem } from "@/components/skydeck/WeatherInfoCard";
 import { useWeatherLayers } from "@/hooks/use-weather-layers";
+import { useAirspace } from "@/hooks/use-airspace";
+import { AirspaceInfoCard } from "@/components/skydeck/AirspaceInfoCard";
+import type { RouteAirspaceState } from "@/components/skydeck/route-airspace-layers";
+import { isDrawableRoute } from "@/lib/route-geometry";
+import { getFlightRoute } from "@/lib/adsb.functions";
 import { CreditsDialog } from "@/components/skydeck/CreditsDialog";
 import { FirstRunGuide } from "@/components/skydeck/FirstRunGuide";
 import { SettingsDialog } from "@/components/skydeck/SettingsDialog";
@@ -92,6 +98,10 @@ function SkyDeck() {
   const [advisoriesOn, setAdvisoriesOn] = useState(false);
   const [pirepsOn, setPirepsOn] = useState(false);
   const [weatherPickId, setWeatherPickId] = useState<string | null>(null);
+  const [routeOn, setRouteOn] = useState(true);
+  const [airspaceControlledOn, setAirspaceControlledOn] = useState(false);
+  const [airspaceSpecialOn, setAirspaceSpecialOn] = useState(false);
+  const [airspacePickId, setAirspacePickId] = useState<string | null>(null);
   const [showTrail, setShowTrail] = useState(true);
   const [rulerActive, setRulerActive] = useState(false);
   const [rulerPoints, setRulerPoints] = useState<LngLat[]>([]);
@@ -181,6 +191,10 @@ function SkyDeck() {
         if (typeof l["echoTops"] === "boolean") setEchoTopsOn(l["echoTops"]);
         if (typeof l["advisories"] === "boolean") setAdvisoriesOn(l["advisories"]);
         if (typeof l["pireps"] === "boolean") setPirepsOn(l["pireps"]);
+        if (typeof l["routeLine"] === "boolean") setRouteOn(l["routeLine"]);
+        if (typeof l["airspaceControlled"] === "boolean")
+          setAirspaceControlledOn(l["airspaceControlled"]);
+        if (typeof l["airspaceSpecial"] === "boolean") setAirspaceSpecialOn(l["airspaceSpecial"]);
       }
     } catch {
       /* ignore */
@@ -201,12 +215,27 @@ function SkyDeck() {
           echoTops: echoTopsOn,
           advisories: advisoriesOn,
           pireps: pirepsOn,
+          routeLine: routeOn,
+          airspaceControlled: airspaceControlledOn,
+          airspaceSpecial: airspaceSpecialOn,
         }),
       );
     } catch {
       /* ignore */
     }
-  }, [layersReady, terrain, showTrail, trail3d, radarOn, echoTopsOn, advisoriesOn, pirepsOn]);
+  }, [
+    layersReady,
+    terrain,
+    showTrail,
+    trail3d,
+    radarOn,
+    echoTopsOn,
+    advisoriesOn,
+    pirepsOn,
+    routeOn,
+    airspaceControlledOn,
+    airspaceSpecialOn,
+  ]);
 
   // First visit: show the quick guide once (not over a shared link). Settings can reopen it.
   useEffect(() => {
@@ -440,6 +469,50 @@ function SkyDeck() {
           ? "Pilot reports could not be loaded."
           : null;
 
+  // Route line (Phase 8a): the same route lookup the aircraft panel uses, shared through the query cache.
+  const routeCallsign = selected?.callsign ?? null;
+  const routeQuery = useQuery({
+    queryKey: ["route", routeCallsign],
+    queryFn: () => getFlightRoute({ data: { callsign: routeCallsign! } }),
+    enabled: routeOn && !!routeCallsign && routeCallsign.length >= 3,
+    staleTime: 30 * 60 * 1000,
+  });
+  const airspace = useAirspace(
+    { controlled: airspaceControlledOn, special: airspaceSpecialOn },
+    viewport,
+  );
+  const routeAirspace = useMemo<RouteAirspaceState>(() => {
+    const rt = routeQuery.data;
+    const drawable = routeOn && !!selected && !!rt && isDrawableRoute(rt.origin, rt.destination);
+    return {
+      route:
+        drawable && rt
+          ? {
+              origin: {
+                lat: rt.origin.lat,
+                lon: rt.origin.lon,
+                label: rt.origin.iata ?? rt.origin.icao ?? "Origin",
+              },
+              destination: {
+                lat: rt.destination.lat,
+                lon: rt.destination.lon,
+                label: rt.destination.iata ?? rt.destination.icao ?? "Destination",
+              },
+            }
+          : null,
+      airspace: airspace.areas,
+    };
+  }, [routeQuery.data, routeOn, selected, airspace.areas]);
+  const airspaceEntry = useMemo(
+    () => (airspacePickId ? (airspace.areas?.find((a) => a.id === airspacePickId) ?? null) : null),
+    [airspacePickId, airspace.areas],
+  );
+  const airspaceNotice = airspace.tooWide
+    ? "Zoom in to see airspace areas."
+    : airspace.failed
+      ? "Airspace data could not be loaded."
+      : null;
+
   const filterCount = activeFilterCount(filters);
 
   return (
@@ -478,6 +551,8 @@ function SkyDeck() {
             onSelectedMotion={(hex, m) => setSelectedMotion({ hex, m })}
             weather={weather.state}
             onWeatherPick={setWeatherPickId}
+            routeAirspace={routeAirspace}
+            onAirspacePick={setAirspacePickId}
             rulerActive={rulerActive}
             rulerPoints={rulerPoints}
             onRulerPoint={(p) => setRulerPoints((pts) => nextRulerPoints(pts, p))}
@@ -665,6 +740,12 @@ function SkyDeck() {
               pireps: pirepsOn,
               onPireps: setPirepsOn,
             },
+            routeLine: routeOn,
+            onRouteLine: setRouteOn,
+            airspaceControlled: airspaceControlledOn,
+            onAirspaceControlled: setAirspaceControlledOn,
+            airspaceSpecial: airspaceSpecialOn,
+            onAirspaceSpecial: setAirspaceSpecialOn,
           }}
           ruler={{
             active: rulerActive,
@@ -749,7 +830,7 @@ function SkyDeck() {
         />
       )}
 
-      {(radarOn || weatherEntry || weatherNotice) && (
+      {(radarOn || weatherEntry || weatherNotice || airspaceEntry || airspaceNotice) && (
         <div
           className={`pointer-events-none absolute inset-x-0 bottom-[max(5.5rem,env(safe-area-inset-bottom))] z-20 flex-col items-center gap-2 pl-14 pr-3 md:px-3 md:bottom-3 ${selected || airport ? "hidden xl:flex" : "flex"}`}
         >
@@ -757,6 +838,14 @@ function SkyDeck() {
             <div className="glass-panel pointer-events-auto rounded-md px-3 py-1.5 text-xs text-muted-foreground">
               {weatherNotice}
             </div>
+          )}
+          {airspaceNotice && (
+            <div className="glass-panel pointer-events-auto rounded-md px-3 py-1.5 text-xs text-muted-foreground">
+              {airspaceNotice}
+            </div>
+          )}
+          {airspaceEntry && (
+            <AirspaceInfoCard area={airspaceEntry} onClose={() => setAirspacePickId(null)} />
           )}
           {weatherEntry && (
             <WeatherInfoCard entry={weatherEntry} onClose={() => setWeatherPickId(null)} />
