@@ -15,6 +15,8 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { buildLocalExport, localExportFilename } from "@/lib/data-export";
 import { downloadText } from "@/lib/download";
 import { clearLocalData, POLL_NORMAL_MS, POLL_SAVER_MS } from "@/lib/local-settings";
+import { useTheme } from "@/hooks/use-theme";
+import { THEME_LABELS, THEME_PREFS, type ThemePref } from "@/lib/theme";
 import { UNIT_LABELS, type UnitSystem } from "@/lib/units";
 import { cn } from "@/lib/utils";
 import type { Basemap } from "./map-config";
@@ -114,6 +116,7 @@ const seg = "h-10 flex-1 px-3";
  */
 export function SettingsDialog(p: SettingsProps) {
   const [confirmReset, setConfirmReset] = useState(false);
+  const theme = useTheme();
 
   const closeThen = (fn: () => void) => () => {
     setConfirmReset(false);
@@ -153,6 +156,26 @@ export function SettingsDialog(p: SettingsProps) {
             Kept in this browser only. SkyDeck has no accounts and does not track you.
           </DialogDescription>
         </DialogHeader>
+
+        <Section title="Theme">
+          <ToggleGroup
+            type="single"
+            variant="outline"
+            value={theme.pref}
+            onValueChange={(v) => v && theme.setPref(v as ThemePref)}
+            aria-label="Theme"
+            className="gap-2"
+          >
+            {THEME_PREFS.map((t) => (
+              <ToggleGroupItem key={t} value={t} className={seg}>
+                {THEME_LABELS[t]}
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
+          <p className="text-xs text-muted-foreground">
+            The page and its panels. The map style below is a separate choice.
+          </p>
+        </Section>
 
         <Section title="Units">
           <ToggleGroup

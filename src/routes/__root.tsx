@@ -14,25 +14,34 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { reportClientError } from "../lib/report-client-error";
 import { Toaster } from "@/components/ui/sonner";
+import { SiteFooter, SiteHeader } from "@/components/skydeck/SiteChrome";
+import { useTheme } from "../hooks/use-theme";
+import { THEME_INIT_SCRIPT } from "../lib/theme";
+import { getSiteUrl } from "../lib/site.functions";
+import { canonicalUrl } from "../lib/site-meta";
 
 function NotFoundComponent() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <div className="max-w-md text-center">
-        <h1 className="text-7xl font-bold text-foreground">404</h1>
-        <h2 className="mt-4 text-xl font-semibold text-foreground">Page not found</h2>
-        <p className="mt-2 text-sm text-muted-foreground">
-          The page you're looking for doesn't exist or has been moved.
-        </p>
-        <div className="mt-6">
-          <Link
-            to="/"
-            className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-          >
-            Go home
-          </Link>
+    <div className="flex h-full flex-col overflow-y-auto bg-background">
+      <SiteHeader />
+      <div className="flex flex-1 items-center justify-center px-4 py-10">
+        <div className="max-w-md text-center">
+          <h1 className="text-7xl font-bold text-foreground">404</h1>
+          <h2 className="mt-4 text-xl font-semibold text-foreground">Page not found</h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            The page you're looking for doesn't exist or has been moved.
+          </p>
+          <div className="mt-6">
+            <Link
+              to="/"
+              className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+            >
+              Go home
+            </Link>
+          </div>
         </div>
       </div>
+      <SiteFooter />
     </div>
   );
 }
@@ -77,7 +86,8 @@ function ErrorComponent({ error, reset }: ErrorComponentProps) {
 }
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
-  head: () => ({
+  loader: () => getSiteUrl(),
+  head: ({ loaderData, match }) => ({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
@@ -101,8 +111,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         href: appCss,
       },
       { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
+      // Only once the site has an address (SITE_URL); the query string never belongs in it.
+      ...(canonicalUrl(loaderData ?? null, match.pathname)
+        ? [{ rel: "canonical", href: canonicalUrl(loaderData ?? null, match.pathname)! }]
+        : []),
     ],
   }),
+  scripts: () => [{ children: THEME_INIT_SCRIPT }],
   shellComponent: RootShell,
   component: RootComponent,
   notFoundComponent: NotFoundComponent,
@@ -125,12 +140,13 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const theme = useTheme();
 
   return (
     <QueryClientProvider client={queryClient}>
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
-      <Toaster theme="dark" position="bottom-center" />
+      <Toaster theme={theme.resolved} position="bottom-center" />
     </QueryClientProvider>
   );
 }
