@@ -113,6 +113,43 @@ describe("remaining distance and ETA", () => {
   });
 });
 
+describe("route that does not fit", () => {
+  it("ignores a route when the aircraft is far from the line, in the air or on the ground", () => {
+    // Over New York on a flight listed as Los Angeles to Sacramento.
+    const rt: StageRoute = { origin: LAX, destination: { lat: 38.7, lon: -121.6 } };
+    const air = inferStage(
+      input({ lat: 40.7, lon: -74, altFt: 1100, vRate: -700, gs: 160 }),
+      rt,
+      null,
+    );
+    expect(air.routeMismatch).toBe(true);
+    expect(air.remainingNm).toBeNull();
+    expect(air.etaMin).toBeNull();
+    expect(air.stage).toBe("approach");
+    const gnd = inferStage(
+      input({ lat: 40.7, lon: -74, onGround: true, gs: 0, altFt: 0 }),
+      rt,
+      null,
+    );
+    expect(gnd.routeMismatch).toBe(true);
+    expect(gnd.stage).toBe("gate-out");
+  });
+
+  it("does not call a low descent far from the destination an approach", () => {
+    const far = inferStage(
+      input({ lat: 41.5, lon: -80, altFt: 2000, vRate: -800, gs: 200 }),
+      ROUTE,
+      "cruise",
+    );
+    expect(far.stage).toBe("descent");
+  });
+
+  it("keeps a route that fits", () => {
+    expect(inferStage(input({ lat: 39.5, lon: -98 }), ROUTE, null).routeMismatch).toBe(false);
+    expect(inferStage(input({ lat: 39.5, lon: -98 }), null, null).routeMismatch).toBe(false);
+  });
+});
+
 describe("stage steps and labels", () => {
   it("maps every stage to one of the seven steps", () => {
     for (const s of Object.keys(STAGE_LABELS) as FlightStage[]) {

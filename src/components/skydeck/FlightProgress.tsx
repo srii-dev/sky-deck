@@ -43,7 +43,7 @@ export function FlightProgress({
     <div className="mt-1.5 space-y-1.5" aria-label={view.callsign + " progress"}>
       <div className="flex items-baseline justify-between gap-2 text-sm">
         <span className="data-value">{r.label}</span>
-        {route && (
+        {route && !r.routeMismatch && (
           <span className="truncate text-xs text-muted-foreground">
             {code(route.origin)} → {code(route.destination)}
           </span>
@@ -70,6 +70,12 @@ export function FlightProgress({
         <span>{STEP_NAMES[3]}</span>
         <span>{STEP_NAMES[6]}</span>
       </div>
+      {r.routeMismatch && (
+        <div className="text-xs text-amber-300">
+          The route on file does not match where this aircraft is (route data can be weeks old), so
+          the route and distances are not shown.
+        </div>
+      )}
       {r.remainingNm != null && (
         <div className="text-xs text-muted-foreground">
           About {fmtRange(r.remainingNm, units)} to go on the straight line

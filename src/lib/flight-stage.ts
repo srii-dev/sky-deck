@@ -95,7 +95,14 @@ export interface StageResult {
   remainingNm: number | null;
   /** Minutes at the current ground speed over the straight line; null when unknown. A rough guide only. */
   etaMin: number | null;
+  /** The route on file does not fit where the aircraft is (route data can be weeks old), so it was not used. */
+  routeMismatch: boolean;
 }
+
+/** An airborne aircraft this far from the straight line between the airports is not flying that route. */
+export const ROUTE_MISMATCH_NM = 150;
+/** On the ground, farther than this from both airports means the same. */
+export const GROUND_MISMATCH_NM = 60;
 
 /**
  * The stage of one aircraft. `prev` is the stage seen last time (it settles cases the numbers cannot, such as
@@ -103,10 +110,24 @@ export interface StageResult {
  */
 export function inferStage(
   a: StageInput,
-  route: StageRoute | null,
+  routeOnFile: StageRoute | null,
   prev: FlightStage | null,
 ): StageResult {
   const here = { lat: a.lat, lon: a.lon };
+  // The route comes from a database that can be weeks old: when the aircraft is clearly somewhere else, ignore it.
+  let route = routeOnFile;
+  let routeMismatch = false;
+  if (routeOnFile) {
+    const far = a.onGround
+      ? distanceNm(routeOnFile.origin, here) > GROUND_MISMATCH_NM &&
+        distanceNm(routeOnFile.destination, here) > GROUND_MISMATCH_NM
+      : routeProgress(routeOnFile.origin, routeOnFile.destination, here, 120).offLineNm >
+        ROUTE_MISMATCH_NM;
+    if (far) {
+      route = null;
+      routeMismatch = true;
+    }
+  }
   const dOrigin = route ? distanceNm(route.origin, here) : null;
   const dDest = route ? distanceNm(route.destination, here) : null;
   const gs = a.gs ?? 0;
@@ -140,7 +161,8 @@ export function inferStage(
     if (prev === "takeoff" && vr > CLIMB_FPM && (alt == null || alt < 3000)) stage = "takeoff";
     else if (nearOrigin && vr > CLIMB_FPM && (alt == null || alt < 3000)) stage = "takeoff";
     else if (vr < -CLIMB_FPM) {
-      stage = nearDest || (alt != null && alt < 3000) ? "approach" : "descent";
+      // Low and descending is an approach, unless the route says the destination is still far away.
+      stage = nearDest || (dDest == null && alt != null && alt < 3000) ? "approach" : "descent";
       // No route to tell: low and still descending after a descent is an approach.
       if (
         !route &&
@@ -165,7 +187,14 @@ export function inferStage(
     remainingNm = dDest ?? p.remainingNm;
     if (gs >= 100 && remainingNm > 1) etaMin = Math.round((remainingNm / gs) * 60);
   }
-  return { stage, label: STAGE_LABELS[stage], step: STEP_OF[stage], remainingNm, etaMin };
+  return {
+    stage,
+    label: STAGE_LABELS[stage],
+    step: STEP_OF[stage],
+    remainingNm,
+    etaMin,
+    routeMismatch,
+  };
 }
 
 // ---------- history of stage changes ----------

@@ -108,7 +108,6 @@ export function useFlightStages(opts: {
       setTracks(next);
       storeTracks(next);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [inView, routes, alertsOn]);
 
   return useMemo(() => {
