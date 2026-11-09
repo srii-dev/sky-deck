@@ -8,7 +8,7 @@ const page = legalPage("/terms")!;
 export const Route = createFileRoute("/terms")({
   head: () => ({
     meta: [
-      { title: page.title + " — SkyDeck" },
+      { title: page.title.includes("SkyDeck") ? page.title : page.title + " — SkyDeck" },
       { name: "description", content: page.description },
     ],
   }),
