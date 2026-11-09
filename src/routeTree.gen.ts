@@ -10,9 +10,13 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AboutRouteImport } from './routes/about'
+import { Route as DisclaimerRouteImport } from './routes/disclaimer'
 import { Route as InspectorRouteImport } from './routes/inspector'
+import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as RobotsDottxtRouteImport } from './routes/robots[.]txt'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
+import { Route as TermsRouteImport } from './routes/terms'
 import { Route as ApiHealthRouteImport } from './routes/api.health'
 
 const IndexRoute = IndexRouteImport.update({
@@ -20,9 +24,24 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AboutRoute = AboutRouteImport.update({
+  id: '/about',
+  path: '/about',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DisclaimerRoute = DisclaimerRouteImport.update({
+  id: '/disclaimer',
+  path: '/disclaimer',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const InspectorRoute = InspectorRouteImport.update({
   id: '/inspector',
   path: '/inspector',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RobotsDottxtRoute = RobotsDottxtRouteImport.update({
@@ -35,6 +54,11 @@ const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   path: '/sitemap.xml',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TermsRoute = TermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiHealthRoute = ApiHealthRouteImport.update({
   id: '/api/health',
   path: '/api/health',
@@ -43,45 +67,83 @@ const ApiHealthRoute = ApiHealthRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/about': typeof AboutRoute
+  '/disclaimer': typeof DisclaimerRoute
   '/inspector': typeof InspectorRoute
+  '/privacy': typeof PrivacyRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/terms': typeof TermsRoute
   '/api/health': typeof ApiHealthRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/about': typeof AboutRoute
+  '/disclaimer': typeof DisclaimerRoute
   '/inspector': typeof InspectorRoute
+  '/privacy': typeof PrivacyRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/terms': typeof TermsRoute
   '/api/health': typeof ApiHealthRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/about': typeof AboutRoute
+  '/disclaimer': typeof DisclaimerRoute
   '/inspector': typeof InspectorRoute
+  '/privacy': typeof PrivacyRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/terms': typeof TermsRoute
   '/api/health': typeof ApiHealthRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/inspector' | '/robots.txt' | '/sitemap.xml' | '/api/health'
+  fullPaths:
+    | '/'
+    | '/about'
+    | '/disclaimer'
+    | '/inspector'
+    | '/privacy'
+    | '/robots.txt'
+    | '/sitemap.xml'
+    | '/terms'
+    | '/api/health'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/inspector' | '/robots.txt' | '/sitemap.xml' | '/api/health'
+  to:
+    | '/'
+    | '/about'
+    | '/disclaimer'
+    | '/inspector'
+    | '/privacy'
+    | '/robots.txt'
+    | '/sitemap.xml'
+    | '/terms'
+    | '/api/health'
   id:
     | '__root__'
     | '/'
+    | '/about'
+    | '/disclaimer'
     | '/inspector'
+    | '/privacy'
     | '/robots.txt'
     | '/sitemap.xml'
+    | '/terms'
     | '/api/health'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AboutRoute: typeof AboutRoute
+  DisclaimerRoute: typeof DisclaimerRoute
   InspectorRoute: typeof InspectorRoute
+  PrivacyRoute: typeof PrivacyRoute
   RobotsDottxtRoute: typeof RobotsDottxtRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  TermsRoute: typeof TermsRoute
   ApiHealthRoute: typeof ApiHealthRoute
 }
 
@@ -94,11 +156,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/about': {
+      id: '/about'
+      path: '/about'
+      fullPath: '/about'
+      preLoaderRoute: typeof AboutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/disclaimer': {
+      id: '/disclaimer'
+      path: '/disclaimer'
+      fullPath: '/disclaimer'
+      preLoaderRoute: typeof DisclaimerRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/inspector': {
       id: '/inspector'
       path: '/inspector'
       fullPath: '/inspector'
       preLoaderRoute: typeof InspectorRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/robots.txt': {
@@ -115,6 +198,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SitemapDotxmlRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/terms': {
+      id: '/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof TermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/health': {
       id: '/api/health'
       path: '/api/health'
@@ -127,9 +217,13 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AboutRoute: AboutRoute,
+  DisclaimerRoute: DisclaimerRoute,
   InspectorRoute: InspectorRoute,
+  PrivacyRoute: PrivacyRoute,
   RobotsDottxtRoute: RobotsDottxtRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
+  TermsRoute: TermsRoute,
   ApiHealthRoute: ApiHealthRoute,
 }
 export const routeTree = rootRouteImport
