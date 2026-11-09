@@ -338,12 +338,12 @@ All are map overlays that must survive a basemap switch.
 
 Browser-local until sign-in (5g) exists, then synced.
 
-| Phase | Feature                                                                            |
-| ----- | ---------------------------------------------------------------------------------- |
-| 13a   | Collect aircraft types and registrations you have selected                         |
-| 13b   | Achievements                                                                       |
-| 13c   | Challenges (for example, "find a helicopter, a glider and a heavy jet")            |
-| 13d   | Aircraft photos on collected aircraft (Planespotters API, after reading its terms) |
+| Phase | Feature                                                                                                                                                                                                                                                                                                                                                             |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 13a   | **Done in Phase 13:** every type and registration opened on the map is remembered in this browser (up to 600 types and 3,000 registrations), with first time, times opened and the icon shape; a trophy button opens the Collection. Not synced to the account yet (that needs a table and a migration). Collect aircraft types and registrations you have selected |
+| 13b   | **Done in Phase 13:** 13 achievements (5, 25 and 100 types; 10, 50 and 250 registrations; helicopter, glider, heavy jet, four-engine heavy, turboprop plus rear-engine jet, military, one of each main category), worked out from the collection with a progress bar and a message when one unlocks. Achievements                                                   |
+| 13c   | **Done in Phase 13:** three daily challenges, the same for everyone on the same date, rotating through eight (including "find a helicopter, a glider and a heavy jet"); progress counts what was opened today. Challenges (for example, "find a helicopter, a glider and a heavy jet")                                                                              |
+| 13d   | **Not built:** the Planespotters terms were not read, and hotlinking third-party photos needs attribution and a licence check first. Aircraft photos on collected aircraft (Planespotters API, after reading its terms)                                                                                                                                             |
 
 ## Phase 14: Insights
 

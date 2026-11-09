@@ -6,6 +6,7 @@ All notable changes to SkyDeck. The format follows [Keep a Changelog](https://ke
 
 ### Added
 
+- Collection, achievements and daily challenges (Phase 13a, 13b, 13c): aircraft types and registrations you open are remembered in this browser, 13 achievements, three daily challenges and a Collection dialog behind a trophy button. Account sync and aircraft photos (13d) were not built.
 - More aircraft silhouettes (Phase 12a): four-engine heavy, twin-engine heavy, rear-engine jet, turboprop and military jet shapes chosen from the type code, listed in the Aircraft types key. 3D aircraft models (12b) and 3D airports (12c) were not built.
 - Track a flight (Phase 11a): add a flight number in the Watchlist and see its stage (at the gate, taxiing, taking off, climbing, cruising, descending, on approach, landing, arrived) on a seven step bar, with the route, a rough distance and time to go, and its last changes; notable changes raise an in-app alert. A route on file that does not fit where the aircraft is, is ignored and said so. Inbound aircraft (11b), gates and baggage (11c) and lock-screen updates (11d) were not built.
 - Alert rules (Phase 10: 10b, 10c, 10d, 10e): rules on aircraft type, military flag, flight number, altitude, squawk, in the air and a circular area drawn on the map, created in plain English or by hand, checked on every update while the page is open. Web push when the tab is closed (10f) was not built.
