@@ -328,11 +328,11 @@ All are map overlays that must survive a basemap switch.
 
 ## Phase 12: 3D and visuals
 
-| Phase | Feature                       | Notes                                                             |
-| ----- | ----------------------------- | ----------------------------------------------------------------- |
-| 12a   | Expanded aircraft silhouettes | More shapes per type, in the 2D icons.                            |
-| 12b   | 3D aircraft models            | Generic models by category; check the licence of any model asset. |
-| 12c   | 3D airports                   | Builds on 4e and the existing 3D buildings.                       |
+| Phase | Feature                       | Notes                                                                                                                                                                                                                                                                                                                                                                                     |
+| ----- | ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 12a   | Expanded aircraft silhouettes | **Done in Phase 12:** shapes for four-engine heavy, twin-engine heavy (the old heavy icon had four engines), rear-engine jet, turboprop and military jet, chosen from the type code in `aircraft-shape.ts`; the category (`kind`) is unchanged, so colours, alerts and panels are unaffected. Not drawn: tri-jets, seaplanes, per-airline or per-model outlines (about 13 shapes in all). |
+| 12b   | 3D aircraft models            | **Not built:** MapLibre cannot draw glTF models by itself; it needs a 3D layer library (three.js or deck.gl, not approved as a dependency) and model files whose licence has to be checked first. Generic models by category; check the licence of any model asset.                                                                                                                       |
+| 12c   | 3D airports                   | **Not built:** the tiles have no 3D airport data (terminals are plain buildings, already shown by the 3D buildings layer), so this would need modelled airports from a source whose licence is checked. Builds on 4e and the existing 3D buildings.                                                                                                                                       |
 
 ## Phase 13: Collection and gamification
 

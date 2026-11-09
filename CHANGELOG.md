@@ -6,6 +6,7 @@ All notable changes to SkyDeck. The format follows [Keep a Changelog](https://ke
 
 ### Added
 
+- More aircraft silhouettes (Phase 12a): four-engine heavy, twin-engine heavy, rear-engine jet, turboprop and military jet shapes chosen from the type code, listed in the Aircraft types key. 3D aircraft models (12b) and 3D airports (12c) were not built.
 - Track a flight (Phase 11a): add a flight number in the Watchlist and see its stage (at the gate, taxiing, taking off, climbing, cruising, descending, on approach, landing, arrived) on a seven step bar, with the route, a rough distance and time to go, and its last changes; notable changes raise an in-app alert. A route on file that does not fit where the aircraft is, is ignored and said so. Inbound aircraft (11b), gates and baggage (11c) and lock-screen updates (11d) were not built.
 - Alert rules (Phase 10: 10b, 10c, 10d, 10e): rules on aircraft type, military flag, flight number, altitude, squawk, in the air and a circular area drawn on the map, created in plain English or by hand, checked on every update while the page is open. Web push when the tab is closed (10f) was not built.
 - Session replay (Phase 9a): the page records the last 30 minutes of what it received and can play it back with a scrub bar and speeds. The 30-day replay (9b) and incident history (9c) were not built.
@@ -46,5 +47,7 @@ All notable changes to SkyDeck. The format follows [Keep a Changelog](https://ke
 
 ### Fixed
 
+- A Cessna 172 or 177 was classified as a heavy jet (the C-17 pattern matched it) and drawn with the heavy jet icon.
+- The tracked flights hook changed the length of a React dependency list when flights were added or removed.
 - A failed feed request no longer falls back to a cached result of any age; the limit is 30 s (#17).
 - The Filters button no longer wraps to a second row while loading at 1280 px, and the map credit no longer runs over the altitude legend on phones (#15).
