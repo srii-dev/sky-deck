@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useAuth } from "@/hooks/use-auth";
+import type { AuthApi } from "@/hooks/use-auth";
 import { formError, MIN_PASSWORD_LENGTH, type AuthMode } from "@/lib/auth-forms";
 
 /*
@@ -22,14 +22,13 @@ import { formError, MIN_PASSWORD_LENGTH, type AuthMode } from "@/lib/auth-forms"
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** The shared sign-in state (it lives in the page so the lists can sync). */
+  auth: AuthApi;
+  /** Sync status of the watchlist and recent flights, shown when signed in. */
+  syncNote?: string | null;
 }
 
-export function AccountDialog({ open, onOpenChange }: Props) {
-  // Starts talking to Supabase the first time the dialog opens.
-  const [everOpened, setEverOpened] = useState(false);
-  if (open && !everOpened) setEverOpened(true);
-  const auth = useAuth(everOpened);
-
+export function AccountDialog({ open, onOpenChange, auth, syncNote }: Props) {
   const [mode, setMode] = useState<AuthMode>("sign-in");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -115,6 +114,11 @@ export function AccountDialog({ open, onOpenChange }: Props) {
           <div className="space-y-4">
             <p className="text-sm">
               Signed in as <strong className="break-all">{auth.email}</strong>
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Your watchlist and recently viewed flights are saved to this account.
+              {syncNote ? " " + syncNote : ""} Signing out keeps the lists on this device; Settings,
+              Delete my saved data removes them.
             </p>
             {error && (
               <p role="alert" className="text-sm text-destructive">

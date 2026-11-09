@@ -6,6 +6,7 @@
 import { FLAGS_STORAGE_KEY } from "./flags";
 import { RECENT_SEARCHES_KEY } from "./search-rank";
 import { SAVED_VIEWS_KEY } from "./saved-views";
+import { RECENT_FLIGHTS_KEY, WATCHLIST_KEY } from "./watchlist";
 
 export const STORAGE_KEYS = {
   units: "skydeck:units",
@@ -21,6 +22,10 @@ export const STORAGE_KEYS = {
   smoothMotion: "skydeck:smooth-motion",
   shortcuts: "skydeck:shortcuts",
   guideSeen: "skydeck:guide-seen",
+  watchlist: WATCHLIST_KEY,
+  recentFlights: RECENT_FLIGHTS_KEY,
+  /** Alerts for watched items (default on). */
+  watchAlerts: "skydeck:watch-alerts",
 } as const;
 
 /** Every key the reset removes. */

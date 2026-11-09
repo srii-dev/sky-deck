@@ -1,6 +1,7 @@
 import { createFileRoute, ClientOnly, Link } from "@tanstack/react-router";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { Info, Mountain, Radio, SlidersHorizontal, Box } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -23,6 +24,8 @@ import { getFlightRoute } from "@/lib/adsb.functions";
 import { CreditsDialog } from "@/components/skydeck/CreditsDialog";
 import { FirstRunGuide } from "@/components/skydeck/FirstRunGuide";
 import { AccountDialog } from "@/components/skydeck/AccountDialog";
+import { useAuth } from "@/hooks/use-auth";
+import { hasStoredSession } from "@/lib/supabase-client";
 import { SettingsDialog } from "@/components/skydeck/SettingsDialog";
 import { ShortcutsDialog } from "@/components/skydeck/ShortcutsDialog";
 import { EmergencyBanner } from "@/components/skydeck/EmergencyBanner";
@@ -33,6 +36,10 @@ import type { Basemap, FlyTarget, Viewport } from "@/components/skydeck/map-conf
 import type { GlideStatus } from "@/components/skydeck/FlightMap";
 import { useAircraftFeed } from "@/hooks/use-aircraft-feed";
 import { useFlagPref } from "@/hooks/use-flag-pref";
+import { usePersonalData } from "@/hooks/use-personal-data";
+import { useWatchAlerts } from "@/hooks/use-watch-alerts";
+import { WatchlistDialog } from "@/components/skydeck/WatchlistDialog";
+import { watchMatches, type RecentFlight, type WatchItem } from "@/lib/watchlist";
 import { useShortcuts } from "@/hooks/use-shortcuts";
 import {
   activeFilterCount,
@@ -107,6 +114,8 @@ function SkyDeck() {
   const [rulerActive, setRulerActive] = useState(false);
   const [rulerPoints, setRulerPoints] = useState<LngLat[]>([]);
   const [follow, setFollow] = useState(false);
+  const [chase, setChase] = useState(false);
+  const [watchlistOpen, setWatchlistOpen] = useState(false);
   const [units, setUnits] = useState<UnitSystem>("aviation");
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
   const [flyTarget, setFlyTarget] = useState<FlyTarget | null>(null);
@@ -116,11 +125,18 @@ function SkyDeck() {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [creditsOpen, setCreditsOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
+  // Sign-in state is shared with the lists that sync. It only contacts Supabase once the account dialog was
+  // opened or this browser already holds a saved session.
+  const [accountEverOpened, setAccountEverOpened] = useState(false);
+  const [storedSession, setStoredSession] = useState(false);
+  useEffect(() => setStoredSession(hasStoredSession()), []);
+  const auth = useAuth(accountEverOpened || storedSession);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
   const [shortcutsOn, setShortcutsOn] = useFlagPref(STORAGE_KEYS.shortcuts, true);
   const [batterySaver, setBatterySaver] = useFlagPref(STORAGE_KEYS.batterySaver, false);
+  const [alertsOn, setAlertsOn] = useFlagPref(STORAGE_KEYS.watchAlerts, true);
   const [smoothMotion, setSmoothMotion] = useFlagPref(STORAGE_KEYS.smoothMotion, true);
   const [motionDelaySec, setMotionDelaySec] = useState<number | null>(null);
   const [selectedMotion, setSelectedMotion] = useState<{ hex: string; m: MotionState } | null>(
@@ -515,6 +531,56 @@ function SkyDeck() {
       ? "Airspace data could not be loaded."
       : null;
 
+  // Watchlist, recently viewed flights and alerts (Phase 5).
+  const personal = usePersonalData(auth);
+  useWatchAlerts({
+    aircraft: feed.aircraft,
+    watch: personal.watch,
+    enabled: alertsOn,
+    onShow: (hex) => onSelect(hex),
+  });
+  const selectedHexForRecent = selected?.hex ?? null;
+  useEffect(() => {
+    if (!selected || selected.hex.startsWith("mock-")) return;
+    personal.addRecent({
+      hex: selected.hex,
+      callsign: selected.callsign,
+      registration: selected.registration,
+      type: selected.type,
+    });
+    // Only when a different aircraft is opened, not on every data update.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedHexForRecent]);
+  // The chase camera only makes sense while following.
+  useEffect(() => {
+    if (!follow) setChase(false);
+  }, [follow]);
+  const toggleWatch = (kind: "flight" | "aircraft" | "airport", key: string, label: string) => {
+    const r = personal.toggleWatch(kind, key, label);
+    if (r === "added") toast("Watching " + label);
+    else if (r === "removed") toast("Stopped watching " + label);
+    else if (r === "full") toast.error("The watchlist is full (50 items). Remove one first.");
+  };
+  const openWatchItem = (item: WatchItem) => {
+    setWatchlistOpen(false);
+    if (item.kind === "airport") {
+      const ap = currentAirportList().find((a) => a.icao === item.key);
+      if (ap) openAirport(ap);
+      return;
+    }
+    if (item.kind === "aircraft") {
+      onSelect(item.key);
+      return;
+    }
+    const found = allAircraft.find((a) => watchMatches([item], a).length > 0);
+    if (found) pickAircraft(found);
+    else toast(item.label + " is not in the area the map has loaded right now.");
+  };
+  const openRecent = (r: RecentFlight) => {
+    setWatchlistOpen(false);
+    onSelect(r.hex);
+  };
+
   const filterCount = activeFilterCount(filters);
 
   return (
@@ -549,6 +615,7 @@ function SkyDeck() {
             receivedAt={feed.fetchedAt}
             presentHexes={presentHexes}
             smoothMotion={smoothMotion}
+            chase={chase && follow}
             onMotionDelay={setMotionDelaySec}
             onSelectedMotion={(hex, m) => setSelectedMotion({ hex, m })}
             weather={weather.state}
@@ -722,6 +789,8 @@ function SkyDeck() {
           getShareUrl={getShareUrl}
           onLocated={showNearby}
           onOpenSettings={() => setSettingsOpen(true)}
+          onOpenWatchlist={() => setWatchlistOpen(true)}
+          watchCount={personal.watch.length}
           layers={{
             terrain,
             onTerrain: setTerrain,
@@ -822,6 +891,21 @@ function SkyDeck() {
           onTrail3d={setTrail3d}
           follow={follow}
           onFollow={setFollow}
+          chase={chase}
+          onChase={setChase}
+          watchControls={{
+            aircraftOn: personal.isWatching("aircraft", selected.hex),
+            flightOn: selected.callsign ? personal.isWatching("flight", selected.callsign) : null,
+            flightLabel: selected.callsign,
+            onToggleAircraft: () =>
+              toggleWatch(
+                "aircraft",
+                selected.hex,
+                selected.registration ?? selected.callsign ?? selected.hex.toUpperCase(),
+              ),
+            onToggleFlight: () =>
+              selected.callsign && toggleWatch("flight", selected.callsign, selected.callsign),
+          }}
           glideRing={glideRing}
           onGlideRing={setGlideRing}
           glideRatio={glideRatio}
@@ -863,6 +947,8 @@ function SkyDeck() {
           aircraft={allAircraft}
           units={units}
           onClose={() => setAirport(null)}
+          watching={personal.isWatching("airport", airport.icao)}
+          onToggleWatch={() => toggleWatch("airport", airport.icao, airport.name)}
         />
       )}
 
@@ -900,7 +986,35 @@ function SkyDeck() {
         onOpenCredits={() => setCreditsOpen(true)}
         onOpenAccount={() => setAccountOpen(true)}
       />
-      <AccountDialog open={accountOpen} onOpenChange={setAccountOpen} />
+      <WatchlistDialog
+        open={watchlistOpen}
+        onOpenChange={setWatchlistOpen}
+        watch={personal.watch}
+        recent={personal.recent}
+        aircraft={allAircraft}
+        units={units}
+        alertsOn={alertsOn}
+        onAlertsOn={setAlertsOn}
+        sync={personal.sync}
+        signedIn={auth.status === "signed-in"}
+        onOpenWatch={openWatchItem}
+        onRemoveWatch={(w) => personal.removeWatchItem(w.kind, w.key)}
+        onOpenRecent={openRecent}
+        onClearRecent={personal.clearRecent}
+        onOpenAccount={() => {
+          setWatchlistOpen(false);
+          setAccountEverOpened(true);
+          setAccountOpen(true);
+        }}
+      />
+      <AccountDialog
+        open={accountOpen}
+        onOpenChange={(v) => {
+          if (v) setAccountEverOpened(true);
+          setAccountOpen(v);
+        }}
+        auth={auth}
+      />
     </main>
   );
 }

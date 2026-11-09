@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ExternalLink, X } from "lucide-react";
+import { ExternalLink, Star, X } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -26,6 +26,9 @@ interface Props {
   aircraft: readonly Aircraft[];
   units: UnitSystem;
   onClose: () => void;
+  /** Watch this airport (Phase 5a). */
+  watching?: boolean;
+  onToggleWatch?: () => void;
 }
 
 const CATEGORY_STYLE: Record<FlightCategory, string> = {
@@ -57,7 +60,14 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
   );
 }
 
-export function AirportPanel({ airport, aircraft, units, onClose }: Props) {
+export function AirportPanel({
+  airport,
+  aircraft,
+  units,
+  onClose,
+  watching,
+  onToggleWatch,
+}: Props) {
   const icao = airport.icao;
   const brief = useQuery({
     queryKey: ["airport-brief", icao],
@@ -141,6 +151,17 @@ export function AirportPanel({ airport, aircraft, units, onClose }: Props) {
             <span>{airport.city}</span>
           </div>
         </div>
+        {onToggleWatch && (
+          <Button
+            variant={watching ? "default" : "ghost"}
+            size="icon"
+            aria-label={watching ? "Stop watching this airport" : "Watch this airport"}
+            aria-pressed={!!watching}
+            onClick={onToggleWatch}
+          >
+            <Star className="size-4" />
+          </Button>
+        )}
         <Button variant="ghost" size="icon" aria-label="Close airport details" onClick={onClose}>
           <X className="size-4" />
         </Button>

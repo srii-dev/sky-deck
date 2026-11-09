@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowRight, ChevronDown, ChevronUp, Crosshair, Plane, X } from "lucide-react";
+import { ArrowRight, ChevronDown, ChevronUp, Crosshair, Plane, Star, Video, X } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -50,6 +50,17 @@ interface Props {
   onTrail3d: (v: boolean) => void;
   follow: boolean;
   onFollow: (v: boolean) => void;
+  /** Chase camera: while following, look along the aircraft's heading from behind (Phase 5d). */
+  chase: boolean;
+  onChase: (v: boolean) => void;
+  /** Watch buttons (Phase 5a). The flight button only exists when the aircraft has a callsign. */
+  watchControls?: {
+    aircraftOn: boolean;
+    flightOn: boolean | null;
+    flightLabel: string | null;
+    onToggleAircraft: () => void;
+    onToggleFlight: () => void;
+  };
   glideRing: boolean;
   onGlideRing: (v: boolean) => void;
   glideRatio: number | null;
@@ -291,6 +302,42 @@ export function AircraftPanel(props: Props) {
           </Label>
           <Switch id="follow" checked={props.follow} onCheckedChange={props.onFollow} />
         </div>
+        <div className="flex items-center justify-between">
+          <Label htmlFor="chase" className="flex items-center gap-2 text-sm">
+            <Video className="size-4 text-muted-foreground" /> Chase camera
+            <span className="text-[11px] text-muted-foreground">(needs Follow)</span>
+          </Label>
+          <Switch
+            id="chase"
+            checked={props.chase}
+            disabled={!props.follow}
+            onCheckedChange={props.onChase}
+          />
+        </div>
+        {props.watchControls && (
+          <div className="flex flex-wrap gap-2 border-t border-border/40 pt-2">
+            <Button
+              variant={props.watchControls.aircraftOn ? "default" : "outline"}
+              size="sm"
+              aria-pressed={props.watchControls.aircraftOn}
+              onClick={props.watchControls.onToggleAircraft}
+            >
+              <Star />{" "}
+              {props.watchControls.aircraftOn ? "Watching this aircraft" : "Watch this aircraft"}
+            </Button>
+            {props.watchControls.flightOn !== null && (
+              <Button
+                variant={props.watchControls.flightOn ? "default" : "outline"}
+                size="sm"
+                aria-pressed={props.watchControls.flightOn}
+                onClick={props.watchControls.onToggleFlight}
+              >
+                <Star /> {props.watchControls.flightOn ? "Watching flight " : "Watch flight "}
+                {props.watchControls.flightLabel}
+              </Button>
+            )}
+          </div>
+        )}
         {bounds == null ? (
           <div className="border-t border-border/40 pt-2 text-xs text-muted-foreground">
             No glide ring for this category

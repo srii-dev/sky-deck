@@ -20,11 +20,16 @@ export interface AuthActions {
   deleteAccount(): Promise<{ error: string | null }>;
 }
 
-export function useAuth(
-  active: boolean,
-): { status: AuthStatus; email: string | null } & AuthActions {
+export type AuthApi = {
+  status: AuthStatus;
+  email: string | null;
+  userId: string | null;
+} & AuthActions;
+
+export function useAuth(active: boolean): AuthApi {
   const [status, setStatus] = useState<AuthStatus>("idle");
   const [email, setEmail] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!active) return;
@@ -40,9 +45,11 @@ export function useAuth(
       const { data } = await sb.auth.getSession();
       if (cancelled) return;
       setEmail(data.session?.user.email ?? null);
+      setUserId(data.session?.user.id ?? null);
       setStatus(data.session ? "signed-in" : "signed-out");
       const sub = sb.auth.onAuthStateChange((_event, session) => {
         setEmail(session?.user.email ?? null);
+        setUserId(session?.user.id ?? null);
         setStatus(session ? "signed-in" : "signed-out");
       });
       unsubscribe = () => sub.data.subscription.unsubscribe();
@@ -92,5 +99,5 @@ export function useAuth(
     return { error: null };
   }, []);
 
-  return { status, email, signIn, signUp, signOut, deleteAccount };
+  return { status, email, userId, signIn, signUp, signOut, deleteAccount };
 }

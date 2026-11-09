@@ -11,6 +11,23 @@ import { getAuthConfig } from "./auth-config.functions";
 
 let client: Promise<SupabaseClient | null> | null = null;
 
+/**
+ * True when this browser holds a saved Supabase session (the library stores it under a key that starts with
+ * "sb-" and ends with "-auth-token"). Used to decide whether to contact Supabase at page load: visitors without
+ * a saved session cost nothing.
+ */
+export function hasStoredSession(): boolean {
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith("sb-") && k.endsWith("-auth-token")) return true;
+    }
+  } catch {
+    /* storage blocked */
+  }
+  return false;
+}
+
 export function getSupabase(): Promise<SupabaseClient | null> {
   if (typeof window === "undefined") return Promise.resolve(null);
   client ??= getAuthConfig()

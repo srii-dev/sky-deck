@@ -9,6 +9,7 @@ import {
   Minimize,
   Ruler,
   Settings,
+  Star,
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -74,6 +75,9 @@ interface Props {
   /** Called with the user's position after My location succeeds (used for nearby airports). */
   onLocated?: (pos: { lat: number; lon: number }) => void;
   onOpenSettings: () => void;
+  /** Opens the watchlist dialog (Phase 5a). */
+  onOpenWatchlist: () => void;
+  watchCount: number;
 }
 
 const btn = "h-10 w-10";
@@ -116,6 +120,8 @@ export function MapTools({
   ruler,
   onLocated,
   onOpenSettings,
+  onOpenWatchlist,
+  watchCount,
 }: Props) {
   const [views, setViews] = useState<SavedView[]>([]);
   const [name, setName] = useState("");
@@ -391,6 +397,16 @@ export function MapTools({
           onClick={() => void toggleFullscreen()}
         >
           {fullscreen ? <Minimize /> : <Maximize />}
+        </Button>
+        <Button
+          variant="panel"
+          size="icon"
+          className={btn}
+          aria-label={watchCount > 0 ? "Watchlist, " + watchCount + " items" : "Watchlist"}
+          title="Watchlist and recently viewed"
+          onClick={onOpenWatchlist}
+        >
+          <Star />
         </Button>
         <Button
           variant="panel"

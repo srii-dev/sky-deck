@@ -283,6 +283,8 @@ export interface FlightMapProps {
   onMotionDelay?: ((seconds: number) => void) | undefined;
   /** The selected aircraft at the drawn moment, about once a second, so the panel can match the icon. */
   onSelectedMotion?: ((hex: string, m: MotionState) => void) | undefined;
+  /** Chase camera (Phase 5d): while following, tilt the map and turn it to look along the aircraft's heading. */
+  chase?: boolean | undefined;
   /** Weather layers to draw (radar, echo tops, advisories, pilot reports). */
   weather?: WeatherMapState | undefined;
   /** A click on a weather item (its id), or null when the click hit none. */
@@ -1043,6 +1045,7 @@ export default function FlightMap(props: FlightMapProps) {
       const sel = propsRef.current.selectedHex;
       const features: Feature<Point>[] = [];
       let selPos: [number, number] | null = null;
+      let selTrack: number | null = null;
       for (const [hex, tr] of tracksRef.current) {
         let fade = 1;
         if (tr.ghost) {
@@ -1062,6 +1065,7 @@ export default function FlightMap(props: FlightMapProps) {
         const isSel = hex === sel;
         if (isSel) {
           selPos = [lat, lon];
+          selTrack = m.track;
           if (wall - lastSelectedEmit >= 1000) {
             lastSelectedEmit = wall;
             propsRef.current.onSelectedMotion?.(hex, m);
@@ -1087,6 +1091,12 @@ export default function FlightMap(props: FlightMapProps) {
       src.setData({ type: "FeatureCollection", features });
       if (selPos && propsRef.current.follow && !map.isMoving()) {
         map.setCenter([selPos[1], selPos[0]]);
+        // Chase camera: turn towards the heading a little each frame, so the view follows turns smoothly.
+        if (propsRef.current.chase && selTrack != null) {
+          const cur = map.getBearing();
+          const diff = ((((selTrack - cur) % 360) + 540) % 360) - 180;
+          map.setBearing(cur + diff * 0.06);
+        }
       }
     };
     raf = requestAnimationFrame(tick);
@@ -1150,6 +1160,15 @@ export default function FlightMap(props: FlightMapProps) {
     applyTrail();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.trail, props.trail3d, props.selectedHex, props.showTrail]);
+
+  // Turning the chase camera on tilts the map and moves in close behind the aircraft.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !props.chase || !props.follow) return;
+    const reduce =
+      typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+    map.easeTo({ pitch: 68, zoom: Math.max(map.getZoom(), 12), duration: reduce ? 0 : 900 });
+  }, [props.chase, props.follow]);
 
   useEffect(() => {
     const map = mapRef.current;
