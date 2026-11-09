@@ -16,6 +16,7 @@ import { WeatherInfoCard, type WeatherItem } from "@/components/skydeck/WeatherI
 import { useWeatherLayers } from "@/hooks/use-weather-layers";
 import { CreditsDialog } from "@/components/skydeck/CreditsDialog";
 import { FirstRunGuide } from "@/components/skydeck/FirstRunGuide";
+import { AccountDialog } from "@/components/skydeck/AccountDialog";
 import { SettingsDialog } from "@/components/skydeck/SettingsDialog";
 import { ShortcutsDialog } from "@/components/skydeck/ShortcutsDialog";
 import { EmergencyBanner } from "@/components/skydeck/EmergencyBanner";
@@ -104,6 +105,7 @@ function SkyDeck() {
   const [glideStatus, setGlideStatus] = useState<GlideStatus | undefined>(undefined);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [creditsOpen, setCreditsOpen] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
@@ -807,7 +809,9 @@ function SkyDeck() {
         onOpenGuide={() => setGuideOpen(true)}
         onOpenShortcuts={() => setShortcutsOpen(true)}
         onOpenCredits={() => setCreditsOpen(true)}
+        onOpenAccount={() => setAccountOpen(true)}
       />
+      <AccountDialog open={accountOpen} onOpenChange={setAccountOpen} />
     </main>
   );
 }

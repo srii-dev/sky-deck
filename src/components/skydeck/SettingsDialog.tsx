@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { BookOpen, Download, Info, Keyboard, Trash2 } from "lucide-react";
+import { BookOpen, Download, Info, Keyboard, Trash2, UserRound } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -43,6 +43,7 @@ export interface SettingsProps {
   onOpenGuide: () => void;
   onOpenShortcuts: () => void;
   onOpenCredits: () => void;
+  onOpenAccount: () => void;
 }
 
 const BASEMAP_LABELS: Record<Basemap, string> = {
@@ -228,6 +229,15 @@ export function SettingsDialog(p: SettingsProps) {
           <LinkRow icon={<Keyboard />} onClick={closeThen(p.onOpenShortcuts)}>
             Show the shortcut list
           </LinkRow>
+        </Section>
+
+        <Section title="Account">
+          <LinkRow icon={<UserRound />} onClick={closeThen(p.onOpenAccount)}>
+            Sign in or manage your account
+          </LinkRow>
+          <p className="text-xs text-muted-foreground">
+            Optional. SkyDeck works without an account.
+          </p>
         </Section>
 
         <Section title="Help">
