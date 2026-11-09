@@ -6,6 +6,7 @@ All notable changes to SkyDeck. The format follows [Keep a Changelog](https://ke
 
 ### Added
 
+- Themes, header and footer, and search metadata (Phase 15c, 15d in part, 15g in part): a light theme and a Dark, Light or System choice in Settings, a header and footer on the inspector and not-found pages, `robots.txt` and `sitemap.xml`, canonical links when `SITE_URL` is set, and schema.org data on the map page. Removing Lovable (15a), the brand (15b), the landing page (15e), share images (15f) and the full design pass (15h) were not built.
 - Flight facts (Phase 14a): a card in the aircraft panel with the phase, route length, progress along the route, time to the destination and heading against the destination. The airport brief (14b) already existed from Phase 4; AI insights (14c) were not built.
 - Collection, achievements and daily challenges (Phase 13a, 13b, 13c): aircraft types and registrations you open are remembered in this browser, 13 achievements, three daily challenges and a Collection dialog behind a trophy button. Account sync and aircraft photos (13d) were not built.
 - More aircraft silhouettes (Phase 12a): four-engine heavy, twin-engine heavy, rear-engine jet, turboprop and military jet shapes chosen from the type code, listed in the Aircraft types key. 3D aircraft models (12b) and 3D airports (12c) were not built.
@@ -36,6 +37,8 @@ All notable changes to SkyDeck. The format follows [Keep a Changelog](https://ke
 
 ### Changed
 
+- The dark theme's destructive red is a little darker, so white text on it reaches 4.5:1 (it was 3.7:1).
+- `public/robots.txt` is replaced by a `/robots.txt` route that also points at the sitemap and keeps crawlers off `/api/`.
 - Zoomed-in views request fixed shared tiles; cached tiles are aged, and a busy provider is answered from a tile up to 30 s old (#17).
 - Requests to each data provider are spaced out, and identical in-flight requests are shared (#3).
 - The last good aircraft stay on screen for up to 2 minutes when every provider fails (#18).
