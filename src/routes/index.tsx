@@ -131,6 +131,10 @@ function SkyDeck() {
   const [storedSession, setStoredSession] = useState(false);
   useEffect(() => setStoredSession(hasStoredSession()), []);
   const auth = useAuth(accountEverOpened || storedSession);
+  // However the dialog is opened (Settings, the watchlist's sign-in link), sign-in becomes active.
+  useEffect(() => {
+    if (accountOpen) setAccountEverOpened(true);
+  }, [accountOpen]);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);

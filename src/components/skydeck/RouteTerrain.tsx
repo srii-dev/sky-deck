@@ -1,5 +1,7 @@
 import { useMemo } from "react";
 
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useTerrainProfile } from "@/hooks/use-terrain-profile";
 import type { Aircraft, FlightRoute } from "@/lib/aircraft";
 import { fmtRange } from "@/lib/glide-ring";
@@ -61,9 +63,19 @@ export function RouteTerrain({
   return (
     <section aria-label="Terrain along the route" className="space-y-1.5">
       <div className="hud-label">Terrain along the route</div>
-      {profile.isPending && <p className="text-sm text-muted-foreground">Loading terrain…</p>}
+      {profile.isPending && (
+        <div role="status" aria-busy="true" aria-label="Loading terrain" className="space-y-2">
+          <Skeleton className="h-24 w-full" />
+          <Skeleton className="h-4 w-2/3" />
+        </div>
+      )}
       {profile.isError && (
-        <p className="text-sm text-muted-foreground">Terrain is not available right now.</p>
+        <div className="flex items-center justify-between gap-2 text-sm text-muted-foreground">
+          <span>Terrain is not available right now.</span>
+          <Button variant="outline" size="sm" onClick={() => void profile.refetch()}>
+            Try again
+          </Button>
+        </div>
       )}
       {profile.data && !view && (
         <p className="text-sm text-muted-foreground">

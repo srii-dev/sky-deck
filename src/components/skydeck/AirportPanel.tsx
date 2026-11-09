@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ExternalLink, Star, X } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { getAirportAtis, getAirportBrief } from "@/lib/airport.functions";
 import { faaChartsUrl } from "@/lib/airport-charts";
@@ -168,7 +169,20 @@ export function AirportPanel({
       </div>
 
       <div className="flex-1 space-y-4 overflow-y-auto p-4">
-        {brief.isPending && <p className="hud-label animate-pulse">Loading airport data…</p>}
+        {brief.isPending && (
+          <div
+            role="status"
+            aria-busy="true"
+            aria-label="Loading airport data"
+            className="space-y-3"
+          >
+            <Skeleton className="h-4 w-1/3" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-4 w-1/2" />
+            <Skeleton className="h-20 w-full" />
+            <Skeleton className="h-16 w-full" />
+          </div>
+        )}
         {brief.isError && (
           <p className="text-sm text-muted-foreground">
             Could not load airport data. Try again shortly.

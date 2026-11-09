@@ -1218,7 +1218,7 @@ export default function FlightMap(props: FlightMapProps) {
       center: [t.lon, t.lat],
       zoom: t.zoom ?? Math.max(map.getZoom(), 9),
       speed: 1.4,
-      essential: true,
+      // Not essential: a visitor who prefers reduced motion gets a jump instead of a flight (Phase 5f).
     });
   }, [props.flyTarget]);
 
