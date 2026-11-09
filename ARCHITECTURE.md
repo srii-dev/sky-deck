@@ -39,7 +39,9 @@ MapLibre loads only through `React.lazy` behind `<ClientOnly>` (`FlightMap.tsx`)
 
 Desktop side panel and mobile bottom sheet are both in the DOM; CSS breakpoints choose one, so server render and first paint match.
 
-## Backend (planned, Phase 18)
+## Backend (Phase 18)
+
+Status 2026-11-09: a Supabase project exists; email sign-in works end to end in the browser (`src/hooks/use-auth.ts`, `AccountDialog`). The browser gets the project URL and anon key from the server function `getAuthConfig`, so no `VITE_` variable is needed. Account deletion is the database function `delete_my_account()` (signed-in users only). `src/lib/ai-service.ts` is the AI wrapper (unused so far) and `src/lib/rate-limit.ts` the per-visitor limiter. Still planned: the shared cache and scheduled jobs (18f), seed data (18i) and Google sign-in.
 
 - Sign-in and user data: Supabase (Postgres with row-level security, email and Google sign-in). Migrations are in `supabase/migrations/`; no project exists yet.
 - Hosting, caching and AI: Cloudflare (Workers deployment, shared cache, Workers AI as the AI fallback). Gemini is the first AI provider.
