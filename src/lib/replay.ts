@@ -55,10 +55,23 @@ export interface RecordInput {
 export interface Recorder {
   tracks: Map<string, RecordedTrack>;
   totalSamples: number;
+  /** When the first update arrived (ms). The recording starts here, not at the oldest report: aircraft that were
+   *  already 40 seconds old when the page opened would otherwise leave the first stretch nearly empty. */
+  firstAt: number;
+  /** When the latest update arrived. */
+  lastAt: number;
+  /** Nothing before this time is kept (the window and the size limit move it forward). */
+  floor: number;
 }
 
 export function createRecorder(): Recorder {
-  return { tracks: new Map(), totalSamples: 0 };
+  return {
+    tracks: new Map(),
+    totalSamples: 0,
+    firstAt: Infinity,
+    lastAt: -Infinity,
+    floor: -Infinity,
+  };
 }
 
 /** Add one update (all aircraft the page has at `receivedAt`). Mutates the recorder, not the arrays inside it. */
@@ -69,6 +82,8 @@ export function ingest(
   windowMs: number = REPLAY_WINDOW_MS,
   maxSamples: number = REPLAY_MAX_SAMPLES,
 ): void {
+  rec.firstAt = Math.min(rec.firstAt, receivedAt);
+  rec.lastAt = Math.max(rec.lastAt, receivedAt);
   for (const a of aircraft) {
     if (!Number.isFinite(a.lat) || !Number.isFinite(a.lon)) continue;
     const sample: MotionSample = {
@@ -104,6 +119,7 @@ export function ingest(
 }
 
 function prune(rec: Recorder, oldest: number, maxSamples: number): void {
+  rec.floor = Math.max(rec.floor, oldest);
   let total = 0;
   for (const [hex, tr] of rec.tracks) {
     let cut = 0;
@@ -130,20 +146,16 @@ export interface RecordingSpan {
   end: number;
 }
 
-/** The time range covered by the recording, or null when it is empty. */
-export function recordingSpan(rec: Pick<Recorder, "tracks">): RecordingSpan | null {
-  let start = Infinity;
-  let end = -Infinity;
-  for (const tr of rec.tracks.values()) {
-    const first = tr.samples[0];
-    const last = tr.samples[tr.samples.length - 1];
-    if (first && first.t < start) start = first.t;
-    if (last && last.t > end) end = last.t;
-  }
-  return Number.isFinite(start) && end > start ? { start, end } : null;
+/** The time range covered by the recording (from the first update that is still kept to the latest), or null. */
+export function recordingSpan(
+  rec: Pick<Recorder, "tracks" | "firstAt" | "lastAt" | "floor">,
+): RecordingSpan | null {
+  if (rec.tracks.size === 0) return null;
+  const start = Math.max(rec.firstAt, rec.floor);
+  const end = rec.lastAt;
+  return Number.isFinite(start) && Number.isFinite(end) && end > start ? { start, end } : null;
 }
-
-export function canReplay(rec: Pick<Recorder, "tracks">): boolean {
+export function canReplay(rec: Pick<Recorder, "tracks" | "firstAt" | "lastAt" | "floor">): boolean {
   const span = recordingSpan(rec);
   return !!span && span.end - span.start >= REPLAY_MIN_SPAN_MS;
 }
@@ -167,7 +179,7 @@ export interface ReplaySource {
 
 /** Start playing the last `lookBackMs` of the recording (all of it when shorter). Null when there is too little. */
 export function startReplay(
-  rec: Pick<Recorder, "tracks">,
+  rec: Pick<Recorder, "tracks" | "firstAt" | "lastAt" | "floor">,
   speed: ReplaySpeed = 4,
   lookBackMs = 5 * 60 * 1000,
 ): ReplaySource | null {

@@ -82,6 +82,18 @@ describe("recorder", () => {
     expect(span?.end).toBe(T0 + 9000);
   });
 
+  it("starts the recording at the first update, not at the oldest report", () => {
+    const rec = createRecorder();
+    // An aircraft whose last report was already a minute old when the page opened.
+    ingest(rec, [ac("old", -74, { seenPos: 60 }), ac("new", -73)], T0, 1e9);
+    ingest(rec, [ac("new", -72.9)], T0 + 30_000, 1e9);
+    const span = recordingSpan(rec);
+    expect(span?.start).toBe(T0);
+    expect(span?.end).toBe(T0 + 30_000);
+    // The old report is still kept for interpolation.
+    expect(rec.tracks.get("old")?.samples[0]?.t).toBe(T0 - 60_000);
+  });
+
   it("a copy of the map is not changed by later recording", () => {
     const rec = createRecorder();
     ingest(rec, [ac("a", -74)], T0);
