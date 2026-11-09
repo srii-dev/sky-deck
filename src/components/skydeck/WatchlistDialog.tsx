@@ -19,6 +19,10 @@ import {
 } from "@/lib/watchlist";
 import { watchMatches } from "@/lib/watchlist";
 import type { SyncStatus } from "@/hooks/use-personal-data";
+import type { FlightView } from "@/hooks/use-flight-stages";
+import { FlightProgress } from "./FlightProgress";
+import { Input } from "@/components/ui/input";
+import { useState } from "react";
 
 /* Watchlist (Phase 5a), recently viewed flights (5c) and the alerts switch (5b). */
 
@@ -62,6 +66,10 @@ interface Props {
   /** Opens the alert rules dialog (Phase 10). */
   onOpenRules: () => void;
   ruleCount: number;
+  /** Stage of each watched flight (Phase 11a). */
+  flightViews: Record<string, FlightView>;
+  /** Start tracking a flight number; returns a short problem text, or null when it was added. */
+  onAddFlight: (callsign: string) => string | null;
 }
 
 const SYNC_TEXT: Record<SyncStatus, string> = {
@@ -72,6 +80,14 @@ const SYNC_TEXT: Record<SyncStatus, string> = {
 };
 
 export function WatchlistDialog(p: Props) {
+  const [flightText, setFlightText] = useState("");
+  const [flightError, setFlightError] = useState<string | null>(null);
+  const now = Date.now();
+  const addFlight = () => {
+    const err = p.onAddFlight(flightText);
+    setFlightError(err);
+    if (!err) setFlightText("");
+  };
   return (
     <Dialog open={p.open} onOpenChange={p.onOpenChange}>
       <DialogContent className="max-h-[85dvh] max-w-md overflow-y-auto">
@@ -98,6 +114,29 @@ export function WatchlistDialog(p: Props) {
 
         <section className="space-y-2" aria-label="Watched items">
           <h3 className="hud-label">Watching ({p.watch.length})</h3>
+          <form
+            className="flex gap-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              addFlight();
+            }}
+          >
+            <Input
+              aria-label="Track a flight by flight number"
+              placeholder="Track a flight, e.g. UAL123"
+              value={flightText}
+              maxLength={10}
+              onChange={(e) => setFlightText(e.target.value)}
+            />
+            <Button type="submit" variant="outline" disabled={flightText.trim().length < 3}>
+              Track
+            </Button>
+          </form>
+          {flightError && (
+            <p role="alert" className="text-xs text-destructive">
+              {flightError}
+            </p>
+          )}
           {p.watch.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               Nothing yet. Open an aircraft or an airport and use its Watch button.
@@ -111,17 +150,22 @@ export function WatchlistDialog(p: Props) {
                     key={w.kind + w.key}
                     className="flex items-center gap-2 rounded-md border border-border/60 px-2 py-1.5"
                   >
-                    <button
-                      className="min-w-0 flex-1 text-left"
-                      onClick={() => p.onOpenWatch(w)}
-                      aria-label={"Show " + KIND_NAMES[w.kind] + " " + w.label}
-                    >
-                      <span className="data-value block truncate text-sm">{w.label}</span>
-                      <span className="block truncate text-xs text-muted-foreground">
-                        {KIND_NAMES[w.kind]}
-                        {s.text ? " · " + s.text : ""}
-                      </span>
-                    </button>
+                    <div className="min-w-0 flex-1">
+                      <button
+                        className="w-full text-left"
+                        onClick={() => p.onOpenWatch(w)}
+                        aria-label={"Show " + KIND_NAMES[w.kind] + " " + w.label}
+                      >
+                        <span className="data-value block truncate text-sm">{w.label}</span>
+                        <span className="block truncate text-xs text-muted-foreground">
+                          {KIND_NAMES[w.kind]}
+                          {w.kind === "flight" ? "" : s.text ? " · " + s.text : ""}
+                        </span>
+                      </button>
+                      {w.kind === "flight" && p.flightViews[w.key] && (
+                        <FlightProgress view={p.flightViews[w.key]!} units={p.units} now={now} />
+                      )}
+                    </div>
                     <Button
                       variant="ghost"
                       size="icon"
