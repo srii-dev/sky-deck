@@ -1,6 +1,6 @@
 # Data inventory
 
-What SkyDeck stores, where, for how long, and how to delete it. This is the working note behind the public privacy page (Phase 16e), which does not exist yet. Keep it in step with the code.
+What SkyDeck stores, where, for how long, and how to delete it. This is the working note behind the public privacy page (`/privacy`, text in `src/lib/legal-content.ts`, Phase 16e). Keep the two in step with the code and with each other.
 
 ## In the visitor's browser only (never sent to us)
 
@@ -21,6 +21,10 @@ The page theme choice (dark, light or system) is kept in this browser's localSto
 ## Collection (this browser only)
 
 The aircraft types and registrations a visitor opens on the map (code, first time, times opened), achievements unlocked, and today's challenge progress are kept in this browser's localStorage under `skydeck:collection`, at most 600 types and 3,000 registrations. They are not sent anywhere or saved to an account. The Collection dialog's Clear collection and Settings, Delete my saved data remove them.
+
+## Service worker (this browser only)
+
+In the built app a small service worker (`/sw.js`) keeps copies of the app's own files (scripts, styles, fonts, icons) and an offline page in the browser's cache storage, so the app starts faster. It never stores aircraft, weather, airport, sign-in or other data requests. Clearing the site's data in the browser removes it.
 
 ## With an account (Supabase, only if the visitor creates one)
 

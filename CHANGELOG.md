@@ -6,6 +6,7 @@ All notable changes to SkyDeck. The format follows [Keep a Changelog](https://ke
 
 ### Added
 
+- Platform (Phase 16a, 16c, 16d, 16e): self-hosted fonts (no request to Google), an installable web app with a small service worker and an offline page, the map library split into its own file, and About, Privacy, Terms and Disclaimer pages (drafts). Cloudflare deployment (16b), end-to-end tests (16f) and a language setting (16g) were not built.
 - Themes, header and footer, and search metadata (Phase 15c, 15d in part, 15g in part): a light theme and a Dark, Light or System choice in Settings, a header and footer on the inspector and not-found pages, `robots.txt` and `sitemap.xml`, canonical links when `SITE_URL` is set, and schema.org data on the map page. Removing Lovable (15a), the brand (15b), the landing page (15e), share images (15f) and the full design pass (15h) were not built.
 - Flight facts (Phase 14a): a card in the aircraft panel with the phase, route length, progress along the route, time to the destination and heading against the destination. The airport brief (14b) already existed from Phase 4; AI insights (14c) were not built.
 - Collection, achievements and daily challenges (Phase 13a, 13b, 13c): aircraft types and registrations you open are remembered in this browser, 13 achievements, three daily challenges and a Collection dialog behind a trophy button. Account sync and aircraft photos (13d) were not built.
