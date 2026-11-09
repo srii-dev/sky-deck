@@ -144,6 +144,13 @@ export function AlertRulesDialog(p: Props) {
             ))}
             <label className="flex items-center gap-2 text-sm">
               <Checkbox
+                checked={c.airborne === true}
+                onCheckedChange={(v) => set({ airborne: v === true ? true : undefined })}
+              />
+              Only in the air
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <Checkbox
                 checked={c.military === true}
                 onCheckedChange={(v) => set({ military: v === true ? true : undefined })}
               />
@@ -187,6 +194,10 @@ export function AlertRulesDialog(p: Props) {
               />
             </div>
           </div>
+          <p className="text-xs text-muted-foreground">
+            Aircraft on the ground count as 0 ft, so "below" rules include them unless you tick
+            "Only in the air". Categories come from the aircraft's own data and can be wrong.
+          </p>
           {rangeBad && (
             <p role="alert" className="text-xs text-destructive">
               The lowest altitude is above the highest.
