@@ -35,7 +35,8 @@ import { parseShareParams } from "@/lib/share-link";
 import { applyAlertAreas, type AlertAreaDrawing } from "./alert-area-layers";
 import { advanceClock, trailUpTo, visibleAt, type ReplaySource } from "@/lib/replay";
 import { buildPlaneSdf, buildSvgSdf } from "./plane-icon";
-import { LEGEND_KINDS, svgMarkup } from "./aircraft-icons";
+import { LEGEND_SHAPES, svgMarkup } from "./aircraft-icons";
+import { iconShapeCached } from "@/lib/aircraft-shape";
 import { installAirportDetail } from "./airport-detail-layers";
 import { applyWeather, NO_WEATHER, pickWeather, type WeatherMapState } from "./weather-layers";
 import {
@@ -166,7 +167,7 @@ const kindImages = new Map<string, SdfImage>();
 let kindImagesLoading: Promise<void> | null = null;
 function loadKindImages(): Promise<void> {
   kindImagesLoading ??= Promise.all(
-    LEGEND_KINDS.map(async (k) => {
+    LEGEND_SHAPES.map(async (k) => {
       const img = await buildSvgSdf(svgMarkup(k));
       if (img) kindImages.set(`sd-kind-${k}`, img);
     }),
@@ -509,7 +510,7 @@ export default function FlightMap(props: FlightMapProps) {
           // Category icon when known and loaded; otherwise the generic plane.
           "icon-image": [
             "coalesce",
-            ["image", ["concat", "sd-kind-", ["get", "kind"]]],
+            ["image", ["concat", "sd-kind-", ["get", "shape"]]],
             ["image", "sd-plane"],
           ],
           "icon-rotate": ["get", "track"],
@@ -1102,6 +1103,7 @@ export default function FlightMap(props: FlightMapProps) {
             hex,
             cs: tr.a.callsign,
             kind: tr.a.kind,
+            shape: iconShapeCached(tr.a.kind, tr.a.type),
             track: m.track == null && keepUprightWithoutHeading(tr.a.kind) ? 0 : (m.track ?? 0),
             color: rp ? altitudeColor(m.altFt, m.onGround) : tr.emg ? EMERGENCY_COLOR : tr.color,
             alt: m.altFt ?? 0,

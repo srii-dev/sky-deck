@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 
-import { KIND_LABELS } from "@/lib/aircraft-kind";
-import { ICON_SVG, LEGEND_KINDS } from "./aircraft-icons";
+import { SHAPE_LABELS } from "@/lib/aircraft-shape";
+import { ICON_SVG, LEGEND_SHAPES } from "./aircraft-icons";
 
 export function AircraftTypesLegend() {
   const [open, setOpen] = useState(false);
@@ -23,7 +23,7 @@ export function AircraftTypesLegend() {
       </button>
       {open && (
         <ul className="mt-2 space-y-1">
-          {LEGEND_KINDS.map((k) => (
+          {LEGEND_SHAPES.map((k) => (
             <li key={k} className="flex items-center gap-2 text-xs text-foreground">
               <svg
                 viewBox="0 0 64 64"
@@ -31,7 +31,7 @@ export function AircraftTypesLegend() {
                 aria-hidden
                 dangerouslySetInnerHTML={{ __html: ICON_SVG[k] }}
               />
-              {KIND_LABELS[k]}
+              {SHAPE_LABELS[k]}
             </li>
           ))}
         </ul>

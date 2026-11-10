@@ -66,7 +66,7 @@ const TYPE_RULES: [RegExp, KindInfo][] = [
     { kind: "helicopter", label: "Helicopter" },
   ],
   [
-    /^(A30\d|A310|A33\d|A34\d|A35\d|A38\d|B74\d|B76\d|B77\d|B77[LW]|B78\d|BLCF|MD11|DC10|L101|IL96|IL86|IL76|A124|A225|C5M?$|C17|KC10|K35R|A400|B52)/,
+    /^(A30\d|A310|A33\d|A34\d|A35\d|A38\d|B74\d|B76\d|B77\d|B77[LW]|B78\d|BLCF|MD11|DC10|L101|IL96|IL86|IL76|A124|A225|C5M?$|C17$|KC10|K35R|A400|B52)/,
     { kind: "widebody", label: "Heavy jet" },
   ],
   [
