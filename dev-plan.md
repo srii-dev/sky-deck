@@ -349,11 +349,11 @@ Browser-local until sign-in (5g) exists, then synced.
 
 Rule-based first; the AI versions use the free AI plan.
 
-| Phase | Feature                                                                       |
-| ----- | ----------------------------------------------------------------------------- |
-| 14a   | Per-flight facts card (route, distance, phase of flight, time to destination) |
-| 14b   | Airport brief (see 4j)                                                        |
-| 14c   | AI insights: per-flight and airport briefs, on demand, cached, labelled       |
+| Phase | Feature                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 14a   | **Done in Phase 14:** a Flight facts card in the aircraft panel: phase (the Phase 11 stage rules), route length, how far along it is, time to the destination with the clock time it implies, and whether the nose points at the destination. A route that does not fit where the aircraft is, is ignored and said so. Estimates from the broadcast position and a straight line, without winds or air traffic control. Per-flight facts card (route, distance, phase of flight, time to destination) |
+| 14b   | **Already done in Phase 4 (4j):** the airport panel's rule-based brief from weather, FAA status, ATIS, runway guess and traffic. Nothing new was needed. Airport brief (see 4j)                                                                                                                                                                                                                                                                                                                       |
+| 14c   | **Not built:** needs a configured AI provider key on the server (Gemini or Workers AI, Phase 18g); none is set, and nothing in the page calls the AI service wrapper yet. AI insights: per-flight and airport briefs, on demand, cached, labelled                                                                                                                                                                                                                                                     |
 
 ## Phase 22: App polish and everyday features
 
