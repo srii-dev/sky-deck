@@ -77,6 +77,7 @@ Not started: nothing is deployed. When it is:
 - "Airspace data could not be loaded." appears often in development; one of the four airspace requests answers with an error. Cause not found.
 - The panel's status badge (a simple altitude and vertical rate rule) can disagree with the Flight facts card (the better rules).
 - Right after the development server starts, the first page opened can be replaced by the map page restored from the saved state (a cold-start reload, development only). This also explains a link with `base=dark` once opening the saved Light basemap. Not seen with a warm server.
+- The refresh budget (default 90 optional upstream requests a minute per server instance) is a guess; set `FEED_BUDGET_PER_MIN` from what adsb.lol says it allows (19d), and note that each instance has its own budget until 19h.
 - Rapid reloads make the free feed answer "busy" for several seconds.
 - The 404 page shows the map page's title.
 - The status page shows airplanes.live as refused (HTTP 403): our server is blocked by it (0b), and adsb.lol is the only working aircraft source.
