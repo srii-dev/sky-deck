@@ -76,9 +76,11 @@ Not started: nothing is deployed. When it is:
 
 - "Airspace data could not be loaded." appears often in development; one of the four airspace requests answers with an error. Cause not found.
 - The panel's status badge (a simple altitude and vertical rate rule) can disagree with the Flight facts card (the better rules).
-- Once, right after the development server started, a link with `base=dark` opened the Light basemap (the saved choice). Not reproduced afterwards; the link parameter normally wins.
+- Right after the development server starts, the first page opened can be replaced by the map page restored from the saved state (a cold-start reload, development only). This also explains a link with `base=dark` once opening the saved Light basemap. Not seen with a warm server.
 - Rapid reloads make the free feed answer "busy" for several seconds.
 - The 404 page shows the map page's title.
+- The status page shows airplanes.live as refused (HTTP 403): our server is blocked by it (0b), and adsb.lol is the only working aircraft source.
+- Feedback needs a GitHub account; there is no private contact address yet (23g).
 - Satellite imagery, ACARS and airplanes.live use terms that have not been confirmed (see section 1).
 - Light theme: panels and dialogs were not all opened; toast and map icon colours were not reviewed.
 - Text in scripts other than latin falls back to the system font.
