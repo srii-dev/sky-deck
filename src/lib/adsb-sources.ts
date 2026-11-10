@@ -1,6 +1,7 @@
 import { DATA_BUSY_MESSAGE, type Aircraft, type FeedResponse } from "./aircraft";
 import { isMilitaryFlag, parseYear } from "./aircraft-details";
 import { classifyAircraft } from "./aircraft-kind";
+import { budgetFromEnv, RefreshBudget } from "./refresh-budget";
 import {
   coalesce,
   defaultSleep,
@@ -76,6 +77,8 @@ export interface FeedStats {
   upstream: number;
   /** A failed fetch answered from an older cache entry (at most STALE_MAX_MS old). */
   staleOnError: number;
+  /** Answered from an older cache entry to stay inside the refresh budget (Phase 19i). */
+  budgetShed: number;
 }
 const freshStats = (): FeedStats => ({
   hits: 0,
@@ -84,6 +87,7 @@ const freshStats = (): FeedStats => ({
   shed: 0,
   upstream: 0,
   staleOnError: 0,
+  budgetShed: 0,
 });
 let feedStats = freshStats();
 /** Counters for this server instance only (for load tests and logs). */
@@ -94,7 +98,22 @@ export function getFeedStats(): FeedStats {
 const WAITER_MARGIN_MS = 500;
 const feedCache = new Map<string, CacheEntry<FeedResponse>>();
 
+/*
+ * Refresh budget (Phase 19i): upstream requests per minute for this server instance, from the FEED_BUDGET_PER_MIN
+ * variable (default 90, 0 for no limit). See refresh-budget.ts for what happens as it fills up.
+ */
+let budget: RefreshBudget | null = null;
+function getBudget(): RefreshBudget {
+  budget ??= new RefreshBudget({ perWindow: budgetFromEnv(process.env["FEED_BUDGET_PER_MIN"]) });
+  return budget;
+}
+/** Test hook: replace the budget (0 turns it off). */
+export function setFeedBudgetPerMinute(perMinute: number) {
+  budget = new RefreshBudget({ perWindow: perMinute });
+}
+
 export function resetAdsbSourceState() {
+  budget = null;
   sourceBackoff.clear();
   feedCache.clear();
   feedStats = freshStats();
@@ -383,8 +402,14 @@ export async function loadFeedCached(
   const key = `${lat},${lon},${radiusNm}`;
   const hit = feedCache.get(key);
   const age = hit ? clock() - hit.at : Infinity;
+  getBudget().noteRequest(key, clock());
   if (hit && age < FEED_TTL_MS) {
     feedStats.hits++;
+    return withAge(hit.value, age);
+  }
+  // Inside the refresh budget: quiet tiles are answered from their copy so the busy ones can keep refreshing.
+  if (hit && getBudget().decide(key, age, clock()) === "stale") {
+    feedStats.budgetShed++;
     return withAge(hit.value, age);
   }
   if (hit && age <= STALE_MAX_MS && providerQueueTooLong(clock(), deps)) {
@@ -399,6 +424,7 @@ export async function loadFeedCached(
     async () => {
       started = true;
       feedStats.upstream++;
+      getBudget().noteUpstream(clock(), !hit || getBudget().mustRefresh(age));
       const v = await loadFeedCircle(lat, lon, radiusNm, deps);
       if (!v.error) {
         prune(feedCache, FEED_TTL_MS, 200, clock());
