@@ -68,6 +68,8 @@ export interface RulerControls {
   summary: string | null;
   hasPoints: boolean;
   onClear: () => void;
+  /** Start the measurement at the selected aircraft; undefined when none is selected (Phase 22d). */
+  onStartAtAircraft?: (() => void) | undefined;
 }
 
 interface Props {
@@ -473,6 +475,15 @@ export function MapTools({
           <span className="data-value text-primary">
             {ruler.summary ?? (ruler.hasPoints ? "Click a second point" : "Click a start point")}
           </span>
+          {!ruler.hasPoints && ruler.onStartAtAircraft && (
+            <button
+              type="button"
+              className="text-xs text-primary hover:underline"
+              onClick={ruler.onStartAtAircraft}
+            >
+              Start at the selected aircraft
+            </button>
+          )}
           {ruler.hasPoints && (
             <button
               type="button"

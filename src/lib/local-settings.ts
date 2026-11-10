@@ -9,6 +9,7 @@ import { SAVED_VIEWS_KEY } from "./saved-views";
 import { ALERT_RULES_KEY } from "./alert-rules";
 import { COLLECTION_KEY } from "./collection";
 import { COLOR_MODE_KEY } from "./airline-colors";
+import { NOTIFY_KEY } from "./notify-prefs";
 import { THEME_KEY } from "./theme";
 import { FLIGHT_STAGES_KEY } from "./flight-stage";
 import { RECENT_FLIGHTS_KEY, WATCHLIST_KEY } from "./watchlist";
@@ -36,6 +37,8 @@ export const STORAGE_KEYS = {
   theme: THEME_KEY,
   /** Day and night shading on the map (default off). */
   night: "skydeck:night",
+  /** Which in-app messages may be shown (Phase 22i). */
+  notify: NOTIFY_KEY,
   /** Aircraft colour: altitude (default) or airline. */
   colorBy: COLOR_MODE_KEY,
   /** Alerts for watched items (default on). */

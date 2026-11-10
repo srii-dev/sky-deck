@@ -17,6 +17,7 @@ import { downloadText } from "@/lib/download";
 import { clearLocalData, POLL_NORMAL_MS, POLL_SAVER_MS } from "@/lib/local-settings";
 import { useTheme } from "@/hooks/use-theme";
 import { COLOR_MODE_LABELS, COLOR_MODES, type ColorMode } from "@/lib/airline-colors";
+import { NOTIFY_KINDS, type NotifyPrefs } from "@/lib/notify-prefs";
 import { THEME_LABELS, THEME_PREFS, type ThemePref } from "@/lib/theme";
 import { UNIT_LABELS, type UnitSystem } from "@/lib/units";
 import { cn } from "@/lib/utils";
@@ -50,6 +51,9 @@ export interface SettingsProps {
   colorBy: ColorMode;
   onColorBy: (c: ColorMode) => void;
   onCopyEmbed: () => void;
+  /** Which in-app messages may be shown (Phase 22i). */
+  notify: NotifyPrefs;
+  onNotify: (key: keyof NotifyPrefs, value: boolean) => void;
   onOpenShortcuts: () => void;
   onOpenCredits: () => void;
   onOpenAccount: () => void;
@@ -181,6 +185,22 @@ export function SettingsDialog(p: SettingsProps) {
           </ToggleGroup>
           <p className="text-xs text-muted-foreground">
             The page and its panels. The map style below is a separate choice.
+          </p>
+        </Section>
+
+        <Section title="Messages while the page is open">
+          {NOTIFY_KINDS.map((k) => (
+            <SwitchRow
+              key={k.key}
+              label={k.label}
+              hint={k.hint}
+              checked={p.notify[k.key]}
+              onChange={(v) => p.onNotify(k.key, v)}
+            />
+          ))}
+          <p className="text-xs text-muted-foreground">
+            These are messages inside the page only; SkyDeck sends nothing when the page is closed.
+            The alerts switch in the Watchlist turns the first three off at once.
           </p>
         </Section>
 
