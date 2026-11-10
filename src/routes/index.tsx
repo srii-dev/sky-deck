@@ -39,6 +39,8 @@ import { useFlagPref } from "@/hooks/use-flag-pref";
 import { usePersonalData } from "@/hooks/use-personal-data";
 import { useWatchAlerts } from "@/hooks/use-watch-alerts";
 import { WatchlistDialog } from "@/components/skydeck/WatchlistDialog";
+import { ReplayBar } from "@/components/skydeck/ReplayBar";
+import { useReplay } from "@/hooks/use-replay";
 import { watchMatches, type RecentFlight, type WatchItem } from "@/lib/watchlist";
 import { useShortcuts } from "@/hooks/use-shortcuts";
 import {
@@ -537,6 +539,8 @@ function SkyDeck() {
 
   // Watchlist, recently viewed flights and alerts (Phase 5).
   const personal = usePersonalData(auth);
+  // Session replay (Phase 9a): record every update, play back on request.
+  const replay = useReplay(feed.aircraft, feed.fetchedAt);
   useWatchAlerts({
     aircraft: feed.aircraft,
     watch: personal.watch,
@@ -620,6 +624,7 @@ function SkyDeck() {
             presentHexes={presentHexes}
             smoothMotion={smoothMotion}
             chase={chase && follow}
+            replay={replay.source}
             onMotionDelay={setMotionDelaySec}
             onSelectedMotion={(hex, m) => setSelectedMotion({ hex, m })}
             weather={weather.state}
@@ -795,6 +800,12 @@ function SkyDeck() {
           onOpenSettings={() => setSettingsOpen(true)}
           onOpenWatchlist={() => setWatchlistOpen(true)}
           watchCount={personal.watch.length}
+          replay={{
+            available: replay.available,
+            active: !!replay.source,
+            onStart: replay.start,
+            onStop: replay.stop,
+          }}
           layers={{
             terrain,
             onTerrain: setTerrain,
@@ -885,7 +896,7 @@ function SkyDeck() {
         </div>
       }
 
-      {selected && (
+      {selected && !replay.source && (
         <AircraftPanel
           key={selected.hex}
           aircraft={panelAircraft ?? selected}
@@ -920,9 +931,14 @@ function SkyDeck() {
         />
       )}
 
-      {(radarOn || weatherEntry || weatherNotice || airspaceEntry || airspaceNotice) && (
+      {(radarOn ||
+        weatherEntry ||
+        weatherNotice ||
+        airspaceEntry ||
+        airspaceNotice ||
+        replay.source) && (
         <div
-          className={`pointer-events-none absolute inset-x-0 bottom-[max(5.5rem,env(safe-area-inset-bottom))] z-20 flex-col items-center gap-2 pl-14 pr-3 md:px-3 md:bottom-3 ${selected || airport ? "hidden xl:flex" : "flex"}`}
+          className={`pointer-events-none absolute inset-x-0 bottom-[max(5.5rem,env(safe-area-inset-bottom))] z-20 flex-col items-center gap-2 pl-14 pr-3 md:px-3 md:bottom-3 ${(selected || airport) && !replay.source ? "hidden xl:flex" : "flex"}`}
         >
           {weatherNotice && (
             <div className="glass-panel pointer-events-auto rounded-md px-3 py-1.5 text-xs text-muted-foreground">
@@ -940,11 +956,12 @@ function SkyDeck() {
           {weatherEntry && (
             <WeatherInfoCard entry={weatherEntry} onClose={() => setWeatherPickId(null)} />
           )}
+          {replay.source && <ReplayBar replay={replay} />}
           {radarOn && <RadarTimeline radar={weather.radar} now={Date.now()} />}
         </div>
       )}
 
-      {airport && !selected && (
+      {airport && !selected && !replay.source && (
         <AirportPanel
           key={airport.icao}
           airport={airport}
