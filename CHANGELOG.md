@@ -6,6 +6,7 @@ All notable changes to SkyDeck. The format follows [Keep a Changelog](https://ke
 
 ### Added
 
+- ACARS card (Phase 6c in part, 6d): each message shows its original text labelled and copyable, and an Explain this message section with the metadata (unavailable where missing), a short glossary of standard abbreviations found in the text, and notes about empty or cut messages. Label codes are not explained because no verified list was found. The browse page (6b) and the other Phase 6 items were not built.
 - Early post-release ideas (Phase 24b, 24d, 24f): colour aircraft by airline, a Day and night layer with sunrise and sunset, and an embeddable map (`embed=1`) with a copyable iframe snippet. A map image to share (24e) and the rest of Phase 24 were not built.
 - Clean view (Phase 22k) on the K key and in Settings, a KML trail download and a CSV download of the aircraft shown (Phase 22l).
 - Error reports for errors no boundary sees (Phase 21c): script errors in event handlers and timers and unhandled promise rejections are sent to the same server log line, at most five per page and without browser-extension and resize noise. The CI dependency audit now fails on high or critical advisories (Phase 21g).

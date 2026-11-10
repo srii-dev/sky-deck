@@ -98,3 +98,45 @@ describe("AcarsMessages", () => {
     expect(await screen.findByText("(no text)")).toBeTruthy();
   });
 });
+
+describe("AcarsMessages original and explanation", () => {
+  it("labels the original text, copies it exactly, and explains abbreviations by rules", async () => {
+    const writeText = vi.fn(() => Promise.resolve());
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    const load = vi.fn(async () => ok([msg({ text: "TEST ETA 1234 RWY 99\nLINE TWO" })]));
+    render(<AcarsMessages hex="abc123" load={load} />);
+    fireEvent.click(screen.getByText("Load ACARS messages"));
+    expect(await screen.findByText("Original received message")).toBeTruthy();
+    fireEvent.click(screen.getByText("Copy"));
+    expect(writeText).toHaveBeenCalledWith("TEST ETA 1234 RWY 99\nLINE TWO");
+    expect(await screen.findByText("Copied")).toBeTruthy();
+    // The explanation sits in a closed details element and names its method.
+    expect(screen.getByText("Explain this message")).toBeTruthy();
+    expect(document.body.textContent).toContain("estimated time of arrival");
+    expect(document.body.textContent).toContain("runway");
+    expect(document.body.textContent).toContain("Explained by SkyDeck rules, not by AI");
+    expect(document.body.textContent).toContain("Label codes are not explained");
+  });
+
+  it("marks missing metadata unavailable and a message without text as partial", async () => {
+    const load = vi.fn(async () => ok([msg({ text: "", tail: null, frequency: null })]));
+    render(<AcarsMessages hex="abc123" load={load} />);
+    fireEvent.click(screen.getByText("Load ACARS messages"));
+    expect(await screen.findByText("(no text)")).toBeTruthy();
+    expect(screen.queryByText("Original received message")).toBeNull();
+    expect(screen.getByText("Explain this message (partial)")).toBeTruthy();
+    expect(document.body.textContent).toContain("unavailable");
+    expect(document.body.textContent).toContain("This message has no text.");
+  });
+
+  it("says copying was blocked when the browser refuses", async () => {
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText: () => Promise.reject(new Error("no")) },
+      configurable: true,
+    });
+    render(<AcarsMessages hex="abc123" load={vi.fn(async () => ok([msg()]))} />);
+    fireEvent.click(screen.getByText("Load ACARS messages"));
+    fireEvent.click(await screen.findByText("Copy"));
+    expect(await screen.findByText("Copy blocked")).toBeTruthy();
+  });
+});

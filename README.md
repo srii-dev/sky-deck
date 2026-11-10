@@ -44,7 +44,7 @@ SkyDeck is an independent project. It is inspired by the general category of fli
 - **Glide-range ring** (educational estimate only): for the selected aircraft, a ring showing how far it could glide from its height above the terrain, with a slider for the rule-of-thumb glide ratio
 - **Reachable airports**: airports inside the ring are listed in the aircraft panel, shown on the map, and the nearest is named in the panel header. About 4,500 large and medium airports from OurAirports, loaded on demand
 - **ADS-B message inspector** at `/inspector` (also linked from the Filters popover): paste raw Mode S frames and see the downlink format, ICAO address, CRC check and decoded fields. It runs entirely in your browser
-- **ACARS messages** for the selected aircraft, loaded only when you press a button, from the public Airframes API (see "How it works" and the notes under Known limitations)
+- **ACARS messages** for the selected aircraft, loaded only when you press a button, from the public Airframes API (see "How it works" and the notes under Known limitations) Each message shows the original text as received (with a Copy button) and an Explain this message section: the fields the data carried (others shown as unavailable) and a short glossary of standard abbreviations, by fixed rules and not by AI. Label codes are not explained.
 
 ## Tech stack
 
