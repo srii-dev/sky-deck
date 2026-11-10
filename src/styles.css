@@ -77,7 +77,7 @@
   --muted-foreground: oklch(0.68 0.025 225);
   --accent: oklch(0.8 0.13 200);
   --accent-foreground: oklch(0.16 0.03 220);
-  --destructive: oklch(0.63 0.23 25);
+  --destructive: oklch(0.56 0.22 25);
   --destructive-foreground: oklch(0.98 0.01 25);
   --success: oklch(0.78 0.18 150);
   --warning: oklch(0.82 0.16 75);
@@ -120,6 +120,54 @@
   --sidebar-accent-foreground: oklch(0.93 0.012 220);
   --sidebar-border: oklch(0.32 0.025 235);
   --sidebar-ring: oklch(0.82 0.16 75);
+}
+
+/*
+ * Light theme (Phase 15c): the same variables, set for a bright page. Picked with the `light` class on <html>
+ * (see src/lib/theme.ts). The text and background pairs are checked by src/test/theme-contrast.test.ts.
+ */
+.light {
+  --background: oklch(0.975 0.006 230);
+  --foreground: oklch(0.2 0.02 240);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.2 0.02 240);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.2 0.02 240);
+  --primary: oklch(0.5 0.13 60);
+  --primary-foreground: oklch(0.99 0.005 80);
+  --secondary: oklch(0.94 0.01 235);
+  --secondary-foreground: oklch(0.2 0.02 240);
+  --muted: oklch(0.94 0.01 235);
+  --muted-foreground: oklch(0.44 0.03 240);
+  --accent: oklch(0.5 0.1 215);
+  --accent-foreground: oklch(0.99 0 0);
+  --destructive: oklch(0.5 0.21 27);
+  --destructive-foreground: oklch(0.99 0.005 25);
+  --success: oklch(0.45 0.13 150);
+  --warning: oklch(0.5 0.13 65);
+  --panel: oklch(1 0 0 / 0.88);
+  --panel-border: oklch(0.45 0.1 215 / 0.25);
+  --border: oklch(0.86 0.012 235);
+  --input: oklch(0.86 0.012 235);
+  --ring: oklch(0.5 0.13 60);
+
+  --shadow-panel: 0 14px 36px -16px oklch(0.2 0.03 240 / 0.35), inset 0 1px 0 oklch(1 0 0 / 0.6);
+  --shadow-glow-primary: 0 0 16px -6px oklch(0.5 0.13 60 / 0.5);
+  --shadow-glow-danger: 0 0 24px -8px oklch(0.5 0.21 27 / 0.6);
+
+  --chart-1: oklch(0.55 0.14 60);
+  --chart-2: oklch(0.5 0.1 215);
+  --chart-3: oklch(0.5 0.14 150);
+  --chart-4: oklch(0.55 0.18 35);
+  --chart-5: oklch(0.5 0.15 250);
+  --sidebar: oklch(1 0 0);
+  --sidebar-foreground: oklch(0.2 0.02 240);
+  --sidebar-primary: oklch(0.5 0.13 60);
+  --sidebar-primary-foreground: oklch(0.99 0.005 80);
+  --sidebar-accent: oklch(0.94 0.01 235);
+  --sidebar-accent-foreground: oklch(0.2 0.02 240);
+  --sidebar-border: oklch(0.86 0.012 235);
+  --sidebar-ring: oklch(0.5 0.13 60);
 }
 
 @layer base {
@@ -237,7 +285,7 @@
   filter: invert(0.9) sepia(0.2) hue-rotate(160deg);
 }
 .maplibregl-ctrl-attrib {
-  background: oklch(0.15 0.018 240 / 0.7) !important;
+  background: color-mix(in oklab, var(--background) 70%, transparent) !important;
   color: var(--muted-foreground) !important;
   font-family: var(--font-mono);
   font-size: 10px;
@@ -255,6 +303,10 @@
     width: 40px;
     height: 40px;
   }
+}
+.light .maplibregl-ctrl-group button .maplibregl-ctrl-icon,
+.light .maplibregl-ctrl-attrib-button {
+  filter: none;
 }
 .maplibregl-ctrl-attrib a {
   color: var(--muted-foreground) !important;

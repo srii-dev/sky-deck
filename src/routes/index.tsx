@@ -72,6 +72,7 @@ import { pollIntervalMs, readFlagPref, STORAGE_KEYS, writeFlagPref } from "@/lib
 import { escapeTarget, SEARCH_INPUT_ID, stepAircraft, type ShortcutAction } from "@/lib/shortcuts";
 import { UNIT_LABELS, type UnitSystem } from "@/lib/units";
 import { APP_NAME, APP_TAGLINE } from "@/config/brand";
+import { webApplicationJsonLd } from "@/lib/site-meta";
 
 const FlightMap = lazy(() => import("@/components/skydeck/FlightMap"));
 
@@ -92,6 +93,16 @@ export const Route = createFileRoute("/")({
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
+    ],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: webApplicationJsonLd({
+          name: APP_NAME,
+          description: "Live ADS-B flight tracking on a 3D map.",
+          site: null,
+        }),
+      },
     ],
   }),
   component: SkyDeck,

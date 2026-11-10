@@ -14,6 +14,10 @@ The rules a visitor creates (conditions, a name, areas as a centre and radius) a
 
 The last stage changes of watched flights (flight number, stage, time; at most a few per flight) are kept in this browser's localStorage under `skydeck:flight-stages`. They are not sent anywhere or saved to an account. Settings, Delete my saved data removes them. Looking up a watched flight's route sends only its flight number to our server, as for the aircraft panel.
 
+## Theme (this browser only)
+
+The page theme choice (dark, light or system) is kept in this browser's localStorage under `skydeck:theme`. It is not sent anywhere or saved to an account. Settings, Delete my saved data removes it.
+
 ## Collection (this browser only)
 
 The aircraft types and registrations a visitor opens on the map (code, first time, times opened), achievements unlocked, and today's challenge progress are kept in this browser's localStorage under `skydeck:collection`, at most 600 types and 3,000 registrations. They are not sent anywhere or saved to an account. The Collection dialog's Clear collection and Settings, Delete my saved data remove them.

@@ -4,7 +4,7 @@ import { Link, createFileRoute } from "@tanstack/react-router";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { CreditsButton } from "@/components/skydeck/CreditsDialog";
+import { SiteFooter, SiteHeader } from "@/components/skydeck/SiteChrome";
 import { APP_NAME } from "@/config/brand";
 import {
   decodeFrame,
@@ -171,52 +171,50 @@ function Inspector() {
   }, [text]);
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-3xl flex-col gap-4 bg-background p-4 text-foreground">
-      <header className="flex flex-wrap items-baseline justify-between gap-2">
+    <div className="flex h-full flex-col overflow-y-auto bg-background text-foreground">
+      <SiteHeader />
+      <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-4 p-4">
         <h1 className="font-display text-2xl font-bold tracking-wide">ADS-B message inspector</h1>
-        <Link to="/" className="text-sm text-primary hover:underline">
-          ← Back to {APP_NAME}
-        </Link>
-      </header>
 
-      <p className="text-sm text-muted-foreground">
-        Paste raw Mode S frames, one per line: 14 hex characters (56 bits) or 28 (112 bits). Plain
-        hex, <span className="data-value">*8D…;</span> and{" "}
-        <span className="data-value">@timestamp8D…;</span> forms are accepted. Everything is decoded
-        in your browser; nothing is sent anywhere. Position needs an even and an odd frame of the
-        same aircraft, in time order.
-      </p>
+        <p className="text-sm text-muted-foreground">
+          Paste raw Mode S frames, one per line: 14 hex characters (56 bits) or 28 (112 bits). Plain
+          hex, <span className="data-value">*8D…;</span> and{" "}
+          <span className="data-value">@timestamp8D…;</span> forms are accepted. Everything is
+          decoded in your browser; nothing is sent anywhere. Position needs an even and an odd frame
+          of the same aircraft, in time order.
+        </p>
 
-      <Textarea
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        placeholder="8D4840D6202CC371C32CE0576098"
-        spellCheck={false}
-        rows={6}
-        aria-label="Raw frames"
-        className="data-value text-xs"
-      />
-      <div className="flex flex-wrap gap-2">
-        <Button variant="hud" onClick={() => setText(EXAMPLE_FRAMES)}>
-          Load example frames
-        </Button>
-        <Button variant="hud" onClick={() => setText("")} disabled={!text}>
-          Clear
-        </Button>
-      </div>
+        <Textarea
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder="8D4840D6202CC371C32CE0576098"
+          spellCheck={false}
+          rows={6}
+          aria-label="Raw frames"
+          className="data-value text-xs"
+        />
+        <div className="flex flex-wrap gap-2">
+          <Button variant="hud" onClick={() => setText(EXAMPLE_FRAMES)}>
+            Load example frames
+          </Button>
+          <Button variant="hud" onClick={() => setText("")} disabled={!text}>
+            Clear
+          </Button>
+        </div>
 
-      <div className="flex flex-col gap-3">
-        {results.length === 0 && <p className="text-sm text-muted-foreground">No frames yet.</p>}
-        {results.map((r) => (
-          <FrameCard key={r.index} {...r} />
-        ))}
-      </div>
+        <div className="flex flex-col gap-3">
+          {results.length === 0 && <p className="text-sm text-muted-foreground">No frames yet.</p>}
+          {results.map((r) => (
+            <FrameCard key={r.index} {...r} />
+          ))}
+        </div>
 
-      <p className="text-[11px] leading-snug text-muted-foreground">
-        Educational tool. Not decoded: Gillham-coded altitude, GNSS height, surface position, status
-        messages, Comm-B and ACAS contents. Not for operational or safety use.
-      </p>
-      <CreditsButton className="self-start text-xs text-primary underline-offset-2 hover:underline" />
-    </main>
+        <p className="text-[11px] leading-snug text-muted-foreground">
+          Educational tool. Not decoded: Gillham-coded altitude, GNSS height, surface position,
+          status messages, Comm-B and ACAS contents. Not for operational or safety use.
+        </p>
+      </main>
+      <SiteFooter />
+    </div>
   );
 }
