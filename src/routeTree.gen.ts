@@ -12,11 +12,15 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as DisclaimerRouteImport } from './routes/disclaimer'
+import { Route as HelpRouteImport } from './routes/help'
 import { Route as InspectorRouteImport } from './routes/inspector'
+import { Route as PressRouteImport } from './routes/press'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as RobotsDottxtRouteImport } from './routes/robots[.]txt'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
+import { Route as StatusRouteImport } from './routes/status'
 import { Route as TermsRouteImport } from './routes/terms'
+import { Route as WhatsNewRouteImport } from './routes/whats-new'
 import { Route as ApiHealthRouteImport } from './routes/api.health'
 
 const IndexRoute = IndexRouteImport.update({
@@ -34,9 +38,19 @@ const DisclaimerRoute = DisclaimerRouteImport.update({
   path: '/disclaimer',
   getParentRoute: () => rootRouteImport,
 } as any)
+const HelpRoute = HelpRouteImport.update({
+  id: '/help',
+  path: '/help',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const InspectorRoute = InspectorRouteImport.update({
   id: '/inspector',
   path: '/inspector',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PressRoute = PressRouteImport.update({
+  id: '/press',
+  path: '/press',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PrivacyRoute = PrivacyRouteImport.update({
@@ -54,9 +68,19 @@ const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   path: '/sitemap.xml',
   getParentRoute: () => rootRouteImport,
 } as any)
+const StatusRoute = StatusRouteImport.update({
+  id: '/status',
+  path: '/status',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TermsRoute = TermsRouteImport.update({
   id: '/terms',
   path: '/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const WhatsNewRoute = WhatsNewRouteImport.update({
+  id: '/whats-new',
+  path: '/whats-new',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiHealthRoute = ApiHealthRouteImport.update({
@@ -69,22 +93,30 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/disclaimer': typeof DisclaimerRoute
+  '/help': typeof HelpRoute
   '/inspector': typeof InspectorRoute
+  '/press': typeof PressRoute
   '/privacy': typeof PrivacyRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/status': typeof StatusRoute
   '/terms': typeof TermsRoute
+  '/whats-new': typeof WhatsNewRoute
   '/api/health': typeof ApiHealthRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/disclaimer': typeof DisclaimerRoute
+  '/help': typeof HelpRoute
   '/inspector': typeof InspectorRoute
+  '/press': typeof PressRoute
   '/privacy': typeof PrivacyRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/status': typeof StatusRoute
   '/terms': typeof TermsRoute
+  '/whats-new': typeof WhatsNewRoute
   '/api/health': typeof ApiHealthRoute
 }
 export interface FileRoutesById {
@@ -92,11 +124,15 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/disclaimer': typeof DisclaimerRoute
+  '/help': typeof HelpRoute
   '/inspector': typeof InspectorRoute
+  '/press': typeof PressRoute
   '/privacy': typeof PrivacyRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/status': typeof StatusRoute
   '/terms': typeof TermsRoute
+  '/whats-new': typeof WhatsNewRoute
   '/api/health': typeof ApiHealthRoute
 }
 export interface FileRouteTypes {
@@ -105,33 +141,45 @@ export interface FileRouteTypes {
     | '/'
     | '/about'
     | '/disclaimer'
+    | '/help'
     | '/inspector'
+    | '/press'
     | '/privacy'
     | '/robots.txt'
     | '/sitemap.xml'
+    | '/status'
     | '/terms'
+    | '/whats-new'
     | '/api/health'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/about'
     | '/disclaimer'
+    | '/help'
     | '/inspector'
+    | '/press'
     | '/privacy'
     | '/robots.txt'
     | '/sitemap.xml'
+    | '/status'
     | '/terms'
+    | '/whats-new'
     | '/api/health'
   id:
     | '__root__'
     | '/'
     | '/about'
     | '/disclaimer'
+    | '/help'
     | '/inspector'
+    | '/press'
     | '/privacy'
     | '/robots.txt'
     | '/sitemap.xml'
+    | '/status'
     | '/terms'
+    | '/whats-new'
     | '/api/health'
   fileRoutesById: FileRoutesById
 }
@@ -139,11 +187,15 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AboutRoute: typeof AboutRoute
   DisclaimerRoute: typeof DisclaimerRoute
+  HelpRoute: typeof HelpRoute
   InspectorRoute: typeof InspectorRoute
+  PressRoute: typeof PressRoute
   PrivacyRoute: typeof PrivacyRoute
   RobotsDottxtRoute: typeof RobotsDottxtRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  StatusRoute: typeof StatusRoute
   TermsRoute: typeof TermsRoute
+  WhatsNewRoute: typeof WhatsNewRoute
   ApiHealthRoute: typeof ApiHealthRoute
 }
 
@@ -170,11 +222,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DisclaimerRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/help': {
+      id: '/help'
+      path: '/help'
+      fullPath: '/help'
+      preLoaderRoute: typeof HelpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/inspector': {
       id: '/inspector'
       path: '/inspector'
       fullPath: '/inspector'
       preLoaderRoute: typeof InspectorRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/press': {
+      id: '/press'
+      path: '/press'
+      fullPath: '/press'
+      preLoaderRoute: typeof PressRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/privacy': {
@@ -198,11 +264,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SitemapDotxmlRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/status': {
+      id: '/status'
+      path: '/status'
+      fullPath: '/status'
+      preLoaderRoute: typeof StatusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/terms': {
       id: '/terms'
       path: '/terms'
       fullPath: '/terms'
       preLoaderRoute: typeof TermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/whats-new': {
+      id: '/whats-new'
+      path: '/whats-new'
+      fullPath: '/whats-new'
+      preLoaderRoute: typeof WhatsNewRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/health': {
@@ -219,11 +299,15 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AboutRoute: AboutRoute,
   DisclaimerRoute: DisclaimerRoute,
+  HelpRoute: HelpRoute,
   InspectorRoute: InspectorRoute,
+  PressRoute: PressRoute,
   PrivacyRoute: PrivacyRoute,
   RobotsDottxtRoute: RobotsDottxtRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
+  StatusRoute: StatusRoute,
   TermsRoute: TermsRoute,
+  WhatsNewRoute: WhatsNewRoute,
   ApiHealthRoute: ApiHealthRoute,
 }
 export const routeTree = rootRouteImport

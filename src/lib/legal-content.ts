@@ -96,7 +96,7 @@ export const LEGAL_PAGES: readonly LegalPage[] = [
       {
         heading: "What other companies see",
         paragraphs: [
-          "Your browser requests map tiles and imagery directly from OpenFreeMap, Esri and AWS, radar from RainViewer, and, only when you open it, ACARS messages from Airframes. Those providers can see your network address and the area you are viewing. The fonts are served by this site, not by Google.",
+          "Your browser requests map tiles and imagery directly from OpenFreeMap, Esri and AWS, radar from RainViewer, and, only when you open it, ACARS messages from Airframes. Those providers can see your network address and the area you are viewing. If you send feedback, it goes to GitHub, where it is public. The status page asks the data providers whether they are answering, from our server, not from your browser. The fonts are served by this site, not by Google.",
         ],
       },
       {
@@ -139,10 +139,17 @@ export const LEGAL_PAGES: readonly LegalPage[] = [
         ],
       },
       {
-        heading: "Takedown and corrections",
+        heading: "Feedback you send",
         paragraphs: [
-          "If you are a rights holder, an operator or an owner and you believe something shown here should be removed or corrected, please say what and why. " +
+          "The only content visitors can send is feedback and bug reports, and they go to the project's public GitHub page, where GitHub's own terms apply. Anything you post there is public. Please do not include passwords, personal details or anything you do not want others to read. It is used to fix and improve the app and may be quoted or answered in public. To have your own post removed, edit or delete it on GitHub or ask in the same issue.",
+        ],
+      },
+      {
+        heading: "Complaints and takedown process",
+        paragraphs: [
+          "If you are a rights holder, an operator, an owner or a person shown here and you believe something should be removed or corrected, please say what it is, where you saw it (the page and what was on screen) and why it should change. Do not include more personal information than needed. " +
             CONTACT_NOTE,
+          "What happens next: the request is read, and the maker will remove or correct what can be removed or corrected here as soon as practical, usually within a few days, and will say what was done. Data shown on the map comes from other providers; where the right fix is at the source, the answer will say so and point there. This describes a good-faith process by a student hobbyist, not a legal service level, and it is not legal advice.",
         ],
       },
     ],
