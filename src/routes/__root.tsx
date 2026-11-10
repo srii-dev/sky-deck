@@ -13,6 +13,7 @@ import { useEffect, type ReactNode } from "react";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { reportClientError } from "../lib/report-client-error";
+import { installGlobalErrorCapture } from "../lib/global-error-capture";
 import { Toaster } from "@/components/ui/sonner";
 import { SiteFooter, SiteHeader } from "@/components/skydeck/SiteChrome";
 import { useTheme } from "../hooks/use-theme";
@@ -152,6 +153,8 @@ function RootShell({ children }: { children: ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const theme = useTheme();
+  // Errors that no error boundary sees (event handlers, timers, unhandled promise rejections).
+  useEffect(() => installGlobalErrorCapture(window, reportClientError), []);
   // The service worker (public/sw.js) only runs in the built app, never in development.
   useEffect(() => {
     if (import.meta.env.PROD && "serviceWorker" in navigator) {

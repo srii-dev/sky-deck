@@ -31,8 +31,10 @@ jobs:
       - run: bun x tsc --noEmit
       - run: bun run lint
       - run: bun run build
-      # Vulnerability report. Informational for now (it does not fail the run) because known
-      # issues in development tools are still open; make it blocking once they are cleared.
-      - name: Dependency audit (informational)
+      # Known vulnerabilities of high or critical severity fail the run. Lower ones (today one moderate
+      # advisory in a development tool) are listed in the report below but do not.
+      - name: Dependency audit (high and critical block)
+        run: bun audit --audit-level=high
+      - name: Dependency audit (full report, informational)
         continue-on-error: true
         run: bun audit
