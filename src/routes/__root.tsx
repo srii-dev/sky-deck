@@ -138,7 +138,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    // The theme script in the head sets the colour scheme and the light class before React starts, so the
+    // attributes of <html> legitimately differ from the server HTML (Phase 15c).
+    <html lang="en" suppressHydrationWarning>
       <head>
         <HeadContent />
       </head>

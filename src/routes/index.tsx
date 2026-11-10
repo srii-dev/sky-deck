@@ -64,7 +64,7 @@ import {
 import type { Airport } from "@/lib/airports";
 import { currentAirportList, loadLargeAirports } from "@/lib/airport-list";
 import { nearbyAirports, type NearbyAirport } from "@/lib/nearby-airports";
-import { nextRulerPoints, rulerSummary, type LngLat } from "@/lib/measure";
+import { nextRulerPoints, pointAtAircraft, rulerSummary, type LngLat } from "@/lib/measure";
 import type { MotionState } from "@/lib/smooth-motion";
 import { buildShareSearch, parseShareParams } from "@/lib/share-link";
 import { shouldAutoShowGuide } from "@/lib/first-run";
@@ -72,9 +72,10 @@ import { pollIntervalMs, readFlagPref, STORAGE_KEYS, writeFlagPref } from "@/lib
 import { escapeTarget, SEARCH_INPUT_ID, stepAircraft, type ShortcutAction } from "@/lib/shortcuts";
 import { UNIT_LABELS, type UnitSystem } from "@/lib/units";
 import { APP_NAME, APP_TAGLINE } from "@/config/brand";
-import { webApplicationJsonLd } from "@/lib/site-meta";
+import { mapActionFromSearch, webApplicationJsonLd, withoutMapAction } from "@/lib/site-meta";
 import { COLOR_MODE_KEY, normalizeColorMode, type ColorMode } from "@/lib/airline-colors";
 import { embedCode, isEmbed } from "@/lib/embed";
+import { useNotifyPrefs } from "@/hooks/use-notify-prefs";
 import { sunTimes } from "@/lib/sun";
 
 const FlightMap = lazy(() => import("@/components/skydeck/FlightMap"));
@@ -177,6 +178,19 @@ function SkyDeck() {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [creditsOpen, setCreditsOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
+  // Links from the site header (Phase 15d): focus the search box or open the account dialog, then tidy the address.
+  useEffect(() => {
+    const action = mapActionFromSearch(window.location.search);
+    if (!action) return;
+    window.history.replaceState(
+      window.history.state,
+      "",
+      window.location.pathname + withoutMapAction(window.location.search) + window.location.hash,
+    );
+    if (action === "account") setAccountOpen(true);
+    // The search box exists once the page has rendered.
+    else window.setTimeout(() => document.getElementById(SEARCH_INPUT_ID)?.focus(), 300);
+  }, []);
   // Sign-in state is shared with the lists that sync. It only contacts Supabase once the account dialog was
   // opened or this browser already holds a saved session.
   const [accountEverOpened, setAccountEverOpened] = useState(false);
@@ -195,6 +209,8 @@ function SkyDeck() {
   const [alertsOn, setAlertsOn] = useFlagPref(STORAGE_KEYS.watchAlerts, true);
   // No alert messages over an embedded map: the page around it is not the visitor's own.
   const alertsActive = alertsOn && !embed;
+  // Which kinds of in-app messages may appear (Phase 22i).
+  const notify = useNotifyPrefs();
   const [smoothMotion, setSmoothMotion] = useFlagPref(STORAGE_KEYS.smoothMotion, true);
   const [motionDelaySec, setMotionDelaySec] = useState<number | null>(null);
   const [selectedMotion, setSelectedMotion] = useState<{ hex: string; m: MotionState } | null>(
@@ -627,13 +643,13 @@ function SkyDeck() {
   const flightViews = useFlightStages({
     aircraft: feed.aircraft,
     watch: personal.watch,
-    alertsOn: alertsActive,
+    alertsOn: alertsActive && notify.prefs.stages,
     onShow: (hex) => onSelect(hex),
   });
   // Alert rules (Phase 10): conditions checked against every update, an area drawn on the map.
   const alertRules = useAlertRules({
     aircraft: feed.aircraft,
-    enabled: alertsActive,
+    enabled: alertsActive && notify.prefs.rules,
     onShow: (hex) => onSelect(hex),
   });
   const [rulesOpen, setRulesOpen] = useState(false);
@@ -699,11 +715,11 @@ function SkyDeck() {
   useWatchAlerts({
     aircraft: feed.aircraft,
     watch: personal.watch,
-    enabled: alertsActive,
+    enabled: alertsActive && notify.prefs.watch,
     onShow: (hex) => onSelect(hex),
   });
   // Types and registrations the visitor has opened, achievements and daily challenges (Phase 13).
-  const collection = useCollection(selected);
+  const collection = useCollection(selected, notify.prefs.achievements && !embed);
   const selectedHexForRecent = selected?.hex ?? null;
   useEffect(() => {
     if (!selected || selected.hex.startsWith("mock-")) return;
@@ -1006,6 +1022,12 @@ function SkyDeck() {
             summary: rulerSummary(rulerPoints, units),
             hasPoints: rulerPoints.length > 0,
             onClear: () => setRulerPoints([]),
+            onStartAtAircraft: selected
+              ? () => {
+                  const p = pointAtAircraft(selected);
+                  if (p) setRulerPoints([p]);
+                }
+              : undefined,
           }}
         />
         {nearby && (
@@ -1196,6 +1218,8 @@ function SkyDeck() {
         onKiosk={() => setKiosk(true)}
         colorBy={colorBy}
         onColorBy={chooseColorBy}
+        notify={notify.prefs}
+        onNotify={notify.set}
         onCopyEmbed={copyEmbed}
         onOpenShortcuts={() => setShortcutsOpen(true)}
         onOpenCredits={() => setCreditsOpen(true)}

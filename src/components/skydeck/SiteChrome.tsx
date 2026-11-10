@@ -3,6 +3,7 @@ import { Plane } from "lucide-react";
 
 import { APP_NAME, APP_TAGLINE, REPO_URL } from "@/config/brand";
 import { LEGAL_PAGES } from "@/lib/legal-content";
+import { MAP_ACTIONS } from "@/lib/site-meta";
 import { FEEDBACK_URL, SITE_PAGES } from "@/lib/site-pages";
 import { cn } from "@/lib/utils";
 import { CreditsButton } from "./CreditsDialog";
@@ -43,6 +44,19 @@ export function SiteHeader({ className }: { className?: string }) {
               {n.label}
             </Link>
           ))}
+          {/* Into the map page: its search box and its account dialog live there. */}
+          <a
+            href={MAP_ACTIONS.search}
+            className="rounded-md px-3 py-1.5 text-muted-foreground hover:bg-accent/15 hover:text-foreground"
+          >
+            Search
+          </a>
+          <a
+            href={MAP_ACTIONS.account}
+            className="rounded-md px-3 py-1.5 text-muted-foreground hover:bg-accent/15 hover:text-foreground"
+          >
+            Sign in
+          </a>
         </nav>
       </div>
     </header>

@@ -4,6 +4,33 @@
  * until the site has a domain (Phase 16) there is none, and then no canonical link is written. Pure functions.
  */
 
+/**
+ * Links from the site header into the map page (Phase 15d): the map opens with the search box focused, or with the
+ * account dialog open. The map page removes the parameter from the address once it has acted on it.
+ */
+export const MAP_ACTIONS = {
+  search: "/?open=search",
+  account: "/?open=account",
+} as const;
+
+/** Which header action an address asks for, or null. Only the two known values count. */
+export function mapActionFromSearch(search: string): "search" | "account" | null {
+  try {
+    const v = new URLSearchParams(search).get("open");
+    return v === "search" || v === "account" ? v : null;
+  } catch {
+    return null;
+  }
+}
+
+/** The same address without the open parameter (other parameters are kept). */
+export function withoutMapAction(search: string): string {
+  const p = new URLSearchParams(search);
+  p.delete("open");
+  const q = p.toString();
+  return q ? "?" + q : "";
+}
+
 /** The pages a visitor can open, for the sitemap. */
 export const SITEMAP_PATHS: readonly string[] = [
   "/",

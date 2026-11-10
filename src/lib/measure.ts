@@ -33,6 +33,11 @@ export function rulerSummary(points: LngLat[], units: UnitSystem): string | null
   return `${fmtRange(distanceNm(a, b), units)} · ${String(bearing).padStart(3, "0")}° ${compassPoint(bearing)}`;
 }
 
+/** The ruler point at an aircraft's position (Phase 22d: measure from the selected aircraft). */
+export function pointAtAircraft(a: { lat: number; lon: number }): LngLat | null {
+  return Number.isFinite(a.lat) && Number.isFinite(a.lon) ? [a.lon, a.lat] : null;
+}
+
 /** The next set of points after a click: a third click starts a new measurement. */
 export function nextRulerPoints(points: LngLat[], click: LngLat): LngLat[] {
   return points.length >= 2 ? [click] : [...points, click];

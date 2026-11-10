@@ -15,7 +15,10 @@ import {
  * Collection (Phase 13): remembers each aircraft type and registration the visitor opens, once per aircraft per visit,
  * and says so when an achievement is unlocked or a daily challenge is completed. Kept in this browser only.
  */
-export function useCollection(selected: Aircraft | null): {
+export function useCollection(
+  selected: Aircraft | null,
+  announce = true,
+): {
   collection: Collection;
   clear: () => void;
 } {
@@ -23,6 +26,8 @@ export function useCollection(selected: Aircraft | null): {
   const ref = useRef(collection);
   ref.current = collection;
   const loaded = useRef(false);
+  const announceRef = useRef(announce);
+  announceRef.current = announce;
   const counted = useRef(new Set<string>());
 
   // This browser's saved collection, read after the first render so the server and first paint match.
@@ -46,8 +51,11 @@ export function useCollection(selected: Aircraft | null): {
     ref.current = r.next;
     setCollection(r.next);
     storeCollection(r.next);
-    for (const a of r.unlocked) toast("Achievement: " + a.name, { description: a.description });
-    for (const c of r.completed) toast("Challenge complete: " + c.title);
+    // Recorded either way; the message is only a courtesy and can be switched off in Settings.
+    if (announceRef.current) {
+      for (const a of r.unlocked) toast("Achievement: " + a.name, { description: a.description });
+      for (const c of r.completed) toast("Challenge complete: " + c.title);
+    }
     // Only when a different aircraft is opened, or its type and registration arrive.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hex, selected?.type, selected?.registration]);
