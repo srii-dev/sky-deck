@@ -73,6 +73,9 @@ import { escapeTarget, SEARCH_INPUT_ID, stepAircraft, type ShortcutAction } from
 import { UNIT_LABELS, type UnitSystem } from "@/lib/units";
 import { APP_NAME, APP_TAGLINE } from "@/config/brand";
 import { webApplicationJsonLd } from "@/lib/site-meta";
+import { COLOR_MODE_KEY, normalizeColorMode, type ColorMode } from "@/lib/airline-colors";
+import { embedCode, isEmbed } from "@/lib/embed";
+import { sunTimes } from "@/lib/sun";
 
 const FlightMap = lazy(() => import("@/components/skydeck/FlightMap"));
 
@@ -142,6 +145,29 @@ function SkyDeck() {
   const [collectionOpen, setCollectionOpen] = useState(false);
   // Clean view for a wall display (Phase 22k): hides the controls and panels, keeps the map, the credit and emergency alerts.
   const [kiosk, setKiosk] = useState(false);
+  // Embedded in another page (Phase 24f): the same clean view, with a link back instead of an exit button.
+  const [embed, setEmbed] = useState(false);
+  const [nightOn, setNightOn] = useFlagPref(STORAGE_KEYS.night, false);
+  const [colorBy, setColorBy] = useState<ColorMode>("altitude");
+  useEffect(() => {
+    if (isEmbed(window.location.search)) {
+      setEmbed(true);
+      setKiosk(true);
+    }
+    try {
+      setColorBy(normalizeColorMode(localStorage.getItem(COLOR_MODE_KEY)));
+    } catch {
+      /* storage blocked: altitude colours */
+    }
+  }, []);
+  const chooseColorBy = (c: ColorMode) => {
+    setColorBy(c);
+    try {
+      localStorage.setItem(COLOR_MODE_KEY, c);
+    } catch {
+      /* storage blocked: the choice lasts until the page closes */
+    }
+  };
   const [units, setUnits] = useState<UnitSystem>("aviation");
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
   const [flyTarget, setFlyTarget] = useState<FlyTarget | null>(null);
@@ -167,6 +193,8 @@ function SkyDeck() {
   const [shortcutsOn, setShortcutsOn] = useFlagPref(STORAGE_KEYS.shortcuts, true);
   const [batterySaver, setBatterySaver] = useFlagPref(STORAGE_KEYS.batterySaver, false);
   const [alertsOn, setAlertsOn] = useFlagPref(STORAGE_KEYS.watchAlerts, true);
+  // No alert messages over an embedded map: the page around it is not the visitor's own.
+  const alertsActive = alertsOn && !embed;
   const [smoothMotion, setSmoothMotion] = useFlagPref(STORAGE_KEYS.smoothMotion, true);
   const [motionDelaySec, setMotionDelaySec] = useState<number | null>(null);
   const [selectedMotion, setSelectedMotion] = useState<{ hex: string; m: MotionState } | null>(
@@ -346,6 +374,32 @@ function SkyDeck() {
     return `${window.location.origin}${window.location.pathname}${search ? `?${search}` : ""}`;
   }, [buildSearch]);
 
+  // Sunrise and sunset at the map centre, as a hint under the Day and night switch (Phase 24d).
+  const sunHint = useMemo(() => {
+    if (!viewport) return "Shades the night side of the earth";
+    const t = sunTimes(new Date(), viewport.lat, viewport.lon);
+    const hm = (d: Date | null) => (d ? d.toISOString().slice(11, 16) : "");
+    if (t.polar === "day") return "The sun stays up all day at the map centre";
+    if (t.polar === "night") return "The sun stays down all day at the map centre";
+    return "At the map centre: sunrise " + hm(t.sunrise) + ", sunset " + hm(t.sunset) + " UTC";
+  }, [viewport]);
+  const copyEmbed = () => {
+    const code = embedCode(getShareUrl());
+    if (!code) {
+      toast("An embed code cannot be made for this address");
+      return;
+    }
+    const clip = navigator.clipboard;
+    if (!clip) {
+      toast("Copying is not available here");
+      return;
+    }
+    clip.writeText(code).then(
+      () => toast("Embed code copied"),
+      () => toast("The browser blocked copying"),
+    );
+  };
+
   const feed = useAircraftFeed(
     viewport,
     selectedHex?.startsWith("mock-") ? null : selectedHex,
@@ -497,7 +551,8 @@ function SkyDeck() {
         return false;
     }
   };
-  useShortcuts(shortcutsOn, handleShortcut);
+  // Shortcuts are off in an embedded map: the page around it owns the keyboard.
+  useShortcuts(shortcutsOn && !embed, handleShortcut);
 
   const weather = useWeatherLayers(
     { radar: radarOn, echoTops: echoTopsOn, advisories: advisoriesOn, pireps: pirepsOn },
@@ -572,13 +627,13 @@ function SkyDeck() {
   const flightViews = useFlightStages({
     aircraft: feed.aircraft,
     watch: personal.watch,
-    alertsOn,
+    alertsOn: alertsActive,
     onShow: (hex) => onSelect(hex),
   });
   // Alert rules (Phase 10): conditions checked against every update, an area drawn on the map.
   const alertRules = useAlertRules({
     aircraft: feed.aircraft,
-    enabled: alertsOn,
+    enabled: alertsActive,
     onShow: (hex) => onSelect(hex),
   });
   const [rulesOpen, setRulesOpen] = useState(false);
@@ -644,7 +699,7 @@ function SkyDeck() {
   useWatchAlerts({
     aircraft: feed.aircraft,
     watch: personal.watch,
-    enabled: alertsOn,
+    enabled: alertsActive,
     onShow: (hex) => onSelect(hex),
   });
   // Types and registrations the visitor has opened, achievements and daily challenges (Phase 13).
@@ -713,6 +768,8 @@ function SkyDeck() {
             onSelect={onSelect}
             trail={feed.trail}
             trail3d={trail3d}
+            nightShade={nightOn}
+            colorBy={colorBy}
             basemap={basemap}
             terrain={terrain}
             follow={follow}
@@ -939,6 +996,9 @@ function SkyDeck() {
             onAirspaceControlled: setAirspaceControlledOn,
             airspaceSpecial: airspaceSpecialOn,
             onAirspaceSpecial: setAirspaceSpecialOn,
+            night: nightOn,
+            onNight: setNightOn,
+            nightHint: sunHint,
           }}
           ruler={{
             active: rulerActive,
@@ -999,7 +1059,7 @@ function SkyDeck() {
           <div className="mb-2 hidden md:block [@media(max-height:480px)]:hidden">
             <AircraftTypesLegend />
           </div>
-          <AltitudeLegend units={units} />
+          <AltitudeLegend units={units} colorBy={colorBy} />
         </div>
       }
 
@@ -1134,11 +1194,14 @@ function SkyDeck() {
         onShortcutsOn={setShortcutsOn}
         onOpenGuide={() => setGuideOpen(true)}
         onKiosk={() => setKiosk(true)}
+        colorBy={colorBy}
+        onColorBy={chooseColorBy}
+        onCopyEmbed={copyEmbed}
         onOpenShortcuts={() => setShortcutsOpen(true)}
         onOpenCredits={() => setCreditsOpen(true)}
         onOpenAccount={() => setAccountOpen(true)}
       />
-      {kiosk && (
+      {kiosk && !embed && (
         <div className="pointer-events-none absolute inset-x-0 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-30 flex justify-center">
           <button
             type="button"
@@ -1147,6 +1210,18 @@ function SkyDeck() {
           >
             Exit clean view (K or Esc)
           </button>
+        </div>
+      )}
+      {embed && (
+        <div className="pointer-events-none absolute inset-x-0 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-30 flex justify-center">
+          <a
+            href={typeof window === "undefined" ? "/" : window.location.pathname}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="glass-panel pointer-events-auto rounded-md px-3 py-1.5 text-xs text-primary hover:underline"
+          >
+            Open in SkyDeck
+          </a>
         </div>
       )}
       <CollectionDialog

@@ -33,6 +33,8 @@ import {
 } from "@/lib/reachable-airports";
 import { parseShareParams } from "@/lib/share-link";
 import { applyAlertAreas, type AlertAreaDrawing } from "./alert-area-layers";
+import { applyNight } from "./night-layers";
+import { airlineColor, type ColorMode } from "@/lib/airline-colors";
 import { advanceClock, trailUpTo, visibleAt, type ReplaySource } from "@/lib/replay";
 import { buildPlaneSdf, buildSvgSdf } from "./plane-icon";
 import { LEGEND_SHAPES, svgMarkup } from "./aircraft-icons";
@@ -290,6 +292,10 @@ export interface FlightMapProps {
   chase?: boolean | undefined;
   /** Session replay (Phase 9a): draw this recording at its clock time instead of the live aircraft. */
   replay?: ReplaySource | null | undefined;
+  /** Shade the night side of the earth (Phase 24d). */
+  nightShade?: boolean | undefined;
+  /** Colour aircraft by altitude (default) or by airline (Phase 24b). */
+  colorBy?: ColorMode | undefined;
   /** Areas used by alert rules, and the one being drawn (Phase 10c). */
   alertAreas?: readonly AlertAreaDrawing[] | undefined;
   /** Area drawing: while on, a map click is reported to onPick instead of selecting something. */
@@ -567,6 +573,7 @@ export default function FlightMap(props: FlightMapProps) {
     // Aprons, taxiway names and gates at high zoom (Phase 4e), below trails and aircraft.
     installAirportDetail(map, propsRef.current.basemap, terrainBeforeId(map));
     applyAlertAreas(map, propsRef.current.alertAreas ?? [], terrainBeforeId(map));
+    applyNight(map, !!propsRef.current.nightShade, new Date(), terrainBeforeId(map));
     // Radar, echo tops, advisories and pilot reports (Phase 7), below trails and aircraft.
     applyWeather(map, propsRef.current.weather ?? NO_WEATHER, terrainBeforeId(map));
     applyRouteAirspace(
@@ -1105,7 +1112,13 @@ export default function FlightMap(props: FlightMapProps) {
             kind: tr.a.kind,
             shape: iconShapeCached(tr.a.kind, tr.a.type),
             track: m.track == null && keepUprightWithoutHeading(tr.a.kind) ? 0 : (m.track ?? 0),
-            color: rp ? altitudeColor(m.altFt, m.onGround) : tr.emg ? EMERGENCY_COLOR : tr.color,
+            color: rp
+              ? altitudeColor(m.altFt, m.onGround)
+              : tr.emg
+                ? EMERGENCY_COLOR
+                : propsRef.current.colorBy === "airline"
+                  ? airlineColor(tr.a.callsign)
+                  : tr.color,
             alt: m.altFt ?? 0,
             fade,
             sel: isSel,
@@ -1245,6 +1258,19 @@ export default function FlightMap(props: FlightMapProps) {
     if (!map || !styleReadyRef.current) return;
     applyAlertAreas(map, props.alertAreas ?? [], terrainBeforeId(map));
   }, [props.alertAreas]);
+
+  // Day and night: drawn now and refreshed every minute while it is on (the line moves a quarter degree a minute).
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !styleReadyRef.current) return;
+    applyNight(map, !!props.nightShade, new Date(), terrainBeforeId(map));
+    if (!props.nightShade) return;
+    const id = window.setInterval(() => {
+      const m = mapRef.current;
+      if (m && styleReadyRef.current) applyNight(m, true, new Date(), terrainBeforeId(m));
+    }, 60_000);
+    return () => window.clearInterval(id);
+  }, [props.nightShade]);
 
   useEffect(() => {
     const map = mapRef.current;

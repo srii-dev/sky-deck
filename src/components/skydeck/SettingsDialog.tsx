@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { BookOpen, Download, Info, Keyboard, Monitor, Trash2, UserRound } from "lucide-react";
+import { BookOpen, Code, Download, Info, Keyboard, Monitor, Trash2, UserRound } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,7 @@ import { buildLocalExport, localExportFilename } from "@/lib/data-export";
 import { downloadText } from "@/lib/download";
 import { clearLocalData, POLL_NORMAL_MS, POLL_SAVER_MS } from "@/lib/local-settings";
 import { useTheme } from "@/hooks/use-theme";
+import { COLOR_MODE_LABELS, COLOR_MODES, type ColorMode } from "@/lib/airline-colors";
 import { THEME_LABELS, THEME_PREFS, type ThemePref } from "@/lib/theme";
 import { UNIT_LABELS, type UnitSystem } from "@/lib/units";
 import { cn } from "@/lib/utils";
@@ -45,6 +46,10 @@ export interface SettingsProps {
   onOpenGuide: () => void;
   /** Hide the controls for a display (Phase 22k). */
   onKiosk: () => void;
+  /** Aircraft colour (Phase 24b) and the embed snippet (Phase 24f). */
+  colorBy: ColorMode;
+  onColorBy: (c: ColorMode) => void;
+  onCopyEmbed: () => void;
   onOpenShortcuts: () => void;
   onOpenCredits: () => void;
   onOpenAccount: () => void;
@@ -179,6 +184,27 @@ export function SettingsDialog(p: SettingsProps) {
           </p>
         </Section>
 
+        <Section title="Aircraft colour">
+          <ToggleGroup
+            type="single"
+            variant="outline"
+            value={p.colorBy}
+            onValueChange={(v) => v && p.onColorBy(v as ColorMode)}
+            aria-label="Aircraft colour"
+            className="gap-2"
+          >
+            {COLOR_MODES.map((c) => (
+              <ToggleGroupItem key={c} value={c} className={seg}>
+                {COLOR_MODE_LABELS[c]}
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
+          <p className="text-xs text-muted-foreground">
+            By airline gives each airline its own plain colour (not its livery); aircraft without an
+            airline code are grey.
+          </p>
+        </Section>
+
         <Section title="Units">
           <ToggleGroup
             type="single"
@@ -272,6 +298,13 @@ export function SettingsDialog(p: SettingsProps) {
           <p className="text-xs text-muted-foreground">
             Hides the controls and panels and keeps the map, the credit and emergency alerts. Press
             K or Esc, or use the button at the bottom, to leave it.
+          </p>
+          <LinkRow icon={<Code />} onClick={p.onCopyEmbed}>
+            Copy embed code for this view
+          </LinkRow>
+          <p className="text-xs text-muted-foreground">
+            A snippet to paste into a web page: it shows this part of the map with no controls and a
+            link back here.
           </p>
         </Section>
 
