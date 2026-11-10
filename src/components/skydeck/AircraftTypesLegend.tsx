@@ -12,7 +12,7 @@ export function AircraftTypesLegend() {
         type="button"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-between"
+        className="flex min-h-8 w-full items-center justify-between"
       >
         <span className="hud-label">Aircraft types</span>
         {open ? (

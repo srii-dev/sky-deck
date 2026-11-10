@@ -37,6 +37,12 @@ import { LEGEND_KINDS, svgMarkup } from "./aircraft-icons";
 import { installAirportDetail } from "./airport-detail-layers";
 import { applyWeather, NO_WEATHER, pickWeather, type WeatherMapState } from "./weather-layers";
 import {
+  applyRouteAirspace,
+  NO_ROUTE_AIRSPACE,
+  pickAirspace,
+  type RouteAirspaceState,
+} from "./route-airspace-layers";
+import {
   appendSample,
   initialDelay,
   missingOpacity,
@@ -277,10 +283,16 @@ export interface FlightMapProps {
   onMotionDelay?: ((seconds: number) => void) | undefined;
   /** The selected aircraft at the drawn moment, about once a second, so the panel can match the icon. */
   onSelectedMotion?: ((hex: string, m: MotionState) => void) | undefined;
+  /** Chase camera (Phase 5d): while following, tilt the map and turn it to look along the aircraft's heading. */
+  chase?: boolean | undefined;
   /** Weather layers to draw (radar, echo tops, advisories, pilot reports). */
   weather?: WeatherMapState | undefined;
   /** A click on a weather item (its id), or null when the click hit none. */
   onWeatherPick?: ((id: string | null) => void) | undefined;
+  /** The route line and airspace areas to draw (Phase 8). */
+  routeAirspace?: RouteAirspaceState | undefined;
+  /** A click on an airspace area (its id), or null when the click hit none. */
+  onAirspacePick?: ((id: string | null) => void) | undefined;
 }
 
 export default function FlightMap(props: FlightMapProps) {
@@ -544,6 +556,11 @@ export default function FlightMap(props: FlightMapProps) {
     installAirportDetail(map, propsRef.current.basemap, terrainBeforeId(map));
     // Radar, echo tops, advisories and pilot reports (Phase 7), below trails and aircraft.
     applyWeather(map, propsRef.current.weather ?? NO_WEATHER, terrainBeforeId(map));
+    applyRouteAirspace(
+      map,
+      propsRef.current.routeAirspace ?? NO_ROUTE_AIRSPACE,
+      terrainBeforeId(map),
+    );
     applyTrail();
     updateGlideRing();
     styleReadyRef.current = true;
@@ -966,8 +983,11 @@ export default function FlightMap(props: FlightMapProps) {
         return;
       }
       const weatherPick = pickWeather(map, e.point);
+      // Weather items sit above airspace areas, so an area is only picked when nothing else was.
+      const airspacePick = weatherPick ? null : pickAirspace(map, e.point);
       if (!map.getLayer("sd-aircraft")) {
         propsRef.current.onWeatherPick?.(weatherPick?.id ?? null);
+        propsRef.current.onAirspacePick?.(airspacePick);
         return;
       }
       const pad = 10;
@@ -981,6 +1001,7 @@ export default function FlightMap(props: FlightMapProps) {
       const hex = feats[0]?.properties?.["hex"] as string | undefined;
       // An aircraft under the click wins; otherwise a weather item may be picked.
       propsRef.current.onWeatherPick?.(hex ? null : (weatherPick?.id ?? null));
+      propsRef.current.onAirspacePick?.(hex ? null : airspacePick);
       propsRef.current.onSelect(hex ?? null);
     });
     map.on("mousemove", (e) => {
@@ -1024,6 +1045,7 @@ export default function FlightMap(props: FlightMapProps) {
       const sel = propsRef.current.selectedHex;
       const features: Feature<Point>[] = [];
       let selPos: [number, number] | null = null;
+      let selTrack: number | null = null;
       for (const [hex, tr] of tracksRef.current) {
         let fade = 1;
         if (tr.ghost) {
@@ -1043,6 +1065,7 @@ export default function FlightMap(props: FlightMapProps) {
         const isSel = hex === sel;
         if (isSel) {
           selPos = [lat, lon];
+          selTrack = m.track;
           if (wall - lastSelectedEmit >= 1000) {
             lastSelectedEmit = wall;
             propsRef.current.onSelectedMotion?.(hex, m);
@@ -1068,6 +1091,12 @@ export default function FlightMap(props: FlightMapProps) {
       src.setData({ type: "FeatureCollection", features });
       if (selPos && propsRef.current.follow && !map.isMoving()) {
         map.setCenter([selPos[1], selPos[0]]);
+        // Chase camera: turn towards the heading a little each frame, so the view follows turns smoothly.
+        if (propsRef.current.chase && selTrack != null) {
+          const cur = map.getBearing();
+          const diff = ((((selTrack - cur) % 360) + 540) % 360) - 180;
+          map.setBearing(cur + diff * 0.06);
+        }
       }
     };
     raf = requestAnimationFrame(tick);
@@ -1132,11 +1161,26 @@ export default function FlightMap(props: FlightMapProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.trail, props.trail3d, props.selectedHex, props.showTrail]);
 
+  // Turning the chase camera on tilts the map and moves in close behind the aircraft.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !props.chase || !props.follow) return;
+    const reduce =
+      typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+    map.easeTo({ pitch: 68, zoom: Math.max(map.getZoom(), 12), duration: reduce ? 0 : 900 });
+  }, [props.chase, props.follow]);
+
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !styleReadyRef.current) return;
     applyWeather(map, props.weather ?? NO_WEATHER, terrainBeforeId(map));
   }, [props.weather]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !styleReadyRef.current) return;
+    applyRouteAirspace(map, props.routeAirspace ?? NO_ROUTE_AIRSPACE, terrainBeforeId(map));
+  }, [props.routeAirspace]);
 
   useEffect(() => {
     applyRuler();
@@ -1174,7 +1218,7 @@ export default function FlightMap(props: FlightMapProps) {
       center: [t.lon, t.lat],
       zoom: t.zoom ?? Math.max(map.getZoom(), 9),
       speed: 1.4,
-      essential: true,
+      // Not essential: a visitor who prefers reduced motion gets a jump instead of a flight (Phase 5f).
     });
   }, [props.flyTarget]);
 

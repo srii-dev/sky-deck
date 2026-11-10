@@ -9,6 +9,7 @@ import {
   Minimize,
   Ruler,
   Settings,
+  Star,
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -45,6 +46,13 @@ export interface LayerControls {
   /** The glide ring needs a selected aircraft. */
   hasSelection: boolean;
   weather: WeatherControls;
+  /** Route line and airspace areas (Phase 8). */
+  routeLine: boolean;
+  onRouteLine: (v: boolean) => void;
+  airspaceControlled: boolean;
+  onAirspaceControlled: (v: boolean) => void;
+  airspaceSpecial: boolean;
+  onAirspaceSpecial: (v: boolean) => void;
 }
 
 export interface RulerControls {
@@ -67,6 +75,9 @@ interface Props {
   /** Called with the user's position after My location succeeds (used for nearby airports). */
   onLocated?: (pos: { lat: number; lon: number }) => void;
   onOpenSettings: () => void;
+  /** Opens the watchlist dialog (Phase 5a). */
+  onOpenWatchlist: () => void;
+  watchCount: number;
 }
 
 const btn = "h-10 w-10";
@@ -109,6 +120,8 @@ export function MapTools({
   ruler,
   onLocated,
   onOpenSettings,
+  onOpenWatchlist,
+  watchCount,
 }: Props) {
   const [views, setViews] = useState<SavedView[]>([]);
   const [name, setName] = useState("");
@@ -246,6 +259,30 @@ export function MapTools({
               onChange={layers.onGlideRing}
               disabled={!layers.hasSelection}
             />
+            <div className="hud-label mb-1 mt-3">Routes and airspace</div>
+            <LayerRow
+              label="Route line"
+              hint={
+                layers.hasSelection
+                  ? "Straight line between the airports (approximate)"
+                  : "Select an aircraft first"
+              }
+              checked={layers.routeLine}
+              onChange={layers.onRouteLine}
+              disabled={!layers.hasSelection}
+            />
+            <LayerRow
+              label="Controlled airspace"
+              hint="Class B, C and D (US, zoom in)"
+              checked={layers.airspaceControlled}
+              onChange={layers.onAirspaceControlled}
+            />
+            <LayerRow
+              label="Special use areas"
+              hint="Restricted, prohibited, warning, alert, MOA (US, zoom in)"
+              checked={layers.airspaceSpecial}
+              onChange={layers.onAirspaceSpecial}
+            />
             <div className="hud-label mb-1 mt-3">Weather</div>
             <LayerRow
               label="Precipitation radar"
@@ -360,6 +397,16 @@ export function MapTools({
           onClick={() => void toggleFullscreen()}
         >
           {fullscreen ? <Minimize /> : <Maximize />}
+        </Button>
+        <Button
+          variant="panel"
+          size="icon"
+          className={btn}
+          aria-label={watchCount > 0 ? "Watchlist, " + watchCount + " items" : "Watchlist"}
+          title="Watchlist and recently viewed"
+          onClick={onOpenWatchlist}
+        >
+          <Star />
         </Button>
         <Button
           variant="panel"
