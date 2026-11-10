@@ -33,3 +33,22 @@ describe("database migrations", () => {
     expect(all).not.toMatch(/eyJ[a-zA-Z0-9_-]{20,}/); // JWT-looking values
   });
 });
+
+describe("security definer functions", () => {
+  it("revokes public execute for every security definer function it creates", () => {
+    const fns = [
+      ...all.matchAll(
+        /create\s+(?:or\s+replace\s+)?function\s+(public\.[a-z_]+)[^;]*?security\s+definer/gis,
+      ),
+    ].map((m) => m[1]!.toLowerCase());
+    // Compare on one line of single-spaced lowercase text, so line breaks and indentation do not matter.
+    const flat = all.toLowerCase().split(/\s+/).join(" ");
+    expect(fns.length).toBeGreaterThan(0);
+    for (const fn of fns) {
+      const wanted = "revoke execute on function " + fn + "()";
+      expect(flat, `${fn} must revoke execute from public, anon and authenticated`).toContain(
+        wanted,
+      );
+    }
+  });
+});
