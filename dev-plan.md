@@ -436,6 +436,41 @@ Landing page: where to build it (Decision 8)
 | 17e   | **Checklist written, not closed:** `RELEASE.md` lists every open blocker; most need Sri. Release checklist: Phase 0 blockers closed, credits and README match every source's terms, Lovable removed (15a), monitoring and quota alarms for free tiers                                                                                                                                                                                                                                                  |
 | 17f   | **Not started:** nothing is deployed; the plan and rollback steps are in `RELEASE.md`. Soft launch to a few people, a rollback plan and a known-issues list                                                                                                                                                                                                                                                                                                                                            |
 
+## Remaining work, in order (2026-11-10)
+
+Everything not listed here is built and merged into `dev`. **Phase 17 (final checks and testing, then release) is the last stage:** nothing is added after it except fixes it finds.
+
+**A. Waiting for Sri (decisions, accounts, approvals). Nothing below can be finished without these.**
+
+| Item               | What is needed                                                                                                                                              |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 15b brand          | Settle the name and domain (Decision 7); then logo, icons, palette note.                                                                                    |
+| 15a Lovable        | OK to change dependencies and `AGENTS.md`, and disconnect Lovable and GitHub first. Then the plain TanStack Start, Cloudflare and Nitro config (real work). |
+| 16b Cloudflare     | A Cloudflare account and project to deploy to. Unlocks 18f, 19h, 21b, 21d, 10f and the real checks in 17.                                                   |
+| 0a, 0b, 0c, 0d, 0f | Esri imagery terms (keep, key or drop), airplanes.live access, the Airframes answer, the ACARS legal review, credits wording matched to the terms.          |
+| 23g contact        | A private contact address for takedowns and complaints.                                                                                                     |
+| 15e landing page   | Decide the landing design and how `/map` redirects shared links.                                                                                            |
+| 16f, 21k tests     | OK to add Playwright (end-to-end and screenshot tests).                                                                                                     |
+| 12b, 3D models     | OK for a 3D layer library, and model files with a checked licence.                                                                                          |
+| 18i, 21f           | Seed data approach and how Supabase backups are made.                                                                                                       |
+
+**B. Can be built now, no decision needed (small).**
+
+- 22d: ruler measured from the selected aircraft.
+- 22i: notification choices in Settings (language waits for 16g).
+- 22n: touch gestures beyond the map's own (only if wanted).
+- 15d: search box and sign-in link in the site header; Airports and My flights links once those pages exist.
+- 5f: the rest of the accessibility list (a screen reader pass needs a person).
+- 0h: reproduce and fix the cold-start errors in development.
+- 6c: label meanings, once `airframesio/acars-message-documentation` has a confirmed licence.
+- 13d: Planespotters photos, after reading its terms.
+
+**C. After deployment (needs A first).** 18f shared cache and scheduled jobs, 19h shared store, 21b previews, 21d uptime checker and quota alarms, 21f backup rehearsal, 10f and 6g web push, 15g with `SITE_URL` set, 15f share images (needs designed images), 15h design QA at 1280, 746 and 375 px in both themes with keyboard and screen reader.
+
+**D. No source or not feasible for now.** 7d lightning, 7f winds aloft, 8c daily TFRs, 8e filed routes, 9b 30-day replay, 9c incident history, 11b, 11c, 11d, 14c and 6f (AI key), 6b, 6e, 6g, 6h (Airframes and legal), 16g language, 23e moderation, and the post-release ideas in Phase 24.
+
+**E. Final stage: Phase 17.** 17a full feature pass in a visible browser on desktop, tablet and phone, 17b security review again on the live build, 17c quota and failure drills, 17d accessibility and performance audit on the live build, 17e release checklist (`RELEASE.md`) closed, 17f soft launch with a rollback plan. The 17 work done so far (the development-build pass and the first security review) stays in `RELEASE.md` and is repeated on the deployed build.
+
 ## Suggested order
 
 1. **Phase 0 blockers** that need only Sri's decisions (Esri, fonts, credits), and the **backend and AI decisions** (settled).
