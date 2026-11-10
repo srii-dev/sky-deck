@@ -44,6 +44,8 @@ import { AlertRulesDialog } from "@/components/skydeck/AlertRulesDialog";
 import { EMPTY_DRAFT, type RuleDraft } from "@/lib/alert-rule-draft";
 import type { AlertAreaDrawing } from "@/components/skydeck/alert-area-layers";
 import { useAlertRules } from "@/hooks/use-alert-rules";
+import { useFlightStages } from "@/hooks/use-flight-stages";
+import { normalizeKey } from "@/lib/watchlist";
 import { resolvePlace } from "@/lib/place-resolver";
 import { distanceNm } from "@/lib/route-geometry";
 import { useReplay } from "@/hooks/use-replay";
@@ -545,6 +547,13 @@ function SkyDeck() {
 
   // Watchlist, recently viewed flights and alerts (Phase 5).
   const personal = usePersonalData(auth);
+  // Stage of every watched flight (Phase 11a).
+  const flightViews = useFlightStages({
+    aircraft: feed.aircraft,
+    watch: personal.watch,
+    alertsOn,
+    onShow: (hex) => onSelect(hex),
+  });
   // Alert rules (Phase 10): conditions checked against every update, an area drawn on the map.
   const alertRules = useAlertRules({
     aircraft: feed.aircraft,
@@ -1128,6 +1137,16 @@ function SkyDeck() {
           setRulesOpen(true);
         }}
         ruleCount={alertRules.rules.length}
+        flightViews={flightViews}
+        onAddFlight={(text) => {
+          const key = normalizeKey("flight", text);
+          if (key.length < 3 || key.length > 10)
+            return "A flight number has 3 to 10 letters and digits, for example UAL123.";
+          if (personal.isWatching("flight", key)) return key + " is already on your list.";
+          const r = personal.toggleWatch("flight", key, key);
+          if (r === "full") return "The watchlist is full (50 items). Remove one first.";
+          return r === "added" ? null : "That is not a valid flight number.";
+        }}
       />
       <AlertRulesDialog
         open={rulesOpen}

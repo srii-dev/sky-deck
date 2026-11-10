@@ -6,6 +6,7 @@ All notable changes to SkyDeck. The format follows [Keep a Changelog](https://ke
 
 ### Added
 
+- Track a flight (Phase 11a): add a flight number in the Watchlist and see its stage (at the gate, taxiing, taking off, climbing, cruising, descending, on approach, landing, arrived) on a seven step bar, with the route, a rough distance and time to go, and its last changes; notable changes raise an in-app alert. A route on file that does not fit where the aircraft is, is ignored and said so. Inbound aircraft (11b), gates and baggage (11c) and lock-screen updates (11d) were not built.
 - Alert rules (Phase 10: 10b, 10c, 10d, 10e): rules on aircraft type, military flag, flight number, altitude, squawk, in the air and a circular area drawn on the map, created in plain English or by hand, checked on every update while the page is open. Web push when the tab is closed (10f) was not built.
 - Session replay (Phase 9a): the page records the last 30 minutes of what it received and can play it back with a scrub bar and speeds. The 30-day replay (9b) and incident history (9c) were not built.
 - Personal features (Phase 5): a watchlist of flights, aircraft and airports with in-app takeoff, landing and emergency alerts, recently viewed flights, account sync of both lists, a chase camera, skeleton loading states, reduced-motion support (map camera moves and CSS animations) and an accessibility check of the new controls.

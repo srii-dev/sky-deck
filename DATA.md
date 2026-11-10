@@ -10,6 +10,10 @@ Saved with localStorage under these keys (the list is `STORAGE_KEYS` in `src/lib
 
 The rules a visitor creates (conditions, a name, areas as a centre and radius) are kept in this browser's localStorage under `skydeck:alert-rules`. They are not sent anywhere or saved to an account. Settings, Delete my saved data removes them.
 
+## Tracked flight stages (this browser only)
+
+The last stage changes of watched flights (flight number, stage, time; at most a few per flight) are kept in this browser's localStorage under `skydeck:flight-stages`. They are not sent anywhere or saved to an account. Settings, Delete my saved data removes them. Looking up a watched flight's route sends only its flight number to our server, as for the aircraft panel.
+
 ## With an account (Supabase, only if the visitor creates one)
 
 | Data                                                                                                | Where                                                               | Why                                     | Deleted                                                           |
