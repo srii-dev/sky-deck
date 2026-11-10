@@ -14,7 +14,8 @@
 - MapLibre is loaded only via `React.lazy` behind `<ClientOnly>` (`src/components/skydeck/FlightMap.tsx`); shared map types live in `map-config.ts` so SSR never imports maplibre-gl.
 - Map overlays (aircraft, trails, terrain, buildings) are re-installed in the `style.load` handler, because switching basemaps replaces the whole style.
 - Aircraft are drawn a few seconds in the past and interpolated between real position reports (`src/lib/smooth-motion.ts`); dead reckoning from speed/track only runs past the newest report, capped, then the aircraft is held and dimmed; the delay adapts to measured update lateness; polling cadence lives in `use-aircraft-feed.ts`.
-- Only free, keyless tile sources (OpenFreeMap, Esri imagery, AWS Terrarium DEM) are used.
+- Map tiles come only from free, keyless tile sources (OpenFreeMap, Esri imagery, AWS Terrarium DEM).
+- A backend is allowed (decision 2026-11-07): Supabase (sign-in, data, row-level security) and Cloudflare (hosting, caching, AI). Secrets live only in server-side environment variables, read through `src/lib/server-config.server.ts`; never in the repo, the browser bundle (no secret may start with `VITE_`) or logs. The Supabase URL and anon key are public by design and reach the browser through `getAuthConfig` (`src/lib/auth-config.functions.ts`); the service role key never does. Database changes are migrations in `supabase/migrations/` with row-level security on every table, and every `security definer` function revokes public execute.
 - Responsive variants (desktop side panel vs mobile bottom sheet) switch with CSS breakpoints, not JS, so SSR and first paint match.
 - App name lives in `src/config/brand.ts`.
 - Aircraft category (`kind`/`kindLabel`) is assigned server-side in `adsb.functions.ts` via `classifyAircraft` (`src/lib/aircraft-kind.ts`), so map icons, the panel and future features read one stored value.

@@ -15,6 +15,7 @@ SkyDeck is an independent project. It is inspired by the general category of fli
 - **Altitude-coloured trails**, optionally drawn in 3D at real altitude, plus a follow-aircraft mode
 - **Search** by callsign, registration, ICAO hex, aircraft type, airline name (when known) or airport code, with recent searches
 - **Shareable links, my location and saved views**: the address always describes the current view (map position, selected aircraft, basemap), so you can copy it; one button centres the map on you, and named views are kept in your browser
+- **Optional accounts**: sign in, create an account, sign out and delete the account (Settings, Account). Nothing needs an account yet; it is the foundation for saved data later. Email and password only (no Google sign-in yet)
 - **Smooth motion**: aircraft are drawn a few seconds behind the data and glide between real position reports instead of jumping when an update arrives. The delay adapts to the feed (about 10 s or more); Settings has a Live option with a shorter delay and more guessing. The selected aircraft's trail and panel values match the drawn moment
 - **Weather layers**: switches in the Layers menu for precipitation radar (past frames from RainViewer, with a play/pause timeline and no forecast), echo tops over the US, SIGMET and AIRMET polygons (US and international) and pilot reports from the last 2 hours. Click a polygon or dot for its raw text. Layers are off by default and remembered. Lightning and winds aloft are not included (see dev-plan.md)
 - **Airport pages**: search an airport code to see its weather (METAR, TAF, flight category), FAA delays and closure notices, runways, elevation, the current digital ATIS text, a short rule-based brief (written by fixed rules, not AI), a link to the FAA charts for US airports, a guess of the runway in use (from the wind and from aircraft lined up with a runway; air traffic control decides), and counts of aircraft near it (arriving and departing are inferred from altitude, climb or descent and heading). At high zoom the map also shows aprons, taxiway names and gate numbers near airports. "My location" also lists the nearest airports. Local time, NOTAMs, terminal buildings as a separate layer and airport cameras are not included
@@ -52,7 +53,7 @@ bun run dev
 
 Then open the URL that Vite prints (usually http://localhost:3000 or http://localhost:5173).
 
-**No API keys or environment variables are needed.** All data sources and map tiles are free and keyless (ACARS messages use Airframes' anonymous public API).
+**No API keys or environment variables are needed to run the map.** All data sources and map tiles are free and keyless (ACARS messages use Airframes' anonymous public API). Optional accounts (Settings, Account) need a Supabase project: copy `.env.example` to `.env` and fill in `SUPABASE_URL` and `SUPABASE_ANON_KEY`; without them the app works and the Account dialog says accounts are not available.
 
 ### Scripts
 

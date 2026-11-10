@@ -28,11 +28,17 @@ Planned (each in its own migration with its own policies, when its phase starts)
 
 ## Status of the real project
 
-A free Supabase project named `skydeck` (region us-east-1) was created on 2026-11-09. Both migrations in this folder were applied to it through the Supabase connector, which records them in the project's own migration list under its own timestamps (the file names here are the source of truth).
+A free Supabase project named `skydeck` (region us-east-1) was created on 2026-11-09. The migrations in this folder were applied to it through the Supabase connector, which records them in the project's own migration list under its own timestamps (the file names here are the source of truth).
 
 - `20261107000000_profiles.sql`: ran without errors. `profiles` has row-level security on (checked with the connector's table listing).
 - `20261109000000_revoke_handle_new_user_execute.sql`: added because the project's security advisor reported that `handle_new_user()` could be called through the public API (`/rest/v1/rpc/handle_new_user`). After the revoke the advisor reported no findings.
 
+## Account deletion function
+
+`20261109010000_delete_my_account.sql` adds `public.delete_my_account()`: a signed-in user deletes their own auth user, and the profile row goes with it (cascade). The id comes from the session (`auth.uid()`), never from an argument. Execute is revoked from `public` and `anon` and granted to `authenticated`. The Supabase security advisor therefore lists one warning ("signed-in users can execute a security definer function"); that is intended and is how users delete their own account without a server-side admin key.
+
+Checked on the real project on 2026-11-09 inside one rolled-back transaction: a new auth user got a profile row from the signup trigger, an `anon` call to the function was refused, and a call as that user removed both the user and the profile. It was also used from the browser through the Account dialog.
+
 ## NOT VERIFIED
 
-The signup trigger has not been exercised: no user has signed up yet, so it is not proven that a `profiles` row appears for a new user, or that the trigger still fires after the revoke (Postgres does not check EXECUTE when a trigger fires, but this was not tested). Test it with the first sign-in (plan item 18d).
+Sign-up through the app (and the confirmation email link) has not been exercised: the test user was created directly in the database. The Auth Site URL must be set in the Supabase dashboard (Authentication, URL Configuration) to the real site address before confirmation emails work.
