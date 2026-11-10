@@ -55,6 +55,10 @@ export interface LayerControls {
   onAirspaceControlled: (v: boolean) => void;
   airspaceSpecial: boolean;
   onAirspaceSpecial: (v: boolean) => void;
+  /** Day and night shading (Phase 24d), with sunrise and sunset at the map centre as a hint. */
+  night: boolean;
+  onNight: (v: boolean) => void;
+  nightHint: string;
 }
 
 export interface RulerControls {
@@ -290,6 +294,12 @@ export function MapTools({
               hint="Restricted, prohibited, warning, alert, MOA (US, zoom in)"
               checked={layers.airspaceSpecial}
               onChange={layers.onAirspaceSpecial}
+            />
+            <LayerRow
+              label="Day and night"
+              hint={layers.nightHint}
+              checked={layers.night}
+              onChange={layers.onNight}
             />
             <div className="hud-label mb-1 mt-3">Weather</div>
             <LayerRow
