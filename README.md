@@ -77,6 +77,7 @@ Then open the URL that Vite prints (usually http://localhost:3000 or http://loca
 | `bun run preview` | Does not currently work with the Cloudflare-targeted build |
 | `bun run test` | Run the tests once |
 | `bun run test:watch` | Run the tests in watch mode |
+| `bun run test:e2e` | Run the browser smoke tests (needs `bun x playwright install chromium-headless-shell` once) |
 | `bun run lint` | Lint the code |
 | `bun run format` | Format with Prettier |
 

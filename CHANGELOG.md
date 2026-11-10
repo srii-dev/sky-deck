@@ -6,6 +6,8 @@ All notable changes to SkyDeck. The format follows [Keep a Changelog](https://ke
 
 ### Added
 
+- End-to-end smoke tests (Phase 16f in part): Playwright (`bun run test:e2e`, Chromium headless only) loads every public page, the health, robots and sitemap addresses, the map page with the data calls blocked, and the not-found page. It runs against `vite dev`, as its own CI job. Screenshot tests (21k), flows through the map and other browsers are not built; the production build is not tested because it targets Cloudflare and previewing it needs wrangler, which is not installed.
+
 - Small items (Phase 22d, 22i, 15d): the ruler can start at the selected aircraft, Settings has switches for the kinds of in-page messages, and the header of the other pages has Search and Sign in links into the map.
 - ACARS card (Phase 6c in part, 6d): each message shows its original text labelled and copyable, and an Explain this message section with the metadata (unavailable where missing), a short glossary of standard abbreviations found in the text, and notes about empty or cut messages. Label codes are not explained because no verified list was found. The browse page (6b) and the other Phase 6 items were not built.
 - Early post-release ideas (Phase 24b, 24d, 24f): colour aircraft by airline, a Day and night layer with sunrise and sunset, and an embeddable map (`embed=1`) with a copyable iframe snippet. A map image to share (24e) and the rest of Phase 24 were not built.
