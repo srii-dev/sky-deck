@@ -22,7 +22,7 @@ No API keys are needed to run the app. Never commit secrets, `.env` files or rea
 
 ## The four checks
 
-Run these before opening a pull request. CI runs the same four on every pull request.
+Run these before opening a pull request. CI runs the same four on every pull request, plus the browser smoke tests (`bun run test:e2e`; install the browser once with `bun x playwright install chromium-headless-shell`).
 
 ```sh
 bun run test
