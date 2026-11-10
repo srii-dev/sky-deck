@@ -549,6 +549,13 @@ Settled on 2026-11-07: Backend (Supabase + Cloudflare; MongoDB Atlas free tier l
 10. How far the app should scale at launch (19a numbers) and whether to run an own ADS-B feeder (19d).
 11. When to disconnect the repository from Lovable on both ends (15a). Until then, the no-history-rewrite rule in AGENTS.md stays.
 
+**Answers from Sri (2026-11-10):**
+
+- Playwright (16f, 21k): approved as a dev dependency. Each browser download is still named (file, source, size) and asked about first.
+- Cloudflare (16b): Sri has an account and says it is connected. Not verified: no Cloudflare tools were visible in the assistant's session, and nothing is deployed. Deployment still needs Sri's go-ahead.
+- Name (15b, Decision 7): keep "SkyDeck". Not verified: no check of name clashes, domain or social handles was done. The domain will be bought after the final product is finished.
+- Contact (23g): a private address will be created once there is a domain. Until then the legal pages keep the GitHub issues page.
+
 ## Post-release phases
 
 Ideas for after the first public release. Not researched, not scheduled. Anything the research notes missed also goes here.
