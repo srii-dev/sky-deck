@@ -81,7 +81,7 @@ function stamp(d: Date): string {
 }
 
 /** For example "skydeck-trail-DAL123-20261108-1405.csv". */
-export function trailFilename(meta: TrailExportMeta, ext: "csv" | "gpx"): string {
+export function trailFilename(meta: TrailExportMeta, ext: "csv" | "gpx" | "kml"): string {
   return `skydeck-trail-${safeFilePart(aircraftLabel(meta))}-${stamp(meta.exportedAt)}.${ext}`;
 }
 
@@ -146,6 +146,40 @@ export function trailToGpx(trail: readonly TrailPoint[], meta: TrailExportMeta):
       "    </trkseg>",
       "  </trk>",
       "</gpx>",
+    ].join(NL) + NL
+  );
+}
+
+/** KML for Google Earth and similar: one line through every position, with altitude in metres above sea level. */
+export function trailToKml(trail: readonly TrailPoint[], meta: TrailExportMeta): string {
+  const name = xmlEscape(`SkyDeck trail ${aircraftLabel(meta)}`);
+  const desc = xmlEscape(
+    `${TRAIL_CREDIT} Altitudes are barometric altitude in metres, not height above ground.`,
+  );
+  const coords = exportablePoints(trail)
+    .map((p) => {
+      const alt = typeof p.altFt === "number" && Number.isFinite(p.altFt) ? p.altFt * FT_TO_M : 0;
+      return `          ${p.lon.toFixed(5)},${p.lat.toFixed(5)},${alt.toFixed(1)}`;
+    })
+    .join(NL);
+  return (
+    [
+      '<?xml version="1.0" encoding="UTF-8"?>',
+      '<kml xmlns="http://www.opengis.net/kml/2.2">',
+      "  <Document>",
+      `    <name>${name}</name>`,
+      `    <description>${desc}</description>`,
+      "    <Placemark>",
+      `      <name>${name}</name>`,
+      "      <LineString>",
+      "        <altitudeMode>absolute</altitudeMode>",
+      "        <coordinates>",
+      coords,
+      "        </coordinates>",
+      "      </LineString>",
+      "    </Placemark>",
+      "  </Document>",
+      "</kml>",
     ].join(NL) + NL
   );
 }

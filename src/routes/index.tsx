@@ -140,6 +140,8 @@ function SkyDeck() {
   const [chase, setChase] = useState(false);
   const [watchlistOpen, setWatchlistOpen] = useState(false);
   const [collectionOpen, setCollectionOpen] = useState(false);
+  // Clean view for a wall display (Phase 22k): hides the controls and panels, keeps the map, the credit and emergency alerts.
+  const [kiosk, setKiosk] = useState(false);
   const [units, setUnits] = useState<UnitSystem>("aviation");
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
   const [flyTarget, setFlyTarget] = useState<FlyTarget | null>(null);
@@ -473,14 +475,19 @@ function SkyDeck() {
       case "ruler":
         toggleRuler();
         return true;
+      case "kiosk":
+        setKiosk((v) => !v);
+        return true;
       case "close": {
         const target = escapeTarget({
+          kiosk,
           ruler: rulerActive,
           aircraft: !!selectedHex,
           nearby: !!nearby,
           airport: !!airport,
         });
-        if (target === "ruler") toggleRuler();
+        if (target === "kiosk") setKiosk(false);
+        else if (target === "ruler") toggleRuler();
         else if (target === "aircraft") onSelect(null);
         else if (target === "nearby") setNearby(null);
         else if (target === "airport") setAirport(null);
@@ -739,7 +746,7 @@ function SkyDeck() {
       {/* Top HUD */}
       <div
         ref={hudRef}
-        className="pointer-events-none absolute inset-x-0 top-0 z-20 flex flex-col gap-2 p-3 pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))] pt-[max(0.75rem,env(safe-area-inset-top))] md:flex-row md:flex-wrap md:items-start lg:flex-nowrap"
+        className={`pointer-events-none absolute inset-x-0 top-0 z-20 flex flex-col gap-2 p-3 pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))] pt-[max(0.75rem,env(safe-area-inset-top))] md:flex-row md:flex-wrap md:items-start lg:flex-nowrap ${kiosk ? "hidden" : ""}`}
       >
         <div className="glass-panel pointer-events-auto flex h-11 items-center gap-4 rounded-md px-3">
           <div className="flex items-baseline gap-1.5">
@@ -858,6 +865,7 @@ function SkyDeck() {
                 filters={filters}
                 onChange={setFilters}
                 aircraft={feed.aircraft}
+                shown={visible}
                 units={units}
               />
               {/* In the popover, not the HUD row: that row has no spare width at ~1280 px. */}
@@ -887,7 +895,7 @@ function SkyDeck() {
 
       {/* Map tools: share link, my location, saved views */}
       <div
-        className="pointer-events-none absolute left-[max(0.75rem,env(safe-area-inset-left))] z-10"
+        className={`pointer-events-none absolute left-[max(0.75rem,env(safe-area-inset-left))] z-10 ${kiosk ? "hidden" : ""}`}
         style={{ top: "calc(var(--hud-h, 76px) + 8px)" }}
       >
         <MapTools
@@ -986,7 +994,7 @@ function SkyDeck() {
 
       {
         <div
-          className={`pointer-events-none absolute bottom-[max(0.75rem,env(safe-area-inset-bottom))] left-[max(0.75rem,env(safe-area-inset-left))] z-20 ${selected ? "hidden md:block" : ""}`}
+          className={`pointer-events-none absolute bottom-[max(0.75rem,env(safe-area-inset-bottom))] left-[max(0.75rem,env(safe-area-inset-left))] z-20 ${kiosk ? "hidden" : selected ? "hidden md:block" : ""}`}
         >
           <div className="mb-2 hidden md:block [@media(max-height:480px)]:hidden">
             <AircraftTypesLegend />
@@ -995,7 +1003,7 @@ function SkyDeck() {
         </div>
       }
 
-      {selected && !replay.source && (
+      {selected && !replay.source && !kiosk && (
         <AircraftPanel
           key={selected.hex}
           aircraft={panelAircraft ?? selected}
@@ -1038,7 +1046,7 @@ function SkyDeck() {
         replay.source ||
         areaPick) && (
         <div
-          className={`pointer-events-none absolute inset-x-0 bottom-[max(5.5rem,env(safe-area-inset-bottom))] z-20 flex-col items-center gap-2 pl-14 pr-3 md:px-3 md:bottom-3 ${(selected || airport) && !replay.source ? "hidden xl:flex" : "flex"}`}
+          className={`pointer-events-none absolute inset-x-0 bottom-[max(5.5rem,env(safe-area-inset-bottom))] z-20 flex-col items-center gap-2 pl-14 pr-3 md:px-3 md:bottom-3 ${kiosk ? "hidden" : (selected || airport) && !replay.source ? "hidden xl:flex" : "flex"}`}
         >
           {weatherNotice && (
             <div className="glass-panel pointer-events-auto rounded-md px-3 py-1.5 text-xs text-muted-foreground">
@@ -1083,7 +1091,7 @@ function SkyDeck() {
         </div>
       )}
 
-      {airport && !selected && !replay.source && (
+      {airport && !selected && !replay.source && !kiosk && (
         <AirportPanel
           key={airport.icao}
           airport={airport}
@@ -1125,10 +1133,22 @@ function SkyDeck() {
         shortcutsOn={shortcutsOn}
         onShortcutsOn={setShortcutsOn}
         onOpenGuide={() => setGuideOpen(true)}
+        onKiosk={() => setKiosk(true)}
         onOpenShortcuts={() => setShortcutsOpen(true)}
         onOpenCredits={() => setCreditsOpen(true)}
         onOpenAccount={() => setAccountOpen(true)}
       />
+      {kiosk && (
+        <div className="pointer-events-none absolute inset-x-0 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-30 flex justify-center">
+          <button
+            type="button"
+            onClick={() => setKiosk(false)}
+            className="glass-panel pointer-events-auto rounded-md px-3 py-1.5 text-xs text-muted-foreground opacity-50 transition-opacity hover:opacity-100 focus-visible:opacity-100"
+          >
+            Exit clean view (K or Esc)
+          </button>
+        </div>
+      )}
       <CollectionDialog
         open={collectionOpen}
         onOpenChange={setCollectionOpen}

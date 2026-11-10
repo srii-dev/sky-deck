@@ -20,17 +20,22 @@ import {
 } from "@/lib/aircraft";
 import { airlineName } from "@/lib/airlines";
 import { fmtAltitude, type UnitSystem } from "@/lib/units";
+import { aircraftListFilename, aircraftListToCsv } from "@/lib/aircraft-list-export";
+import { downloadText } from "@/lib/download";
+import { toast } from "sonner";
 
 interface Props {
   filters: Filters;
   onChange: (f: Filters) => void;
   aircraft: Aircraft[];
+  /** The aircraft the map is showing after the filters (for the list download). */
+  shown?: Aircraft[] | undefined;
   units: UnitSystem;
 }
 
 const ANY = "__any";
 
-export function FiltersPanel({ filters, onChange, aircraft, units }: Props) {
+export function FiltersPanel({ filters, onChange, aircraft, shown, units }: Props) {
   const airlines = useMemo(() => {
     const counts = new Map<string, number>();
     for (const a of aircraft) {
@@ -140,6 +145,29 @@ export function FiltersPanel({ filters, onChange, aircraft, units }: Props) {
           onCheckedChange={(v) => set({ emergencyOnly: v })}
         />
       </div>
+      <Button
+        type="button"
+        variant="secondary"
+        size="sm"
+        className="h-9 w-full"
+        disabled={(shown ?? aircraft).length === 0}
+        onClick={() => {
+          const list = shown ?? aircraft;
+          const now = new Date();
+          const ok = downloadText(
+            aircraftListFilename(now),
+            "text/csv;charset=utf-8",
+            aircraftListToCsv(list, { exportedAt: now, source: list[0]?.source }),
+          );
+          toast(
+            ok
+              ? `Saved ${Math.min(list.length, 5000)} aircraft as CSV`
+              : "Download is not available here",
+          );
+        }}
+      >
+        Download the {(shown ?? aircraft).length} aircraft shown (CSV)
+      </Button>
     </div>
   );
 }
