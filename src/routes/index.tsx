@@ -39,6 +39,8 @@ import { useFlagPref } from "@/hooks/use-flag-pref";
 import { usePersonalData } from "@/hooks/use-personal-data";
 import { useWatchAlerts } from "@/hooks/use-watch-alerts";
 import { WatchlistDialog } from "@/components/skydeck/WatchlistDialog";
+import { CollectionDialog } from "@/components/skydeck/CollectionDialog";
+import { useCollection } from "@/hooks/use-collection";
 import { ReplayBar } from "@/components/skydeck/ReplayBar";
 import { AlertRulesDialog } from "@/components/skydeck/AlertRulesDialog";
 import { EMPTY_DRAFT, type RuleDraft } from "@/lib/alert-rule-draft";
@@ -126,6 +128,7 @@ function SkyDeck() {
   const [follow, setFollow] = useState(false);
   const [chase, setChase] = useState(false);
   const [watchlistOpen, setWatchlistOpen] = useState(false);
+  const [collectionOpen, setCollectionOpen] = useState(false);
   const [units, setUnits] = useState<UnitSystem>("aviation");
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
   const [flyTarget, setFlyTarget] = useState<FlyTarget | null>(null);
@@ -626,6 +629,8 @@ function SkyDeck() {
     enabled: alertsOn,
     onShow: (hex) => onSelect(hex),
   });
+  // Types and registrations the visitor has opened, achievements and daily challenges (Phase 13).
+  const collection = useCollection(selected);
   const selectedHexForRecent = selected?.hex ?? null;
   useEffect(() => {
     if (!selected || selected.hex.startsWith("mock-")) return;
@@ -881,6 +886,7 @@ function SkyDeck() {
           onLocated={showNearby}
           onOpenSettings={() => setSettingsOpen(true)}
           onOpenWatchlist={() => setWatchlistOpen(true)}
+          onOpenCollection={() => setCollectionOpen(true)}
           watchCount={personal.watch.length}
           replay={{
             available: replay.available,
@@ -1111,6 +1117,12 @@ function SkyDeck() {
         onOpenShortcuts={() => setShortcutsOpen(true)}
         onOpenCredits={() => setCreditsOpen(true)}
         onOpenAccount={() => setAccountOpen(true)}
+      />
+      <CollectionDialog
+        open={collectionOpen}
+        onOpenChange={setCollectionOpen}
+        collection={collection.collection}
+        onClear={collection.clear}
       />
       <WatchlistDialog
         open={watchlistOpen}

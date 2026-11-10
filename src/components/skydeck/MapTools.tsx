@@ -12,6 +12,7 @@ import {
   Settings,
   Star,
   Trash2,
+  Trophy,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -78,6 +79,8 @@ interface Props {
   onOpenSettings: () => void;
   /** Opens the watchlist dialog (Phase 5a). */
   onOpenWatchlist: () => void;
+  /** Opens the collection dialog (Phase 13). */
+  onOpenCollection: () => void;
   watchCount: number;
   /** Session replay (Phase 9a). */
   replay: { available: boolean; active: boolean; onStart: () => void; onStop: () => void };
@@ -124,6 +127,7 @@ export function MapTools({
   onLocated,
   onOpenSettings,
   onOpenWatchlist,
+  onOpenCollection,
   watchCount,
   replay,
 }: Props) {
@@ -429,6 +433,16 @@ export function MapTools({
           onClick={onOpenWatchlist}
         >
           <Star />
+        </Button>
+        <Button
+          variant="panel"
+          size="icon"
+          className={btn}
+          aria-label="Collection"
+          title="Collection, achievements and daily challenges"
+          onClick={onOpenCollection}
+        >
+          <Trophy />
         </Button>
         <Button
           variant="panel"
