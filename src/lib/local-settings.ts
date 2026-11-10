@@ -6,6 +6,7 @@
 import { FLAGS_STORAGE_KEY } from "./flags";
 import { RECENT_SEARCHES_KEY } from "./search-rank";
 import { SAVED_VIEWS_KEY } from "./saved-views";
+import { ALERT_RULES_KEY } from "./alert-rules";
 import { RECENT_FLIGHTS_KEY, WATCHLIST_KEY } from "./watchlist";
 
 export const STORAGE_KEYS = {
@@ -24,6 +25,7 @@ export const STORAGE_KEYS = {
   guideSeen: "skydeck:guide-seen",
   watchlist: WATCHLIST_KEY,
   recentFlights: RECENT_FLIGHTS_KEY,
+  alertRules: ALERT_RULES_KEY,
   /** Alerts for watched items (default on). */
   watchAlerts: "skydeck:watch-alerts",
 } as const;

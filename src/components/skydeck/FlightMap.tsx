@@ -32,6 +32,7 @@ import {
   reachableAirportsGeoJSON,
 } from "@/lib/reachable-airports";
 import { parseShareParams } from "@/lib/share-link";
+import { applyAlertAreas, type AlertAreaDrawing } from "./alert-area-layers";
 import { advanceClock, trailUpTo, visibleAt, type ReplaySource } from "@/lib/replay";
 import { buildPlaneSdf, buildSvgSdf } from "./plane-icon";
 import { LEGEND_KINDS, svgMarkup } from "./aircraft-icons";
@@ -288,6 +289,11 @@ export interface FlightMapProps {
   chase?: boolean | undefined;
   /** Session replay (Phase 9a): draw this recording at its clock time instead of the live aircraft. */
   replay?: ReplaySource | null | undefined;
+  /** Areas used by alert rules, and the one being drawn (Phase 10c). */
+  alertAreas?: readonly AlertAreaDrawing[] | undefined;
+  /** Area drawing: while on, a map click is reported to onPick instead of selecting something. */
+  pickMode?: boolean | undefined;
+  onPick?: ((point: [number, number]) => void) | undefined;
   /** Weather layers to draw (radar, echo tops, advisories, pilot reports). */
   weather?: WeatherMapState | undefined;
   /** A click on a weather item (its id), or null when the click hit none. */
@@ -559,6 +565,7 @@ export default function FlightMap(props: FlightMapProps) {
 
     // Aprons, taxiway names and gates at high zoom (Phase 4e), below trails and aircraft.
     installAirportDetail(map, propsRef.current.basemap, terrainBeforeId(map));
+    applyAlertAreas(map, propsRef.current.alertAreas ?? [], terrainBeforeId(map));
     // Radar, echo tops, advisories and pilot reports (Phase 7), below trails and aircraft.
     applyWeather(map, propsRef.current.weather ?? NO_WEATHER, terrainBeforeId(map));
     applyRouteAirspace(
@@ -986,6 +993,10 @@ export default function FlightMap(props: FlightMapProps) {
     emitViewport();
 
     map.on("click", (e) => {
+      if (propsRef.current.pickMode) {
+        propsRef.current.onPick?.([e.lngLat.lng, e.lngLat.lat]);
+        return;
+      }
       if (propsRef.current.rulerActive) {
         propsRef.current.onRulerPoint?.([e.lngLat.lng, e.lngLat.lat]);
         return;
@@ -1226,6 +1237,17 @@ export default function FlightMap(props: FlightMapProps) {
       typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
     map.easeTo({ pitch: 68, zoom: Math.max(map.getZoom(), 12), duration: reduce ? 0 : 900 });
   }, [props.chase, props.follow]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !styleReadyRef.current) return;
+    applyAlertAreas(map, props.alertAreas ?? [], terrainBeforeId(map));
+  }, [props.alertAreas]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (map) map.getCanvas().style.cursor = props.pickMode ? "crosshair" : "";
+  }, [props.pickMode]);
 
   useEffect(() => {
     const map = mapRef.current;

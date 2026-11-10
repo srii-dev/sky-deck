@@ -59,6 +59,9 @@ interface Props {
   onOpenRecent: (r: RecentFlight) => void;
   onClearRecent: () => void;
   onOpenAccount: () => void;
+  /** Opens the alert rules dialog (Phase 10). */
+  onOpenRules: () => void;
+  ruleCount: number;
 }
 
 const SYNC_TEXT: Record<SyncStatus, string> = {
@@ -88,6 +91,9 @@ export function WatchlistDialog(p: Props) {
             </span>
             <Switch checked={p.alertsOn} onCheckedChange={p.onAlertsOn} />
           </label>
+          <Button variant="outline" size="sm" onClick={p.onOpenRules}>
+            Alert rules{p.ruleCount > 0 ? " (" + p.ruleCount + ")" : ""}…
+          </Button>
         </section>
 
         <section className="space-y-2" aria-label="Watched items">

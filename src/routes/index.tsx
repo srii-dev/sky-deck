@@ -40,6 +40,12 @@ import { usePersonalData } from "@/hooks/use-personal-data";
 import { useWatchAlerts } from "@/hooks/use-watch-alerts";
 import { WatchlistDialog } from "@/components/skydeck/WatchlistDialog";
 import { ReplayBar } from "@/components/skydeck/ReplayBar";
+import { AlertRulesDialog } from "@/components/skydeck/AlertRulesDialog";
+import { EMPTY_DRAFT, type RuleDraft } from "@/lib/alert-rule-draft";
+import type { AlertAreaDrawing } from "@/components/skydeck/alert-area-layers";
+import { useAlertRules } from "@/hooks/use-alert-rules";
+import { resolvePlace } from "@/lib/place-resolver";
+import { distanceNm } from "@/lib/route-geometry";
 import { useReplay } from "@/hooks/use-replay";
 import { watchMatches, type RecentFlight, type WatchItem } from "@/lib/watchlist";
 import { useShortcuts } from "@/hooks/use-shortcuts";
@@ -539,6 +545,70 @@ function SkyDeck() {
 
   // Watchlist, recently viewed flights and alerts (Phase 5).
   const personal = usePersonalData(auth);
+  // Alert rules (Phase 10): conditions checked against every update, an area drawn on the map.
+  const alertRules = useAlertRules({
+    aircraft: feed.aircraft,
+    enabled: alertsOn,
+    onShow: (hex) => onSelect(hex),
+  });
+  const [rulesOpen, setRulesOpen] = useState(false);
+  const [ruleDraft, setRuleDraft] = useState<RuleDraft>(EMPTY_DRAFT);
+  const [parseNote, setParseNote] = useState<string[] | null>(null);
+  const [areaPick, setAreaPick] = useState<{ center: [number, number] | null } | null>(null);
+  const placeResolver = useMemo(
+    () => (text: string) => resolvePlace(text, currentAirportList()),
+    // The larger airport list replaces the short one when it has loaded.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [rulesOpen],
+  );
+  useEffect(() => {
+    if (rulesOpen) void loadLargeAirports().catch(() => undefined);
+  }, [rulesOpen]);
+  const saveRule = () => {
+    const r = alertRules.add({ name: ruleDraft.name, conditions: ruleDraft.conditions });
+    if (r === "added") {
+      toast("Rule created");
+      setRuleDraft(EMPTY_DRAFT);
+      setParseNote(null);
+    } else if (r === "full") toast.error("You have the most rules (20). Delete one first.");
+    else toast.error("That rule is not valid. Check the altitudes.");
+  };
+  const onAreaPick = (p: [number, number]) => {
+    if (!areaPick) return;
+    if (!areaPick.center) {
+      setAreaPick({ center: p });
+      return;
+    }
+    const radius = Math.min(
+      500,
+      Math.max(
+        1,
+        distanceNm({ lat: areaPick.center[1], lon: areaPick.center[0] }, { lat: p[1], lon: p[0] }),
+      ),
+    );
+    setRuleDraft((d) => ({
+      ...d,
+      conditions: {
+        ...d.conditions,
+        area: {
+          lat: areaPick.center![1],
+          lon: areaPick.center![0],
+          radiusNm: Math.round(radius * 10) / 10,
+          label: "drawn area",
+        },
+      },
+    }));
+    setAreaPick(null);
+    setRulesOpen(true);
+  };
+  const alertAreas = useMemo<AlertAreaDrawing[]>(() => {
+    const list: AlertAreaDrawing[] = alertRules.rules
+      .filter((r) => r.enabled && r.conditions.area)
+      .map((r) => ({ id: r.id, area: r.conditions.area! }));
+    if (ruleDraft.conditions.area)
+      list.push({ id: "draft", area: ruleDraft.conditions.area, preview: true });
+    return list;
+  }, [alertRules.rules, ruleDraft.conditions.area]);
   // Session replay (Phase 9a): record every update, play back on request.
   const replay = useReplay(feed.aircraft, feed.fetchedAt);
   useWatchAlerts({
@@ -625,6 +695,9 @@ function SkyDeck() {
             smoothMotion={smoothMotion}
             chase={chase && follow}
             replay={replay.source}
+            alertAreas={alertAreas}
+            pickMode={!!areaPick}
+            onPick={onAreaPick}
             onMotionDelay={setMotionDelaySec}
             onSelectedMotion={(hex, m) => setSelectedMotion({ hex, m })}
             weather={weather.state}
@@ -936,7 +1009,8 @@ function SkyDeck() {
         weatherNotice ||
         airspaceEntry ||
         airspaceNotice ||
-        replay.source) && (
+        replay.source ||
+        areaPick) && (
         <div
           className={`pointer-events-none absolute inset-x-0 bottom-[max(5.5rem,env(safe-area-inset-bottom))] z-20 flex-col items-center gap-2 pl-14 pr-3 md:px-3 md:bottom-3 ${(selected || airport) && !replay.source ? "hidden xl:flex" : "flex"}`}
         >
@@ -955,6 +1029,28 @@ function SkyDeck() {
           )}
           {weatherEntry && (
             <WeatherInfoCard entry={weatherEntry} onClose={() => setWeatherPickId(null)} />
+          )}
+          {areaPick && (
+            <div
+              role="status"
+              className="glass-panel pointer-events-auto flex items-center gap-3 rounded-md px-3 py-2 text-sm"
+            >
+              <span>
+                {areaPick.center
+                  ? "Now click a point on the edge of the area."
+                  : "Click the centre of the alert area."}
+              </span>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setAreaPick(null);
+                  setRulesOpen(true);
+                }}
+              >
+                Cancel
+              </Button>
+            </div>
           )}
           {replay.source && <ReplayBar replay={replay} />}
           {radarOn && <RadarTimeline radar={weather.radar} now={Date.now()} />}
@@ -1027,6 +1123,30 @@ function SkyDeck() {
           setAccountEverOpened(true);
           setAccountOpen(true);
         }}
+        onOpenRules={() => {
+          setWatchlistOpen(false);
+          setRulesOpen(true);
+        }}
+        ruleCount={alertRules.rules.length}
+      />
+      <AlertRulesDialog
+        open={rulesOpen}
+        onOpenChange={setRulesOpen}
+        rules={alertRules.rules}
+        aircraft={allAircraft}
+        draft={ruleDraft}
+        onDraft={setRuleDraft}
+        resolvePlace={placeResolver}
+        onSave={saveRule}
+        onRemove={alertRules.remove}
+        onToggle={alertRules.setEnabled}
+        onDrawArea={() => {
+          setRulesOpen(false);
+          setAreaPick({ center: null });
+        }}
+        alertsOn={alertsOn}
+        parseNote={parseNote}
+        onParseNote={setParseNote}
       />
       <AccountDialog
         open={accountOpen}

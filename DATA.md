@@ -6,6 +6,10 @@ What SkyDeck stores, where, for how long, and how to delete it. This is the work
 
 Saved with localStorage under these keys (the list is `STORAGE_KEYS` in `src/lib/local-settings.ts`): units, map style, last map position, layer choices, saved views, recent searches, feature flags, battery saver, smooth motion, shortcuts and whether the quick guide was seen. They stay until the visitor clears them: Settings, "Delete my saved data" removes them, and "Download my data (JSON)" exports them.
 
+## Alert rules (this browser only)
+
+The rules a visitor creates (conditions, a name, areas as a centre and radius) are kept in this browser's localStorage under `skydeck:alert-rules`. They are not sent anywhere or saved to an account. Settings, Delete my saved data removes them.
+
 ## With an account (Supabase, only if the visitor creates one)
 
 | Data                                                                                                | Where                                                               | Why                                     | Deleted                                                           |
