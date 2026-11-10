@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Help and FAQ
+    url: https://github.com/srii-dev8/sky-deck#readme
+    about: Read how SkyDeck works and what its limits are before reporting a problem.

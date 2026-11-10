@@ -3,6 +3,7 @@ import { Plane } from "lucide-react";
 
 import { APP_NAME, APP_TAGLINE, REPO_URL } from "@/config/brand";
 import { LEGAL_PAGES } from "@/lib/legal-content";
+import { FEEDBACK_URL, SITE_PAGES } from "@/lib/site-pages";
 import { cn } from "@/lib/utils";
 import { CreditsButton } from "./CreditsDialog";
 
@@ -11,9 +12,10 @@ import { CreditsButton } from "./CreditsDialog";
  * it fills the whole screen. Navigation lists only pages that exist.
  */
 
-const NAV: { to: "/" | "/inspector"; label: string }[] = [
+const NAV: { to: "/" | "/inspector" | "/help"; label: string }[] = [
   { to: "/", label: "Map" },
   { to: "/inspector", label: "Inspector" },
+  { to: "/help", label: "Help" },
 ];
 
 export function SiteHeader({ className }: { className?: string }) {
@@ -47,6 +49,13 @@ export function SiteHeader({ className }: { className?: string }) {
   );
 }
 
+const FOOTER_LINKS: { path: string; navLabel: string }[] = [
+  ...SITE_PAGES.map((p) => ({ path: p.path, navLabel: p.navLabel })),
+  { path: "/whats-new", navLabel: "What's new" },
+  { path: "/status", navLabel: "Status" },
+  ...LEGAL_PAGES.map((p) => ({ path: p.path, navLabel: p.navLabel })),
+];
+
 export function SiteFooter({ className }: { className?: string }) {
   return (
     <footer className={cn("border-t border-border bg-card/40", className)}>
@@ -56,10 +65,10 @@ export function SiteFooter({ className }: { className?: string }) {
           only, not for navigation or safety decisions.
         </p>
         <nav aria-label="About and legal" className="flex flex-wrap items-center gap-x-4 gap-y-1">
-          {LEGAL_PAGES.map((p) => (
+          {FOOTER_LINKS.map((p) => (
             <Link
               key={p.path}
-              to={p.path}
+              to={p.path as "/about"}
               className="text-primary underline-offset-2 hover:underline"
             >
               {p.navLabel}
@@ -68,6 +77,14 @@ export function SiteFooter({ className }: { className?: string }) {
         </nav>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
           <CreditsButton className="text-primary underline-offset-2 hover:underline" />
+          <a
+            href={FEEDBACK_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary underline-offset-2 hover:underline"
+          >
+            Feedback
+          </a>
           <a
             href={REPO_URL}
             target="_blank"

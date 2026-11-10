@@ -12,6 +12,10 @@ export const SITEMAP_PATHS: readonly string[] = [
   "/privacy",
   "/terms",
   "/disclaimer",
+  "/help",
+  "/whats-new",
+  "/press",
+  "/status",
 ];
 
 /** A clean origin (https, or http for localhost) from a variable, or null when it is empty or unusable. */
