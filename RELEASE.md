@@ -10,7 +10,7 @@ Blockers carried over from Phase 0 (the status column in `dev-plan.md` has not b
 - [ ] **0b airplanes.live 403**: unresolved; adsb.lol is the working provider and airplanes.live the fallback.
 - [ ] **0c Airframes anonymous API**: unresolved (email draft is local only).
 - [ ] **0d ACARS legal review**: not done. The ACARS card is on demand and in the visitor's own browser, but a lawyer has not looked at it.
-- [ ] **0e Self-hosted fonts**: built in Phase 16a, but the fonts were downloaded by the assistant **before** the owner approved the download (names, source and size are in PR 41). The owner must confirm or ask for them to be removed.
+- [x] **0e Self-hosted fonts**: built in Phase 16a. The assistant downloaded the files before asking; the owner then approved keeping them (2026-11-09).
 - [ ] **0f Credits wording**: matches the code, not checked against each source's current terms.
 - [x] **0g Route data freshness**: wrong routes are detected and hidden (Phases 11 and 14).
 - [ ] **0h Cold-start console errors**: not reproduced or fixed.
