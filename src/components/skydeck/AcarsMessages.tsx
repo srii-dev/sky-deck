@@ -9,6 +9,7 @@ import {
   type AcarsFetchResult,
 } from "@/lib/airframes-client";
 import type { AcarsMessage } from "@/lib/acars-messages";
+import { EXPLAINED_BY, summarizeMessage } from "@/lib/acars-explain";
 
 export const ACARS_DISCLOSURE =
   "Loading contacts Airframes directly from your browser, so Airframes can see your IP address.";
@@ -36,15 +37,72 @@ function MessageRow({ m }: { m: AcarsMessage }) {
     m.frequency != null ? `${m.frequency} MHz` : null,
     route,
   ].filter(Boolean);
+  const summary = summarizeMessage(m);
+  const [copied, setCopied] = useState<"idle" | "done" | "blocked">("idle");
+  const copy = () => {
+    const clip = typeof navigator === "undefined" ? undefined : navigator.clipboard;
+    if (!clip) {
+      setCopied("blocked");
+      return;
+    }
+    clip.writeText(m.text).then(
+      () => setCopied("done"),
+      () => setCopied("blocked"),
+    );
+  };
   return (
     <li className="rounded border border-border/40 bg-background/40 px-2 py-1.5">
       <div className="text-[11px] text-muted-foreground">{meta.join(" | ")}</div>
       {m.text ? (
-        // Plain text only: React escapes it, and it is never inserted as HTML.
-        <pre className="data-value mt-1 whitespace-pre-wrap break-words text-xs">{m.text}</pre>
+        <>
+          <div className="mt-1 flex items-center justify-between gap-2">
+            <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+              Original received message
+            </span>
+            <button
+              type="button"
+              onClick={copy}
+              className="text-[10px] text-primary underline-offset-2 hover:underline"
+            >
+              {copied === "done" ? "Copied" : copied === "blocked" ? "Copy blocked" : "Copy"}
+            </button>
+          </div>
+          {/* Plain text only: React escapes it, and it is never inserted as HTML. */}
+          <pre className="data-value mt-0.5 whitespace-pre-wrap break-words text-xs">{m.text}</pre>
+        </>
       ) : (
         <div className="mt-1 text-xs text-muted-foreground">(no text)</div>
       )}
+      <details className="mt-1.5">
+        <summary className="cursor-pointer text-[11px] text-primary">
+          Explain this message{summary.partial ? " (partial)" : ""}
+        </summary>
+        <dl className="mt-1 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-[11px]">
+          {summary.fields.map((f) => (
+            <div key={f.label} className="contents">
+              <dt className="text-muted-foreground">{f.label}</dt>
+              <dd className={f.value ? "" : "italic text-muted-foreground"}>
+                {f.value ?? "unavailable"}
+              </dd>
+            </div>
+          ))}
+        </dl>
+        {summary.abbreviations.length > 0 && (
+          <ul className="mt-1.5 space-y-0.5 text-[11px]">
+            {summary.abbreviations.map((a) => (
+              <li key={a.abbr}>
+                <span className="data-value">{a.abbr}</span>: {a.meaning}
+              </li>
+            ))}
+          </ul>
+        )}
+        {summary.notes.map((n) => (
+          <p key={n} className="mt-1 text-[11px] text-muted-foreground">
+            {n}
+          </p>
+        ))}
+        <p className="mt-1 text-[10px] text-muted-foreground/80">{EXPLAINED_BY}</p>
+      </details>
     </li>
   );
 }
