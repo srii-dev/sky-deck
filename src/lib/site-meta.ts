@@ -5,7 +5,14 @@
  */
 
 /** The pages a visitor can open, for the sitemap. */
-export const SITEMAP_PATHS: readonly string[] = ["/", "/inspector"];
+export const SITEMAP_PATHS: readonly string[] = [
+  "/",
+  "/inspector",
+  "/about",
+  "/privacy",
+  "/terms",
+  "/disclaimer",
+];
 
 /** A clean origin (https, or http for localhost) from a variable, or null when it is empty or unusable. */
 export function normalizeSiteUrl(raw: string | null | undefined): string | null {

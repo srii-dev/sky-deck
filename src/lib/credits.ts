@@ -197,9 +197,10 @@ export const CREDITS: readonly CreditEntry[] = [
     id: "fonts",
     group: "Fonts",
     name: "Chakra Petch and JetBrains Mono",
-    usedFor: "The app's typefaces, loaded from Google Fonts",
-    credit: "Chakra Petch and JetBrains Mono, served by Google Fonts.",
-    licence: "Open-licensed fonts (SIL Open Font License).",
+    usedFor: "The app's typefaces, served from this site",
+    credit:
+      "Chakra Petch (Cadson Demak) and JetBrains Mono (JetBrains), copied from Google Fonts and served by SkyDeck itself.",
+    licence: "SIL Open Font License 1.1, which allows this use.",
     links: [
       { label: "Chakra Petch", href: "https://fonts.google.com/specimen/Chakra+Petch" },
       { label: "JetBrains Mono", href: "https://fonts.google.com/specimen/JetBrains+Mono" },

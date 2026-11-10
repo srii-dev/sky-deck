@@ -100,17 +100,28 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:card", content: "summary_large_image" },
     ],
     links: [
-      { rel: "preconnect", href: "https://fonts.googleapis.com" },
-      { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
+      // The two fonts are served from /fonts (see styles.css); the main ones are fetched early.
       {
-        rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap",
+        rel: "preload",
+        href: "/fonts/chakra-petch-400-latin.woff2",
+        as: "font",
+        type: "font/woff2",
+        crossOrigin: "anonymous",
+      },
+      {
+        rel: "preload",
+        href: "/fonts/jetbrains-mono-400-latin.woff2",
+        as: "font",
+        type: "font/woff2",
+        crossOrigin: "anonymous",
       },
       {
         rel: "stylesheet",
         href: appCss,
       },
       { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
+      { rel: "manifest", href: "/manifest.webmanifest" },
+      { rel: "apple-touch-icon", href: "/icons/apple-touch-icon.png" },
       // Only once the site has an address (SITE_URL); the query string never belongs in it.
       ...(canonicalUrl(loaderData ?? null, match.pathname)
         ? [{ rel: "canonical", href: canonicalUrl(loaderData ?? null, match.pathname)! }]
@@ -141,6 +152,14 @@ function RootShell({ children }: { children: ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const theme = useTheme();
+  // The service worker (public/sw.js) only runs in the built app, never in development.
+  useEffect(() => {
+    if (import.meta.env.PROD && "serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js").catch(() => {
+        /* the app works without it */
+      });
+    }
+  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>

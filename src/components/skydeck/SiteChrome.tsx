@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { Plane } from "lucide-react";
 
 import { APP_NAME, APP_TAGLINE, REPO_URL } from "@/config/brand";
+import { LEGAL_PAGES } from "@/lib/legal-content";
 import { cn } from "@/lib/utils";
 import { CreditsButton } from "./CreditsDialog";
 
@@ -54,6 +55,17 @@ export function SiteFooter({ className }: { className?: string }) {
           Positions come from public ADS-B feeds and can be late or wrong. Educational and hobby use
           only, not for navigation or safety decisions.
         </p>
+        <nav aria-label="About and legal" className="flex flex-wrap items-center gap-x-4 gap-y-1">
+          {LEGAL_PAGES.map((p) => (
+            <Link
+              key={p.path}
+              to={p.path}
+              className="text-primary underline-offset-2 hover:underline"
+            >
+              {p.navLabel}
+            </Link>
+          ))}
+        </nav>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
           <CreditsButton className="text-primary underline-offset-2 hover:underline" />
           <a

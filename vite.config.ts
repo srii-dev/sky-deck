@@ -7,6 +7,19 @@
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 
 export default defineConfig({
+  vite: {
+    build: {
+      rollupOptions: {
+        output: {
+          // The map library is large and changes rarely: its own file is cached by the browser across our releases (Phase 16d).
+          manualChunks(id: string) {
+            if (id.includes("node_modules/maplibre-gl")) return "maplibre";
+            return undefined;
+          },
+        },
+      },
+    },
+  },
   tanstackStart: {
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
     // nitro/vite builds from this
