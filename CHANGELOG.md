@@ -6,6 +6,7 @@ All notable changes to SkyDeck. The format follows [Keep a Changelog](https://ke
 
 ### Added
 
+- Error reports for errors no boundary sees (Phase 21c): script errors in event handlers and timers and unhandled promise rejections are sent to the same server log line, at most five per page and without browser-extension and resize noise. The CI dependency audit now fails on high or critical advisories (Phase 21g).
 - Refresh budget for the aircraft feed (Phase 19i): the server limits optional upstream refreshes per minute, keeping busy tiles fresh and answering quiet ones from a slightly older copy (never older than 60 s). Set with `FEED_BUDGET_PER_MIN` (default 90). A store shared between server instances (19h) was not built.
 - Community pages (Phase 23a, 23b, 23c, 23d, 23f, 23g in part, 23h in part): Help and FAQ, What's new (from this changelog), a status page that asks the data providers, a press kit, issue templates behind a Feedback link, and written terms for feedback and a takedown process. A moderation page (23e) was not built.
 - Final testing notes (Phase 17): `RELEASE.md` with the release checklist, the security review, failure drills, the accessibility check, a soft-launch and rollback plan and the known issues. Security headers (`X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`) on server and static responses.

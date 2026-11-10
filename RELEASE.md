@@ -24,7 +24,7 @@ Other items:
 - [ ] Brand name and domain (15b, Decision 7).
 - [ ] Legal pages read by the owner and a private contact added (16e).
 - [ ] `SITE_URL` set once there is a domain (canonical links, sitemap).
-- [ ] Monitoring and quota alarms for the free tiers: not set up (needs the hosting accounts).
+- [ ] Monitoring and quota alarms for the free tiers: not set up (needs the hosting accounts). Error reports (boundary, window and promise errors) go to the host's log as `[client-error]` lines; `/api/health` is ready for an uptime checker; no analytics by decision (21e).
 - [ ] Supabase Auth Site URL set to the real address, and the Google sign-in decision made.
 - [ ] A Content-Security-Policy tried in report-only mode (see section 2).
 
