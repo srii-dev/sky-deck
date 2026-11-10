@@ -8,6 +8,7 @@ import {
   trailFilename,
   trailToCsv,
   trailToGpx,
+  trailToKml,
   type TrailExportMeta,
 } from "@/lib/trail-export";
 import type { Aircraft } from "@/lib/aircraft";
@@ -25,7 +26,7 @@ export function TrailExport({ aircraft, trail, source }: Props) {
   const count = exportablePoints(trail).length;
   const ready = count >= 2;
 
-  const save = (kind: "csv" | "gpx") => {
+  const save = (kind: "csv" | "gpx" | "kml") => {
     const meta: TrailExportMeta = {
       callsign: aircraft.callsign,
       registration: aircraft.registration,
@@ -40,11 +41,17 @@ export function TrailExport({ aircraft, trail, source }: Props) {
             "text/csv;charset=utf-8",
             trailToCsv(trail, meta),
           )
-        : downloadText(
-            trailFilename(meta, "gpx"),
-            "application/gpx+xml;charset=utf-8",
-            trailToGpx(trail, meta),
-          );
+        : kind === "gpx"
+          ? downloadText(
+              trailFilename(meta, "gpx"),
+              "application/gpx+xml;charset=utf-8",
+              trailToGpx(trail, meta),
+            )
+          : downloadText(
+              trailFilename(meta, "kml"),
+              "application/vnd.google-earth.kml+xml;charset=utf-8",
+              trailToKml(trail, meta),
+            );
     toast(
       ok ? `Saved ${count} positions as ${kind.toUpperCase()}` : "Download is not available here",
     );
@@ -73,6 +80,16 @@ export function TrailExport({ aircraft, trail, source }: Props) {
           onClick={() => save("gpx")}
         >
           <Download /> GPX
+        </Button>
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          className="h-10 flex-1"
+          disabled={!ready}
+          onClick={() => save("kml")}
+        >
+          <Download /> KML
         </Button>
       </div>
       <p className="mt-2 text-[11px] leading-snug text-muted-foreground">

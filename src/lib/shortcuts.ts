@@ -21,6 +21,7 @@ export type ShortcutAction =
   | "trail3d"
   | "glide"
   | "ruler"
+  | "kiosk"
   | "settings";
 
 export interface ShortcutDef {
@@ -42,6 +43,7 @@ export const SHORTCUTS: readonly ShortcutDef[] = [
   { action: "trail3d", key: "3", cap: "3", label: "Toggle the 3D trail" },
   { action: "glide", key: "g", cap: "G", label: "Toggle the glide range ring" },
   { action: "ruler", key: "m", cap: "M", label: "Measure distance and bearing" },
+  { action: "kiosk", key: "k", cap: "K", label: "Clean view for a display (hides the controls)" },
   { action: "settings", key: ",", cap: ",", label: "Open settings" },
   { action: "help", key: "?", cap: "?", label: "Show this list" },
 ];
@@ -106,15 +108,17 @@ export function stepAircraft(
   return sorted[(i + direction + sorted.length) % sorted.length]!;
 }
 
-export type EscapeTarget = "ruler" | "aircraft" | "nearby" | "airport";
+export type EscapeTarget = "kiosk" | "ruler" | "aircraft" | "nearby" | "airport";
 
-/** What Escape closes first: the ruler, then the aircraft, then the nearby list, then the airport. */
+/** What Escape closes first: the clean view, then the ruler, then the aircraft, then the nearby list, then the airport. */
 export function escapeTarget(state: {
+  kiosk?: boolean;
   ruler: boolean;
   aircraft: boolean;
   nearby: boolean;
   airport: boolean;
 }): EscapeTarget | null {
+  if (state.kiosk) return "kiosk";
   if (state.ruler) return "ruler";
   if (state.aircraft) return "aircraft";
   if (state.nearby) return "nearby";

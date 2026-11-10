@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { BookOpen, Download, Info, Keyboard, Trash2, UserRound } from "lucide-react";
+import { BookOpen, Download, Info, Keyboard, Monitor, Trash2, UserRound } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -43,6 +43,8 @@ export interface SettingsProps {
   shortcutsOn: boolean;
   onShortcutsOn: (v: boolean) => void;
   onOpenGuide: () => void;
+  /** Hide the controls for a display (Phase 22k). */
+  onKiosk: () => void;
   onOpenShortcuts: () => void;
   onOpenCredits: () => void;
   onOpenAccount: () => void;
@@ -260,6 +262,16 @@ export function SettingsDialog(p: SettingsProps) {
           </LinkRow>
           <p className="text-xs text-muted-foreground">
             Optional. SkyDeck works without an account.
+          </p>
+        </Section>
+
+        <Section title="Display">
+          <LinkRow icon={<Monitor />} onClick={closeThen(p.onKiosk)}>
+            Clean view for a display
+          </LinkRow>
+          <p className="text-xs text-muted-foreground">
+            Hides the controls and panels and keeps the map, the credit and emergency alerts. Press
+            K or Esc, or use the button at the bottom, to leave it.
           </p>
         </Section>
 
