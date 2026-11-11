@@ -15,7 +15,7 @@ Blockers carried over from Phase 0 (the status column in `dev-plan.md` has not b
 - [x] **0g Route data freshness**: wrong routes are detected and hidden (Phases 11 and 14).
 - [ ] **0h Cold-start console errors**: not reproduced or fixed.
 - [x] **0i Stale-cache quirk**: fixed earlier (see the changelog).
-- [ ] **0j Cloudflare deployment**: nothing deployed (16b not built).
+- [ ] **0j Cloudflare deployment**: procedure written (`DEPLOY.md`), production build tested locally in workerd; not yet deployed.
 - [ ] **0k AGENTS.md and README wording**: backend rule updated; Lovable block still present (15a not done).
 
 Other items:
