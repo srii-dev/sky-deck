@@ -6,6 +6,8 @@ All notable changes to SkyDeck. The format follows [Keep a Changelog](https://ke
 
 ### Added
 
+- Cloudflare deployment procedure (Phase 16b in part): `DEPLOY.md`, `wrangler` as a dev dependency, and `bun run preview:worker` and `bun run deploy`. The production build was run in Cloudflare's local runtime and passed the browser smoke tests.
+
 - End-to-end smoke tests (Phase 16f in part): Playwright (`bun run test:e2e`, Chromium headless only) loads every public page, the health, robots and sitemap addresses, the map page with the data calls blocked, and the not-found page. It runs against `vite dev`, as its own CI job. Screenshot tests (21k), flows through the map and other browsers are not built; the production build is not tested because it targets Cloudflare and previewing it needs wrangler, which is not installed.
 
 - Small items (Phase 22d, 22i, 15d): the ruler can start at the selected aircraft, Settings has switches for the kinds of in-page messages, and the header of the other pages has Search and Sign in links into the map.

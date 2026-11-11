@@ -74,7 +74,9 @@ Then open the URL that Vite prints (usually http://localhost:3000 or http://loca
 | --- | --- |
 | `bun run dev` | Start the dev server |
 | `bun run build` | Production build |
-| `bun run preview` | Does not currently work with the Cloudflare-targeted build |
+| `bun run preview` | Does not work with the Cloudflare-targeted build; use `preview:worker` |
+| `bun run preview:worker` | Run the production build in Cloudflare's local runtime (see `DEPLOY.md`) |
+| `bun run deploy` | Deploy the built site to Cloudflare (see `DEPLOY.md`; needs `wrangler login`) |
 | `bun run test` | Run the tests once |
 | `bun run test:watch` | Run the tests in watch mode |
 | `bun run test:e2e` | Run the browser smoke tests (needs `bun x playwright install chromium-headless-shell` once) |
