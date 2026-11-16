@@ -2,6 +2,11 @@
 
 export type Basemap = "dark" | "satellite" | "light";
 
+/** A remembered or shared Satellite choice falls back to Dark when the build has no Satellite (flags.ts). */
+export function allowedBasemap(b: Basemap, satelliteOn: boolean): Basemap {
+  return b === "satellite" && !satelliteOn ? "dark" : b;
+}
+
 export interface Viewport {
   lat: number;
   lon: number;

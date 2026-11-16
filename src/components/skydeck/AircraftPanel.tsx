@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { useFlag } from "@/hooks/use-flag";
 import { getFlightRoute } from "@/lib/adsb.functions";
 import {
   airlineCode,
@@ -97,6 +98,7 @@ function Cell({
 }
 
 export function AircraftPanel(props: Props) {
+  const acarsOn = useFlag("acars");
   const { aircraft: a } = props;
   const [expanded, setExpanded] = useState(false);
   const dragStartY = useRef<number | null>(null);
@@ -290,7 +292,7 @@ export function AircraftPanel(props: Props) {
       <FlightCharts trail={props.trail} units={props.units} />
       <RouteTerrain route={r} aircraft={a} units={props.units} />
       <TrailExport aircraft={a} trail={props.trail} source={props.source} />
-      <AcarsMessages hex={a.hex} />
+      {acarsOn && <AcarsMessages hex={a.hex} />}
 
       <div className="space-y-3 rounded-md border border-border/60 bg-background/40 px-3 py-3">
         <div className="flex items-center justify-between">

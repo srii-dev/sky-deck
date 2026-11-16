@@ -4,6 +4,7 @@
  * before the site is made public, and replace the contact with a real one (see CONTACT_NOTE).
  */
 import { APP_NAME, REPO_URL } from "@/config/brand";
+import { serverFlags } from "./flags";
 
 export interface LegalSection {
   heading: string;
@@ -45,7 +46,7 @@ export const LEGAL_PAGES: readonly LegalPage[] = [
       {
         heading: "Where the data comes from",
         paragraphs: [
-          "Aircraft positions come from community feeds (adsb.lol, with airplanes.live as a fallback), weather from public aviation sources, and map tiles from OpenFreeMap, Esri and AWS. The credits list, reachable from the footer of every page, names each source and its licence.",
+          `Aircraft positions come from community feeds (adsb.lol, with airplanes.live as a fallback), weather from public aviation sources, and map tiles from OpenFreeMap${serverFlags().satellite ? ", Esri" : ""} and AWS. The credits list, reachable from the footer of every page, names each source and its licence.`,
         ],
       },
       {
@@ -96,7 +97,7 @@ export const LEGAL_PAGES: readonly LegalPage[] = [
       {
         heading: "What other companies see",
         paragraphs: [
-          "Your browser requests map tiles and imagery directly from OpenFreeMap, Esri and AWS, radar from RainViewer, and, only when you open it, ACARS messages from Airframes. Those providers can see your network address and the area you are viewing. If you send feedback, it goes to GitHub, where it is public. The status page asks the data providers whether they are answering, from our server, not from your browser. The fonts are served by this site, not by Google.",
+          `Your browser requests map tiles${serverFlags().satellite ? " and imagery" : ""} directly from OpenFreeMap${serverFlags().satellite ? ", Esri" : ""} and AWS, radar from RainViewer${serverFlags().acars ? ", and, only when you open it, ACARS messages from Airframes" : ""}. Those providers can see your network address and the area you are viewing. If you send feedback, it goes to GitHub, where it is public. The status page asks the data providers whether they are answering, from our server, not from your browser. The fonts are served by this site, not by Google.`,
         ],
       },
       {

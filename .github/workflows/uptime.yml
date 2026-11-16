@@ -1,0 +1,31 @@
+name: Uptime
+
+# Checks the live site every 30 minutes. A failed run makes GitHub email the repository owner: that is the alarm.
+#
+# IMPORTANT: GitHub runs scheduled workflows (and offers the manual "Run workflow" button) only for workflow files on
+# the repository's DEFAULT branch. The default branch is `main` and this file arrives on `dev` first, so it starts to
+# run only once it is on `main` (main is fast-forwarded to dev from time to time). Until then it is prepared, not active.
+#
+# To turn it on: set the repository variable SITE_URL (Settings, Secrets and variables, Actions, Variables) to the
+# site address. Without it the job says so and succeeds without checking anything.
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # The same commit-pinned actions as ci.yml (the tag is in the comment).
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+      - run: node scripts/uptime-check.mjs "$SITE"
+        env:
+          SITE: ${{ vars.SITE_URL }}

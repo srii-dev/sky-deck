@@ -32,10 +32,17 @@ import { EmergencyBanner } from "@/components/skydeck/EmergencyBanner";
 import { AltitudeLegend } from "@/components/skydeck/AltitudeLegend";
 import { AircraftTypesLegend } from "@/components/skydeck/AircraftTypesLegend";
 import { MapTools } from "@/components/skydeck/MapTools";
-import type { Basemap, FlyTarget, Viewport } from "@/components/skydeck/map-config";
+import {
+  allowedBasemap,
+  type Basemap,
+  type FlyTarget,
+  type Viewport,
+} from "@/components/skydeck/map-config";
 import type { GlideStatus } from "@/components/skydeck/FlightMap";
 import { useAircraftFeed } from "@/hooks/use-aircraft-feed";
 import { useFlagPref } from "@/hooks/use-flag-pref";
+import { useFlag } from "@/hooks/use-flag";
+import { serverFlags } from "@/lib/flags";
 import { usePersonalData } from "@/hooks/use-personal-data";
 import { useWatchAlerts } from "@/hooks/use-watch-alerts";
 import { WatchlistDialog } from "@/components/skydeck/WatchlistDialog";
@@ -121,6 +128,7 @@ function MapFallback() {
 }
 
 function SkyDeck() {
+  const satelliteOn = useFlag("satellite");
   const [viewport, setViewport] = useState<Viewport | null>(null);
   const [selectedHex, setSelectedHex] = useState<string | null>(null);
   const [airport, setAirport] = useState<Airport | null>(null);
@@ -255,7 +263,9 @@ function SkyDeck() {
       const u = localStorage.getItem("skydeck:units") as UnitSystem | null;
       if (u && u in UNIT_LABELS) setUnits(u);
       const b = localStorage.getItem("skydeck:basemap") as Basemap | null;
-      if (b === "dark" || b === "light" || b === "satellite") setBasemap(b);
+      if (b === "dark" || b === "light" || b === "satellite") {
+        setBasemap(allowedBasemap(b, serverFlags().satellite));
+      }
     } catch {
       /* ignore */
     }
@@ -339,7 +349,7 @@ function SkyDeck() {
   // A shared link may carry a basemap and a selected aircraft (the map reads the view itself).
   useEffect(() => {
     const s = parseShareParams(window.location.search);
-    if (s.basemap) setBasemap(s.basemap);
+    if (s.basemap) setBasemap(allowedBasemap(s.basemap, serverFlags().satellite));
     if (s.hex) setSelectedHex(s.hex);
   }, []);
 
@@ -855,9 +865,11 @@ function SkyDeck() {
               <ToggleGroupItem value="dark" className="max-md:h-10 max-md:min-w-10">
                 Dark
               </ToggleGroupItem>
-              <ToggleGroupItem value="satellite" className="max-md:h-10 max-md:min-w-10">
-                Sat
-              </ToggleGroupItem>
+              {satelliteOn && (
+                <ToggleGroupItem value="satellite" className="max-md:h-10 max-md:min-w-10">
+                  Sat
+                </ToggleGroupItem>
+              )}
               <ToggleGroupItem value="light" className="max-md:h-10 max-md:min-w-10">
                 Light
               </ToggleGroupItem>

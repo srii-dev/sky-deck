@@ -26,6 +26,7 @@ import {
   type ElevationCacheEntry,
 } from "@/lib/glide-ring";
 import { currentAirportList, isLargeLoaded, loadLargeAirports } from "@/lib/airport-list";
+import { serverFlags } from "@/lib/flags";
 import {
   REACHABLE_LIMIT,
   reachableAirports,
@@ -93,7 +94,8 @@ const SATELLITE_STYLE: StyleSpecification = {
 };
 
 function styleFor(b: Basemap): string | StyleSpecification {
-  if (b === "satellite") return SATELLITE_STYLE;
+  // Never reached with the flag off (callers fall back first); this keeps Esri unrequested even so.
+  if (b === "satellite" && serverFlags().satellite) return SATELLITE_STYLE;
   if (b === "light") return "https://tiles.openfreemap.org/styles/positron";
   return "https://tiles.openfreemap.org/styles/dark";
 }
