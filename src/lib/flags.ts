@@ -6,13 +6,29 @@
  * tester stored in this browser (localStorage key "skydeck.flags").
  * A list is comma- or space-separated names. A leading "-" switches a flag off ("-labs").
  * Unknown names are ignored. Flags are not a security boundary: anyone can set the stored list.
+ *
+ * Build-only flags (BUILD_ONLY) are for the owner's launch decisions: a flag switched off in the build stays off, and a
+ * tester's stored list cannot switch it back on, so a feature the owner left out of the public build stays out.
  */
 
 /** Every flag with its default. Add a flag here before using it. */
 export const FLAG_DEFAULTS = {
   /** Experimental features that are not ready for everyone. */
   labs: false,
+  /**
+   * The ACARS (pilot message) card in the aircraft panel and everything that calls Airframes. On by default. Switched off
+   * with VITE_FLAGS=-acars, for a build that is published before the owner has settled the open ACARS review (plan 0d).
+   */
+  acars: true,
+  /**
+   * The Satellite base map (Esri World Imagery). On by default. Switched off with VITE_FLAGS=-satellite, for a build that
+   * is published before the owner has settled the open Esri terms question (plan 0a).
+   */
+  satellite: true,
 } as const;
+
+/** Flags that only the build can switch off (see above). */
+export const BUILD_ONLY: readonly FlagName[] = ["acars", "satellite"];
 
 export type FlagName = keyof typeof FLAG_DEFAULTS;
 export type FlagMap = Record<FlagName, boolean>;
@@ -67,5 +83,8 @@ export function serverFlags(): FlagMap {
 
 /** Flags in the browser, including the tester's stored list. */
 export function browserFlags(): FlagMap {
-  return resolveFlags(buildFlags(), storedFlags());
+  const build = resolveFlags(buildFlags());
+  const flags = resolveFlags(buildFlags(), storedFlags());
+  for (const name of BUILD_ONLY) if (!build[name]) flags[name] = false;
+  return flags;
 }

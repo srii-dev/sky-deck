@@ -4,6 +4,7 @@
  */
 import { APP_NAME, REPO_URL } from "@/config/brand";
 import { CREDITS } from "./credits";
+import { serverFlags } from "./flags";
 import type { LegalSection } from "./legal-content";
 
 export interface TextPage {
@@ -34,14 +35,14 @@ export const HELP_PAGE: TextPage = {
       heading: "Reading the map",
       paragraphs: [
         "Each aircraft is an icon that points the way it is heading. The colour shows its altitude, from warm (low) to cool (high); the key at the bottom left shows the scale. The shape shows the kind of aircraft: light aircraft, turboprop, rear-engine jet, narrowbody, twin-engine or four-engine heavy, business jet, military jet, helicopter, glider, balloon, drone and ground vehicle. The Aircraft types key lists them.",
-        "Click an aircraft to open its panel: route, altitude, speed, vertical rate, registration, type, a Flight facts card with the phase of flight and time to the destination, charts, a trail you can download, and optional ACARS messages. The trail builds up from live positions while you watch.",
+        `Click an aircraft to open its panel: route, altitude, speed, vertical rate, registration, type, a Flight facts card with the phase of flight and time to the destination, charts, a trail you can download${serverFlags().acars ? ", and optional ACARS messages" : ""}. The trail builds up from live positions while you watch.`,
         "Blue and coloured outlines are airspace areas. Grey blobs on the ground are where aircraft are parked or taxiing close together.",
       ],
     },
     {
       heading: "Where the data comes from",
       paragraphs: [
-        "Aircraft positions come from volunteers who receive ADS-B broadcasts, through adsb.lol (and airplanes.live as a backup). Weather comes from the Aviation Weather Center and RainViewer radar, airport status from the FAA, airspace from FAA open data, and the map from OpenFreeMap, Esri and AWS. The Credits and data sources link in the footer lists every source with its licence.",
+        `Aircraft positions come from volunteers who receive ADS-B broadcasts, through adsb.lol (and airplanes.live as a backup). Weather comes from the Aviation Weather Center and RainViewer radar, airport status from the FAA, airspace from FAA open data, and the map from OpenFreeMap${serverFlags().satellite ? ", Esri" : ""} and AWS. The Credits and data sources link in the footer lists every source with its licence.`,
       ],
     },
     {

@@ -16,6 +16,7 @@ import { buildLocalExport, localExportFilename } from "@/lib/data-export";
 import { downloadText } from "@/lib/download";
 import { clearLocalData, POLL_NORMAL_MS, POLL_SAVER_MS } from "@/lib/local-settings";
 import { useTheme } from "@/hooks/use-theme";
+import { useFlag } from "@/hooks/use-flag";
 import { COLOR_MODE_LABELS, COLOR_MODES, type ColorMode } from "@/lib/airline-colors";
 import { NOTIFY_KINDS, type NotifyPrefs } from "@/lib/notify-prefs";
 import { THEME_LABELS, THEME_PREFS, type ThemePref } from "@/lib/theme";
@@ -126,6 +127,7 @@ const seg = "h-10 flex-1 px-3";
  * saver, the shortcut switch, the saved-data export and reset, and links to the guide and credits.
  */
 export function SettingsDialog(p: SettingsProps) {
+  const satelliteOn = useFlag("satellite");
   const [confirmReset, setConfirmReset] = useState(false);
   const theme = useTheme();
 
@@ -251,11 +253,13 @@ export function SettingsDialog(p: SettingsProps) {
             aria-label="Map style"
             className="gap-2"
           >
-            {(Object.keys(BASEMAP_LABELS) as Basemap[]).map((b) => (
-              <ToggleGroupItem key={b} value={b} className={seg}>
-                {BASEMAP_LABELS[b]}
-              </ToggleGroupItem>
-            ))}
+            {(Object.keys(BASEMAP_LABELS) as Basemap[])
+              .filter((b) => b !== "satellite" || satelliteOn)
+              .map((b) => (
+                <ToggleGroupItem key={b} value={b} className={seg}>
+                  {BASEMAP_LABELS[b]}
+                </ToggleGroupItem>
+              ))}
           </ToggleGroup>
         </Section>
 

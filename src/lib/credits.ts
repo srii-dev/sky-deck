@@ -1,4 +1,5 @@
 import { AIRFRAMES_ATTRIBUTION } from "./airframes-client";
+import { serverFlags } from "./flags";
 
 /*
  * Credits and data sources shown in the app. Keep this in step with the README's "Data sources and attribution"
@@ -25,7 +26,7 @@ export interface CreditEntry {
   links: CreditLink[];
 }
 
-export const CREDITS: readonly CreditEntry[] = [
+const ALL_CREDITS: readonly CreditEntry[] = [
   {
     id: "adsb-lol",
     group: "Aircraft and flight data",
@@ -207,6 +208,13 @@ export const CREDITS: readonly CreditEntry[] = [
     ],
   },
 ];
+
+/** The sources this build really uses: a feature switched off at build time (see flags.ts) is not credited. */
+export const CREDITS: readonly CreditEntry[] = ALL_CREDITS.filter(
+  (c) =>
+    !(c.id === "esri" && !serverFlags().satellite) &&
+    !(c.id === "airframes" && !serverFlags().acars),
+);
 
 export const CREDIT_GROUPS: readonly CreditGroup[] = ["Aircraft and flight data", "Map", "Fonts"];
 
