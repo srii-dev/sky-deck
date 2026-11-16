@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
+import { pageMeta } from "@/lib/site-meta";
 import { LegalPageView } from "@/components/skydeck/LegalPageView";
 import changelog from "../../CHANGELOG.md?raw";
 import { parseChangelog } from "@/lib/changelog-parse";
@@ -19,10 +20,7 @@ const page = {
 
 export const Route = createFileRoute("/whats-new")({
   head: () => ({
-    meta: [
-      { title: "What's new — SkyDeck" },
-      { name: "description", content: "The latest changes to SkyDeck." },
-    ],
+    meta: pageMeta("What's new — SkyDeck", "The latest changes to SkyDeck."),
   }),
   component: () => <LegalPageView page={page} />,
 });
