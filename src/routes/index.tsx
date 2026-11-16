@@ -58,6 +58,8 @@ import { normalizeKey } from "@/lib/watchlist";
 import { resolvePlace } from "@/lib/place-resolver";
 import { distanceNm } from "@/lib/route-geometry";
 import { useReplay } from "@/hooks/use-replay";
+import { DebugOverlay } from "@/components/skydeck/DebugOverlay";
+import { lastSeenSec } from "@/lib/live-status";
 import { watchMatches, type RecentFlight, type WatchItem } from "@/lib/watchlist";
 import { useShortcuts } from "@/hooks/use-shortcuts";
 import {
@@ -845,6 +847,8 @@ function SkyDeck() {
             shown={visible.length}
             total={allAircraft.length}
             source={feed.source}
+            delaySec={motionDelaySec}
+            replay={!!replay.source}
           />
         </div>
 
@@ -1101,6 +1105,7 @@ function SkyDeck() {
         <AircraftPanel
           key={selected.hex}
           aircraft={panelAircraft ?? selected}
+          lastSeenSec={selectedMotion?.hex === selected.hex ? lastSeenSec(selectedMotion.m) : null}
           units={units}
           trail={feed.trail}
           trail3d={trail3d}
@@ -1328,6 +1333,16 @@ function SkyDeck() {
           setAccountOpen(v);
         }}
         auth={auth}
+      />
+      <DebugOverlay
+        delaySec={motionDelaySec}
+        smooth={smoothMotion}
+        shown={visible.length}
+        total={allAircraft.length}
+        fetchedAt={feed.fetchedAt}
+        pollSec={Math.round(pollIntervalMs(batterySaver) / 1000)}
+        failed={!!feed.error}
+        selected={selectedMotion?.hex === selectedHex ? selectedMotion.m : null}
       />
     </main>
   );
