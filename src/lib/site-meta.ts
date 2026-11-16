@@ -115,3 +115,59 @@ export function webApplicationJsonLd(opts: {
   // "<" is escaped so the text can never close the script element.
   return JSON.stringify(data).replace(/</g, "\\u003c");
 }
+
+/** The share image (Phase 15f), drawn from the app's own design by scripts/make-share-image.mjs. */
+export const SHARE_IMAGE = {
+  path: "/og-image.png",
+  width: 1200,
+  height: 630,
+  alt: "SkyDeck, a live 3D flight tracker: aircraft on dark routes, coloured by altitude",
+} as const;
+
+export type MetaTag = { name: string; content: string } | { property: string; content: string };
+
+/**
+ * The text tags a page gives for link previews: Open Graph and Twitter title and description, next to the page's own
+ * title and description. Every route's head uses this, so the preview text always matches the page.
+ */
+export function pageMeta(title: string, description: string): (MetaTag | { title: string })[] {
+  return [
+    { title },
+    { name: "description", content: description },
+    { property: "og:title", content: title },
+    { property: "og:description", content: description },
+    { name: "twitter:title", content: title },
+    { name: "twitter:description", content: description },
+  ];
+}
+
+/**
+ * The tags that need the site's address, for the root head: the site name, card type, and, when SITE_URL is set and
+ * the page is a known public page, the absolute page address and the share image. A relative or guessed address is
+ * never written. The query string is never part of the address (a shared map link gets the generic map preview).
+ */
+export function shareMeta(opts: {
+  site: string | null;
+  pathname: string | null;
+  siteName: string;
+}): MetaTag[] {
+  const tags: MetaTag[] = [
+    { property: "og:type", content: "website" },
+    { property: "og:site_name", content: opts.siteName },
+    { name: "twitter:card", content: "summary_large_image" },
+  ];
+  if (!opts.site) return tags;
+  const url = opts.pathname ? canonicalUrl(opts.site, opts.pathname) : null;
+  const known = SITEMAP_PATHS.includes(url ? url.slice(opts.site.length) || "/" : "");
+  if (url && known) tags.push({ property: "og:url", content: url });
+  const image = opts.site + SHARE_IMAGE.path;
+  tags.push(
+    { property: "og:image", content: image },
+    { property: "og:image:width", content: String(SHARE_IMAGE.width) },
+    { property: "og:image:height", content: String(SHARE_IMAGE.height) },
+    { property: "og:image:alt", content: SHARE_IMAGE.alt },
+    { name: "twitter:image", content: image },
+    { name: "twitter:image:alt", content: SHARE_IMAGE.alt },
+  );
+  return tags;
+}

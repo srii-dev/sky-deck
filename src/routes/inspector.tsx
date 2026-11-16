@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { pageMeta } from "@/lib/site-meta";
 import { Link, createFileRoute } from "@tanstack/react-router";
 
 import { Badge } from "@/components/ui/badge";
@@ -19,13 +20,10 @@ import { compassPoint } from "@/lib/units";
 
 export const Route = createFileRoute("/inspector")({
   head: () => ({
-    meta: [
-      { title: `ADS-B message inspector — ${APP_NAME}` },
-      {
-        name: "description",
-        content: "Paste raw Mode S / ADS-B frames and see what each field means.",
-      },
-    ],
+    meta: pageMeta(
+      `ADS-B message inspector — ${APP_NAME}`,
+      "Paste raw Mode S / ADS-B frames and see what each field means.",
+    ),
   }),
   component: Inspector,
 });

@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { pageMeta } from "@/lib/site-meta";
 import { useQuery } from "@tanstack/react-query";
 
 import { SiteFooter, SiteHeader } from "@/components/skydeck/SiteChrome";
@@ -9,10 +10,7 @@ import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/status")({
   head: () => ({
-    meta: [
-      { title: "Status — SkyDeck" },
-      { name: "description", content: "Whether the services SkyDeck depends on are answering." },
-    ],
+    meta: pageMeta("Status — SkyDeck", "Whether the services SkyDeck depends on are answering."),
   }),
   component: StatusPage,
 });

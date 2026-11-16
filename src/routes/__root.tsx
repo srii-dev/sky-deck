@@ -18,7 +18,8 @@ import { SiteFooter, SiteHeader } from "@/components/skydeck/SiteChrome";
 import { useTheme } from "../hooks/use-theme";
 import { THEME_INIT_SCRIPT } from "../lib/theme";
 import { getSiteUrl } from "../lib/site.functions";
-import { canonicalUrl } from "../lib/site-meta";
+import { APP_NAME } from "../config/brand";
+import { canonicalUrl, shareMeta } from "../lib/site-meta";
 
 function NotFoundComponent() {
   return (
@@ -86,47 +87,52 @@ function ErrorComponent({ error, reset }: ErrorComponentProps) {
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   loader: () => getSiteUrl(),
-  head: ({ loaderData, match }) => ({
-    meta: [
-      { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
-      { name: "theme-color", content: "#0f161d" },
-      { title: "SkyDeck — Live 3D flight tracker" },
-      { name: "description", content: "Live ADS-B flight tracking on a 3D map." },
-      { property: "og:title", content: "SkyDeck — Live 3D flight tracker" },
-      { property: "og:description", content: "Live ADS-B flight tracking on a 3D map." },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary_large_image" },
-    ],
-    links: [
-      // The two fonts are served from /fonts (see styles.css); the main ones are fetched early.
-      {
-        rel: "preload",
-        href: "/fonts/chakra-petch-400-latin.woff2",
-        as: "font",
-        type: "font/woff2",
-        crossOrigin: "anonymous",
-      },
-      {
-        rel: "preload",
-        href: "/fonts/jetbrains-mono-400-latin.woff2",
-        as: "font",
-        type: "font/woff2",
-        crossOrigin: "anonymous",
-      },
-      {
-        rel: "stylesheet",
-        href: appCss,
-      },
-      { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
-      { rel: "manifest", href: "/manifest.webmanifest" },
-      { rel: "apple-touch-icon", href: "/icons/apple-touch-icon.png" },
-      // Only once the site has an address (SITE_URL); the query string never belongs in it.
-      ...(canonicalUrl(loaderData ?? null, match.pathname)
-        ? [{ rel: "canonical", href: canonicalUrl(loaderData ?? null, match.pathname)! }]
-        : []),
-    ],
-  }),
+  head: ({ loaderData, matches }) => {
+    // The root match always has the path "/": the page being shown is the last (deepest) match. A page that does not
+    // exist matches only the root, so it gets no canonical or share address.
+    const last = matches[matches.length - 1];
+    const pathname = last && last.routeId !== "__root__" ? last.pathname : null;
+    return {
+      meta: [
+        { charSet: "utf-8" },
+        { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
+        { name: "theme-color", content: "#0f161d" },
+        { title: "SkyDeck — Live 3D flight tracker" },
+        { name: "description", content: "Live ADS-B flight tracking on a 3D map." },
+        { property: "og:title", content: "SkyDeck — Live 3D flight tracker" },
+        { property: "og:description", content: "Live ADS-B flight tracking on a 3D map." },
+        ...shareMeta({ site: loaderData ?? null, pathname, siteName: APP_NAME }),
+      ],
+      links: [
+        // The two fonts are served from /fonts (see styles.css); the main ones are fetched early.
+        {
+          rel: "preload",
+          href: "/fonts/chakra-petch-400-latin.woff2",
+          as: "font",
+          type: "font/woff2",
+          crossOrigin: "anonymous",
+        },
+        {
+          rel: "preload",
+          href: "/fonts/jetbrains-mono-400-latin.woff2",
+          as: "font",
+          type: "font/woff2",
+          crossOrigin: "anonymous",
+        },
+        {
+          rel: "stylesheet",
+          href: appCss,
+        },
+        { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
+        { rel: "manifest", href: "/manifest.webmanifest" },
+        { rel: "apple-touch-icon", href: "/icons/apple-touch-icon.png" },
+        // Only once the site has an address (SITE_URL); the query string never belongs in it.
+        ...(pathname && canonicalUrl(loaderData ?? null, pathname)
+          ? [{ rel: "canonical", href: canonicalUrl(loaderData ?? null, pathname)! }]
+          : []),
+      ],
+    };
+  },
   scripts: () => [{ children: THEME_INIT_SCRIPT }],
   shellComponent: RootShell,
   component: RootComponent,

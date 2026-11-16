@@ -3,7 +3,9 @@ import { describe, expect, it } from "vitest";
 import {
   canonicalUrl,
   normalizeSiteUrl,
+  pageMeta,
   robotsTxt,
+  shareMeta,
   SITEMAP_PATHS,
   sitemapXml,
   webApplicationJsonLd,
@@ -88,5 +90,79 @@ describe("webApplicationJsonLd", () => {
       webApplicationJsonLd({ name: "A", description: "B", site: null }),
     ) as Record<string, unknown>;
     expect("url" in data).toBe(false);
+  });
+});
+
+describe("pageMeta and shareMeta (link previews)", () => {
+  const find = (tags: Record<string, string>[], key: string, value: string) =>
+    tags.find((t) => t[key] === value)?.["content"];
+
+  it("gives the preview text the same title and description as the page", () => {
+    const tags = pageMeta("About — SkyDeck", "What it is.") as Record<string, string>[];
+    expect(tags[0]).toEqual({ title: "About — SkyDeck" });
+    expect(find(tags, "name", "description")).toBe("What it is.");
+    expect(find(tags, "property", "og:title")).toBe("About — SkyDeck");
+    expect(find(tags, "property", "og:description")).toBe("What it is.");
+    expect(find(tags, "name", "twitter:title")).toBe("About — SkyDeck");
+    expect(find(tags, "name", "twitter:description")).toBe("What it is.");
+  });
+
+  it("writes absolute address and image tags when SITE_URL is set", () => {
+    const tags = shareMeta({
+      site: "https://s.example",
+      pathname: "/about",
+      siteName: "SkyDeck",
+    }) as Record<string, string>[];
+    expect(find(tags, "property", "og:url")).toBe("https://s.example/about");
+    expect(find(tags, "property", "og:image")).toBe("https://s.example/og-image.png");
+    expect(find(tags, "name", "twitter:image")).toBe("https://s.example/og-image.png");
+    expect(find(tags, "property", "og:image:width")).toBe("1200");
+    expect(find(tags, "property", "og:image:height")).toBe("630");
+    expect(find(tags, "property", "og:site_name")).toBe("SkyDeck");
+    expect(find(tags, "name", "twitter:card")).toBe("summary_large_image");
+    for (const t of tags)
+      if ("content" in t && /^(og:(url|image)|twitter:image)$/.test(String(Object.values(t)[0])))
+        expect(t["content"]).toMatch(/^https:\/\//);
+  });
+
+  it("writes no address or image tag without SITE_URL, never a relative one", () => {
+    const tags = shareMeta({ site: null, pathname: "/about", siteName: "SkyDeck" }) as Record<
+      string,
+      string
+    >[];
+    expect(find(tags, "property", "og:url")).toBeUndefined();
+    expect(find(tags, "property", "og:image")).toBeUndefined();
+    expect(find(tags, "name", "twitter:image")).toBeUndefined();
+    expect(find(tags, "name", "twitter:card")).toBe("summary_large_image");
+  });
+
+  it("gives the home address for the map page and leaves the address out for unknown pages", () => {
+    const map = shareMeta({
+      site: "https://s.example",
+      pathname: "/",
+      siteName: "SkyDeck",
+    }) as Record<string, string>[];
+    expect(find(map, "property", "og:url")).toBe("https://s.example/");
+    const missing = shareMeta({
+      site: "https://s.example",
+      pathname: "/no-such-page",
+      siteName: "SkyDeck",
+    }) as Record<string, string>[];
+    expect(find(missing, "property", "og:url")).toBeUndefined();
+    expect(find(missing, "property", "og:image")).toBe("https://s.example/og-image.png");
+  });
+});
+
+describe("shareMeta without a page path", () => {
+  it("writes the image but no page address when the path is unknown (a missing page)", () => {
+    const tags = shareMeta({
+      site: "https://s.example",
+      pathname: null,
+      siteName: "SkyDeck",
+    }) as Record<string, string>[];
+    expect(tags.find((t) => t["property"] === "og:url")).toBeUndefined();
+    expect(tags.find((t) => t["property"] === "og:image")?.["content"]).toBe(
+      "https://s.example/og-image.png",
+    );
   });
 });
