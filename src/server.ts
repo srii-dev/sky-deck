@@ -2,7 +2,7 @@ import "./lib/error-capture";
 
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
-import { withSecurityHeaders } from "./lib/security-headers";
+import { securityOptionsFromEnv, withSecurityHeaders } from "./lib/security-headers";
 
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
@@ -50,7 +50,10 @@ export default {
     try {
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
-      return withSecurityHeaders(await normalizeCatastrophicSsrResponse(response));
+      return withSecurityHeaders(
+        await normalizeCatastrophicSsrResponse(response),
+        securityOptionsFromEnv(process.env),
+      );
     } catch (error) {
       console.error(error);
       return withSecurityHeaders(
@@ -58,6 +61,7 @@ export default {
           status: 500,
           headers: { "content-type": "text/html; charset=utf-8" },
         }),
+        securityOptionsFromEnv(process.env),
       );
     }
   },

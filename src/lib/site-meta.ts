@@ -85,8 +85,12 @@ export function sitemapXml(site: string, paths: readonly string[] = SITEMAP_PATH
   );
 }
 
-/** Everything may be crawled except the server endpoints, which are not pages. */
-export function robotsTxt(site: string | null): string {
+/**
+ * Everything may be crawled except the server endpoints, which are not pages. With indexing off (SITE_INDEXING=off)
+ * nothing may be crawled and no sitemap is offered.
+ */
+export function robotsTxt(site: string | null, indexingOff = false): string {
+  if (indexingOff) return ["User-agent: *", "Disallow: /", ""].join("\n");
   const lines = ["User-agent: *", "Allow: /", "Disallow: /api/", ""];
   if (site) lines.push("Sitemap: " + site + "/sitemap.xml", "");
   return lines.join("\n");
