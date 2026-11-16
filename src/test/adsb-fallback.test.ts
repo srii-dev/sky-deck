@@ -175,3 +175,26 @@ describe("search fallback", () => {
     expect(feedUrls[0]).toContain("adsb.lol");
   });
 });
+
+describe("bad input and bad upstream data", () => {
+  it("asks nobody when the cleaned search text is too short", async () => {
+    let calls = 0;
+    const res = await searchAircraftSources("", {
+      ...fast,
+      fetchImpl: async () => {
+        calls++;
+        return json({ ac: [] });
+      },
+    });
+    expect(res).toEqual({ aircraft: [] });
+    expect(calls).toBe(0);
+  });
+
+  it("keeps the good aircraft when one upstream entry is null", async () => {
+    const res = await searchAircraftSources("UAL123", {
+      ...fast,
+      fetchImpl: async () => json({ ac: [null, "junk", { ...ac, flight: "UAL123" }] }),
+    });
+    expect(res.aircraft).toHaveLength(1);
+  });
+});

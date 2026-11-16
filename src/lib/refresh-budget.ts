@@ -55,11 +55,18 @@ export class RefreshBudget {
     const cutoff = now - this.windowMs;
     const list = RefreshBudget.trim(this.demand.get(key) ?? [], cutoff);
     list.push(now);
+    // Re-insert so the map stays ordered by the latest request (oldest first).
+    this.demand.delete(key);
     this.demand.set(key, list);
     // Forget tiles nobody has asked for lately, so the map cannot grow without limit.
     if (this.demand.size > 2000) {
       for (const [k, v] of this.demand) {
         if (v.length === 0 || v[v.length - 1]! < cutoff) this.demand.delete(k);
+      }
+      // Hard limit: a flood of distinct tiles inside one window drops the least recently asked.
+      for (const k of this.demand.keys()) {
+        if (this.demand.size <= 2000) break;
+        this.demand.delete(k);
       }
     }
   }
