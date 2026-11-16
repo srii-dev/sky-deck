@@ -255,6 +255,8 @@ function parseReadsb(json: unknown): Aircraft[] {
     [];
   const out: Aircraft[] = [];
   for (const raw of list) {
+    // One bad entry must not discard the whole answer.
+    if (!raw || typeof raw !== "object") continue;
     const a = fromReadsb(raw as Raw);
     if (a && a.hex) out.push(a);
   }
@@ -462,6 +464,8 @@ const READSB_HOSTS = [
 ] as const;
 
 export async function searchAircraftSources(q: string, deps?: SourceDeps): Promise<SearchResult> {
+  // Callers clean the text first; a query that is too short after cleaning asks nobody.
+  if (q.length < 2) return { aircraft: [] };
   const attempts: string[] = [];
   if (/^[0-9A-F]{6}$/.test(q)) attempts.push(`hex/${q.toLowerCase()}`);
   attempts.push(`callsign/${q}`);

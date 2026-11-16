@@ -191,3 +191,14 @@ describe("refresh budget under a crowd (fake provider, fake clock)", () => {
     expect(calls).toBe(4);
   });
 });
+
+describe("RefreshBudget demand map", () => {
+  it("never holds more than 2000 tiles, even when all were asked for in one window", () => {
+    const b = new RefreshBudget({ perWindow: 100 });
+    for (let i = 0; i < 5000; i++) b.noteRequest(`tile-${i}`, 1000 + i);
+    const demand = (b as unknown as { demand: Map<string, number[]> }).demand;
+    expect(demand.size).toBeLessThanOrEqual(2000);
+    expect(demand.has("tile-4999")).toBe(true);
+    expect(demand.has("tile-0")).toBe(false);
+  });
+});
