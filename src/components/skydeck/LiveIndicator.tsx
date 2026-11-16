@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { formatBehind } from "@/lib/live-status";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -8,9 +9,22 @@ interface Props {
   shown: number;
   total: number;
   source: string | null;
+  /** The display delay in use, in seconds, or null before it is known. */
+  delaySec?: number | null | undefined;
+  /** During a replay the picture is not live. */
+  replay?: boolean | undefined;
 }
 
-export function LiveIndicator({ fetchedAt, error, isFetching, shown, total, source }: Props) {
+export function LiveIndicator({
+  fetchedAt,
+  error,
+  isFetching,
+  shown,
+  total,
+  source,
+  delaySec,
+  replay,
+}: Props) {
   const [now, setNow] = useState<number | null>(null);
   useEffect(() => {
     setNow(Date.now());
@@ -20,7 +34,8 @@ export function LiveIndicator({ fetchedAt, error, isFetching, shown, total, sour
 
   const age = fetchedAt && now ? Math.max(0, Math.round((now - fetchedAt) / 1000)) : null;
   const stale = age == null || age > 25 || !!error;
-  const label = fetchedAt == null ? "Loading" : stale ? "Delayed" : "Live";
+  const label = replay ? "Replay" : fetchedAt == null ? "Loading" : stale ? "Delayed" : "Live";
+  const behind = formatBehind(delaySec, !!replay);
 
   return (
     <div className="flex items-center gap-3">
@@ -33,6 +48,11 @@ export function LiveIndicator({ fetchedAt, error, isFetching, shown, total, sour
       <span className="data-value whitespace-nowrap text-[11px] text-muted-foreground">
         {age == null ? "—" : isFetching && age > 6 ? "updating…" : `${age}s ago`}
       </span>
+      {behind && fetchedAt != null && (
+        <span className="data-value hidden whitespace-nowrap text-[11px] text-muted-foreground lg:inline">
+          {behind}
+        </span>
+      )}
       {/* No count before the first response: "0 ac" is not data yet, and the extra
           width pushed the Filters button onto a second row at ~1280 px. */}
       {fetchedAt != null && (

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { useFlag } from "@/hooks/use-flag";
+import { formatLastSeen } from "@/lib/live-status";
 import { getFlightRoute } from "@/lib/adsb.functions";
 import {
   airlineCode,
@@ -46,6 +47,8 @@ import { cn } from "@/lib/utils";
 
 interface Props {
   aircraft: Aircraft;
+  /** Seconds since the newest report when the aircraft has stopped reporting (Phase 20d), else null. */
+  lastSeenSec?: number | null | undefined;
   units: UnitSystem;
   trail: TrailPoint[];
   trail3d: boolean;
@@ -173,6 +176,11 @@ export function AircraftPanel(props: Props) {
         </p>
         {nearestLabel && (
           <p className="mt-0.5 truncate text-xs font-medium text-primary/90">{nearestLabel}</p>
+        )}
+        {props.lastSeenSec != null && (
+          <p className="mt-0.5 text-xs font-medium text-warning" role="status">
+            {formatLastSeen(props.lastSeenSec)}: the values below are its last known ones
+          </p>
         )}
       </div>
       <div className="flex shrink-0 items-center gap-1">
