@@ -16,11 +16,11 @@ Blockers carried over from Phase 0 (the status column in `dev-plan.md` has not b
 - [ ] **0h Cold-start console errors**: not reproduced or fixed.
 - [x] **0i Stale-cache quirk**: fixed earlier (see the changelog).
 - [ ] **0j Cloudflare deployment**: procedure written (`DEPLOY.md`), production build tested locally in workerd; not yet deployed.
-- [ ] **0k AGENTS.md and README wording**: backend rule updated; Lovable block still present (15a not done).
+- [x] **0k AGENTS.md and README wording**: backend rule updated; the Lovable block and note were removed (15a).
 
 Other items:
 
-- [ ] Lovable removed (15a). Needs the owner's OK and disconnecting the Lovable and GitHub link.
+- [x] Lovable removed from the code (15a). The owner still has to disconnect the project in Lovable and remove the Lovable GitHub app from the repository.
 - [ ] Brand name and domain (15b, Decision 7).
 - [ ] Legal pages read by the owner and a private contact added (16e).
 - [ ] `SITE_URL` set once there is a domain (canonical links, sitemap).
@@ -38,7 +38,7 @@ Checked on 2026-11-09:
 - **Database, accepted**: the security advisor warns that signed-in users can call `delete_my_account()`. That is the intended way to delete an account; the function only ever deletes the caller's own row (`auth.uid()`), has a fixed search path, and is not callable by anonymous visitors.
 - **Dependencies**: `bun audit` reports one moderate advisory (minimatch, denial of service through patterns) in development tooling (eslint). It is not in the shipped app.
 - **Headers (new)**: server and static responses now send `X-Content-Type-Options`, `Referrer-Policy` and `Permissions-Policy`.
-- **Not done**: a Content-Security-Policy (the map needs workers, blobs and many tile hosts, and inline scripts are used for the theme and structured data), `frame-ancestors` (the Lovable preview embeds the page), Cross-Origin-Opener-Policy (a later sign-in popup may need it), rate-limit load testing, and a penetration test.
+- **Not done**: a Content-Security-Policy (the map needs workers, blobs and many tile hosts, and inline scripts are used for the theme and structured data), `frame-ancestors` (embedding the page is a feature, so framing stays allowed), Cross-Origin-Opener-Policy (a later sign-in popup may need it), rate-limit load testing, and a penetration test.
 
 ## 3. Quota and failure drills (17c)
 

@@ -2,7 +2,7 @@
  * Response headers that tell browsers how to treat the site (Phase 17b). Only headers that cannot break the app are
  * set: no sniffing of file types, a trimmed referrer, and the powerful browser features switched off except the
  * location button. Not set on purpose, until they have been tried in a report-only run: a Content-Security-Policy
- * (the map needs workers, blobs and many tile hosts), frame-ancestors (the Lovable preview embeds the page) and
+ * (the map needs workers, blobs and many tile hosts), frame-ancestors (embedding the page is a feature) and
  * Cross-Origin-Opener-Policy (a later sign-in popup may need it). Pure functions.
  */
 

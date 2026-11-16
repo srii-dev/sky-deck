@@ -50,6 +50,7 @@ All notable changes to SkyDeck. The format follows [Keep a Changelog](https://ke
 
 ### Changed
 
+- Lovable removed (Phase 15a): the build uses a plain `vite.config.ts` instead of `@lovable.dev/vite-tanstack-config`, `lightningcss` is a direct dependency, and the Lovable error hook, project folder and notes are gone. The production build is unchanged (same files, same size, same Worker settings).
 - The dark theme's destructive red is a little darker, so white text on it reaches 4.5:1 (it was 3.7:1).
 - `public/robots.txt` is replaced by a `/robots.txt` route that also points at the sitemap and keeps crawlers off `/api/`.
 - Zoomed-in views request fixed shared tiles; cached tiles are aged, and a busy provider is answered from a tile up to 30 s old (#17).
