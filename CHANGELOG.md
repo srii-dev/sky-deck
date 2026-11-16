@@ -6,6 +6,12 @@ All notable changes to SkyDeck. The format follows [Keep a Changelog](https://ke
 
 ### Added
 
+- Message inspector (Phase 3c in part): surface position (type codes 5 to 8, with an optional reference position for the position) and operational status (type code 31). Tested against the published frames of chapter 4 of "The 1090 Megahertz Riddle". Gillham altitude, aircraft status and target state are still not decoded.
+- Report-only Content-Security-Policy and `POST /api/csp-report` (Phase 17b): browsers report anything outside the known map addresses; nothing is blocked and nothing is stored.
+- `SITE_INDEXING=off` keeps a preview out of search engines (`X-Robots-Tag` and a disallow-all `robots.txt`). Unset, nothing changes.
+- Link previews (Phase 15f): Open Graph and Twitter tags on every page and a generated share image (`node scripts/make-share-image.mjs`).
+- Build switches `VITE_FLAGS=-acars` and `VITE_FLAGS=-satellite` to publish without the ACARS card or the Satellite map. Both are on by default.
+- Uptime check (Phase 21d, prepared): `scripts/uptime-check.mjs` and a scheduled workflow that needs `SITE_URL` and the default branch.
 - Cloudflare deployment procedure (Phase 16b in part): `DEPLOY.md`, `wrangler` as a dev dependency, and `bun run preview:worker` and `bun run deploy`. The production build was run in Cloudflare's local runtime and passed the browser smoke tests.
 
 - End-to-end smoke tests (Phase 16f in part): Playwright (`bun run test:e2e`, Chromium headless only) loads every public page, the health, robots and sitemap addresses, the map page with the data calls blocked, and the not-found page. It runs against `vite dev`, as its own CI job. Screenshot tests (21k), flows through the map and other browsers are not built; the production build is not tested because it targets Cloudflare and previewing it needs wrangler, which is not installed.
@@ -65,6 +71,9 @@ All notable changes to SkyDeck. The format follows [Keep a Changelog](https://ke
 - OpenSky Network as a data provider (its terms require a written licence for live use) (#13).
 
 ### Fixed
+
+- The canonical link of every page named the home page; it now names the page itself, and a missing page has none.
+- A search with only punctuation no longer reaches the data provider, one bad entry in a provider answer no longer discards the rest, and the refresh budget's demand map has a hard size limit.
 
 - A hydration warning in development: the theme script sets the colour scheme on the html element before React starts, which the page now expects.
 - The two `profiles` row-level security policies now call `auth.uid()` once per query instead of once per row (database advisor warning).
