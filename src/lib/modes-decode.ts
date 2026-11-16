@@ -2,7 +2,9 @@
  * Mode S / ADS-B frame decoder for the message inspector. Pure functions: no network, no DOM.
  * Educational tool: decodes the common ADS-B extended squitter messages (DF17/18) and labels the rest.
  * Not decoded on purpose (labelled instead of guessed): Gillham-coded altitude, GNSS height (TC 20-22),
- * surface position, status/operational messages, Comm-B and ACAS contents.
+ * aircraft status (TC 28) and target state (TC 29) messages, Comm-B and ACAS contents.
+ * Layouts for surface position (TC 5-8) and operational status (TC 31) follow "The 1090 Megahertz Riddle"
+ * (J. Sun, https://mode-s.org/1090mhz/, chapters 4 and 6).
  */
 
 export type DecodeResult<T> = { ok: true; value: T } | { ok: false; error: string };
@@ -76,6 +78,31 @@ export type AdsbMessage =
       directionType: "track" | "heading";
       vRateFpm: number | null;
       vRateSource: "barometric" | "GNSS";
+    }
+  | {
+      kind: "surface-position";
+      typeCode: number;
+      /** Raw 7-bit movement field. */
+      movementRaw: number;
+      /** Ground speed in knots; for movement 124 it is the lower bound (175 kt or more). Null when not available or reserved. */
+      speedKt: number | null;
+      speedNote?: string;
+      /** Ground track in degrees, or null when the track status bit says it is not valid. */
+      trackDeg: number | null;
+      cprOdd: boolean;
+      cprLat: number;
+      cprLon: number;
+    }
+  | {
+      kind: "operational-status";
+      /** 0 airborne, 1 surface. */
+      subtype: 0 | 1;
+      /** ADS-B version number (ME bits 41 to 43); null when the value is reserved. */
+      version: number | null;
+      /** NIC supplement A bit and the raw 4-bit NACp and 2-bit SIL fields. Their meanings are not decoded. */
+      nicSupplementA: number;
+      nacpRaw: number;
+      silRaw: number;
     }
   | { kind: "other"; typeCode: number; name: string };
 
@@ -151,8 +178,24 @@ function typeCodeName(tc: number): string {
   if (tc === 23) return "Test message (not decoded)";
   if (tc === 28) return "Aircraft status (not decoded)";
   if (tc === 29) return "Target state and status (not decoded)";
-  if (tc === 31) return "Aircraft operational status (not decoded)";
+  if (tc === 31) return "Aircraft operational status (reserved subtype, not decoded)";
   return "Reserved";
+}
+
+/**
+ * Surface position movement field (7 bits) to ground speed, from the table in chapter 4 of the Riddle.
+ * 0 is "not available" and 125 to 127 are reserved (null). 124 means 175 kt or more (returns 175, the bound).
+ */
+export function surfaceSpeedKt(n: number): number | null {
+  if (n === 0 || n > 124 || n < 0) return null;
+  if (n === 1) return 0;
+  if (n <= 8) return (n - 1) * 0.125;
+  if (n <= 12) return 1 + (n - 9) * 0.25;
+  if (n <= 38) return 2 + (n - 13) * 0.5;
+  if (n <= 93) return 15 + (n - 39);
+  if (n <= 108) return 70 + (n - 94) * 2;
+  if (n <= 123) return 100 + (n - 109) * 5;
+  return 175;
 }
 
 function decodeMe(bytes: Uint8Array): AdsbMessage {
@@ -198,6 +241,47 @@ function decodeMe(bytes: Uint8Array): AdsbMessage {
       cprLat: me(22, 17),
       cprLon: me(39, 17),
     };
+  }
+
+  if (tc >= 5 && tc <= 8) {
+    const mov = me(5, 7);
+    const speedKt = surfaceSpeedKt(mov);
+    const speedNote =
+      mov === 0
+        ? "Speed not available"
+        : mov === 1
+          ? "Stopped (under 0.125 kt)"
+          : mov === 124
+            ? "175 kt or more"
+            : mov > 124
+              ? "Reserved movement value"
+              : undefined;
+    return {
+      kind: "surface-position",
+      typeCode: tc,
+      movementRaw: mov,
+      speedKt,
+      ...(speedNote ? { speedNote } : {}),
+      trackDeg: me(12, 1) === 1 ? (me(13, 7) * 360) / 128 : null,
+      cprOdd: me(21, 1) === 1,
+      cprLat: me(22, 17),
+      cprLon: me(39, 17),
+    };
+  }
+
+  if (tc === 31) {
+    const st = me(5, 3);
+    if (st === 0 || st === 1) {
+      const ver = me(40, 3);
+      return {
+        kind: "operational-status",
+        subtype: st,
+        version: ver <= 2 ? ver : null,
+        nicSupplementA: me(43, 1),
+        nacpRaw: me(44, 4),
+        silRaw: me(50, 2),
+      };
+    }
   }
 
   if (tc === 19) {
@@ -356,33 +440,111 @@ export function globalPosition(
 export interface ResolvedPosition {
   lat: number;
   lon: number;
-  /** Index of the earlier, opposite-parity frame that this position was combined with. */
-  pairedWith: number;
+  /** Index of the earlier, opposite-parity frame that this position was combined with; null for a reference-only decode. */
+  pairedWith: number | null;
+}
+
+export interface ReferencePosition {
+  lat: number;
+  lon: number;
 }
 
 /**
- * For a list of frames in time order, resolve a global position for each airborne position frame that has an
- * earlier opposite-parity position frame from the same aircraft (valid CRC only). No timestamps are available,
- * so list order is taken as time order and the pair is assumed to be close in time.
+ * For a list of frames in time order, resolve a position for each airborne or surface position frame (valid CRC only).
+ * Airborne frames need an earlier opposite-parity frame from the same aircraft. Surface frames need a reference position:
+ * with an earlier opposite-parity frame the pair is decoded globally, otherwise the single frame is decoded against the
+ * reference (right only within about 45 nm of it). No timestamps are available, so list order is taken as time order and
+ * a pair is assumed to be close in time.
  */
-export function resolvePositions(frames: readonly DecodedFrame[]): (ResolvedPosition | null)[] {
+export function resolvePositions(
+  frames: readonly DecodedFrame[],
+  ref?: ReferencePosition | null,
+): (ResolvedPosition | null)[] {
   const last = new Map<
     string,
     { even?: { i: number; p: CprPart }; odd?: { i: number; p: CprPart } }
   >();
   return frames.map((f, i) => {
     const m = f.message;
-    if (!m || m.kind !== "airborne-position" || f.crcOk !== true) return null;
-    const entry = last.get(f.icao) ?? {};
+    if (!m || (m.kind !== "airborne-position" && m.kind !== "surface-position") || f.crcOk !== true)
+      return null;
+    const surface = m.kind === "surface-position";
+    const key = `${surface ? "s" : "a"}${f.icao}`;
+    const entry = last.get(key) ?? {};
     const mine = { i, p: { cprLat: m.cprLat, cprLon: m.cprLon } };
     const other = m.cprOdd ? entry.even : entry.odd;
     if (m.cprOdd) entry.odd = mine;
     else entry.even = mine;
-    last.set(f.icao, entry);
+    last.set(key, entry);
+    if (surface) {
+      if (!ref) return null;
+      const pair = other
+        ? m.cprOdd
+          ? surfaceGlobalPosition(other.p, mine.p, true, ref.lat, ref.lon)
+          : surfaceGlobalPosition(mine.p, other.p, false, ref.lat, ref.lon)
+        : null;
+      if (pair && other) return { ...pair, pairedWith: other.i };
+      return { ...surfaceLocalPosition(mine.p, m.cprOdd, ref.lat, ref.lon), pairedWith: null };
+    }
     if (!other) return null;
     const pos = m.cprOdd
       ? globalPosition(other.p, mine.p, true)
       : globalPosition(mine.p, other.p, false);
     return pos ? { ...pos, pairedWith: other.i } : null;
   });
+}
+
+/**
+ * Locally unambiguous surface position: one frame plus a reference position within about 45 nm (half the width of a
+ * surface latitude zone, which is about 90 nm) of the aircraft. Surface CPR zones are a quarter of the airborne size (chapter 4 of the Riddle).
+ */
+export function surfaceLocalPosition(
+  part: CprPart,
+  odd: boolean,
+  refLat: number,
+  refLon: number,
+): { lat: number; lon: number } {
+  const i = odd ? 1 : 0;
+  const dLat = 90 / (60 - i);
+  const latFrac = part.cprLat / 131072;
+  const j = Math.floor(refLat / dLat) + Math.floor(mod(refLat, dLat) / dLat - latFrac + 0.5);
+  const lat = dLat * (j + latFrac);
+  const dLon = 90 / Math.max(cprNl(lat) - i, 1);
+  const lonFrac = part.cprLon / 131072;
+  const m = Math.floor(refLon / dLon) + Math.floor(mod(refLon, dLon) / dLon - lonFrac + 0.5);
+  return { lat, lon: dLon * (m + lonFrac) };
+}
+
+/**
+ * Globally unambiguous surface position from an even and an odd frame. Surface frames repeat every 90 degrees, so a
+ * reference position (for example the airfield) is needed to pick the right quadrant and hemisphere.
+ * Returns null when the frames fall in different latitude zones.
+ */
+export function surfaceGlobalPosition(
+  even: CprPart,
+  odd: CprPart,
+  latestIsOdd: boolean,
+  refLat: number,
+  refLon: number,
+): { lat: number; lon: number } | null {
+  const lat0 = even.cprLat / 131072;
+  const lat1 = odd.cprLat / 131072;
+  const j = Math.floor(59 * lat0 - 60 * lat1 + 0.5);
+  const latEven = (90 / 60) * (mod(j, 60) + lat0);
+  const latOdd = (90 / 59) * (mod(j, 59) + lat1);
+  if (cprNl(latEven) !== cprNl(latOdd)) return null;
+  const north = latestIsOdd ? latOdd : latEven;
+  const lat = Math.abs(north - refLat) <= Math.abs(north - 90 - refLat) ? north : north - 90;
+  const nl = cprNl(lat);
+  const m = Math.floor((even.cprLon / 131072) * (nl - 1) - (odd.cprLon / 131072) * nl + 0.5);
+  const n = Math.max(nl - (latestIsOdd ? 1 : 0), 1);
+  const lon1 = (90 / n) * (mod(m, n) + (latestIsOdd ? odd.cprLon : even.cprLon) / 131072);
+  let best = lon1;
+  for (const k of [0, 90, 180, 270]) {
+    const cand = lon1 + k;
+    const wrapped = cand >= 180 ? cand - 360 : cand;
+    const dist = (x: number) => Math.abs(mod(x - refLon + 180, 360) - 180);
+    if (dist(wrapped) < dist(best)) best = wrapped;
+  }
+  return { lat, lon: best >= 180 ? best - 360 : best };
 }

@@ -3,6 +3,7 @@ import { Link, createFileRoute } from "@tanstack/react-router";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { SiteFooter, SiteHeader } from "@/components/skydeck/SiteChrome";
 import { APP_NAME } from "@/config/brand";
@@ -11,6 +12,7 @@ import {
   resolvePositions,
   type AdsbMessage,
   type DecodedFrame,
+  type ReferencePosition,
   type ResolvedPosition,
 } from "@/lib/modes-decode";
 import { compassPoint } from "@/lib/units";
@@ -34,6 +36,13 @@ const EXAMPLE_FRAMES = [
   "8D40621D58C386435CC412692AD6",
   "8D40621D58C382D690C8AC2863A7",
   "8D485020994409940838175B284F",
+].join("\n");
+
+// Published surface position frames from the same book (chapter 4), with the airfield reference it uses.
+const SURFACE_FRAMES = [
+  "8C4841753AAB238733C8CD4020B1",
+  "8C4841753A8A35323FAEBDAC702D",
+  "8C4841753A9A153237AEF0F275BE",
 ].join("\n");
 
 type Row = [label: string, value: string];
@@ -60,7 +69,7 @@ function messageRows(m: AdsbMessage, pos: ResolvedPosition | null): Row[] {
         [
           "Position",
           pos
-            ? `${pos.lat.toFixed(5)}, ${pos.lon.toFixed(5)} (with frame ${pos.pairedWith + 1})`
+            ? `${pos.lat.toFixed(5)}, ${pos.lon.toFixed(5)} (with frame ${(pos.pairedWith ?? 0) + 1})`
             : "Needs an earlier frame of the opposite parity from the same aircraft",
         ],
       ];
@@ -88,6 +97,44 @@ function messageRows(m: AdsbMessage, pos: ResolvedPosition | null): Row[] {
         ],
       ];
     }
+    case "surface-position":
+      return [
+        ["Message", `Surface position (type code ${m.typeCode})`],
+        [
+          "Ground speed",
+          m.speedKt != null
+            ? `${m.speedKt} kt${m.speedNote ? ` (${m.speedNote})` : ""}`
+            : (m.speedNote ?? "—"),
+        ],
+        [
+          "Track",
+          m.trackDeg != null
+            ? `${m.trackDeg.toFixed(1)}° ${compassPoint(m.trackDeg)}`
+            : "Not valid (track status bit is 0)",
+        ],
+        ["CPR frame", m.cprOdd ? "odd" : "even"],
+        ["CPR lat / lon (raw)", `${m.cprLat} / ${m.cprLon}`],
+        [
+          "Position",
+          pos
+            ? `${pos.lat.toFixed(5)}, ${pos.lon.toFixed(5)} (${
+                pos.pairedWith != null
+                  ? `with frame ${pos.pairedWith + 1}, using the reference to pick the quadrant`
+                  : "from the reference position alone: only right within about 45 nm of it"
+              })`
+            : "Enter a reference position (for example the airfield) to decode a surface position",
+        ],
+      ];
+    case "operational-status":
+      return [
+        [
+          "Message",
+          `Operational status, ${m.subtype === 0 ? "airborne" : "surface"} (type code 31)`,
+        ],
+        ["ADS-B version", m.version != null ? String(m.version) : "Reserved value"],
+        ["NIC supplement A", String(m.nicSupplementA)],
+        ["NACp / SIL (raw)", `${m.nacpRaw} / ${m.silRaw} (meaning not decoded)`],
+      ];
     case "other":
       return [["Message", `Type code ${m.typeCode}: ${m.name}`]];
   }
@@ -150,6 +197,20 @@ function FrameCard({
 
 function Inspector() {
   const [text, setText] = useState("");
+  const [refLat, setRefLat] = useState("");
+  const [refLon, setRefLon] = useState("");
+  const ref = useMemo<ReferencePosition | null>(() => {
+    const lat = Number(refLat);
+    const lon = Number(refLon);
+    const ok =
+      refLat.trim() !== "" &&
+      refLon.trim() !== "" &&
+      Number.isFinite(lat) &&
+      Number.isFinite(lon) &&
+      Math.abs(lat) <= 90 &&
+      Math.abs(lon) <= 180;
+    return ok ? { lat, lon } : null;
+  }, [refLat, refLon]);
 
   const results = useMemo(() => {
     const lines = text
@@ -159,7 +220,7 @@ function Inspector() {
     const decoded = lines.map((line) => ({ line, result: decodeFrame(line) }));
     const good = decoded.map((d) => (d.result.ok ? d.result.value : null));
     const okFrames = good.filter((f): f is DecodedFrame => f !== null);
-    const positions = resolvePositions(okFrames);
+    const positions = resolvePositions(okFrames, ref);
     let k = 0;
     return decoded.map((d, i) => ({
       index: i,
@@ -168,7 +229,7 @@ function Inspector() {
       error: d.result.ok ? null : d.result.error,
       pos: d.result.ok ? (positions[k++] ?? null) : null,
     }));
-  }, [text]);
+  }, [text, ref]);
 
   return (
     <div className="flex h-full flex-col overflow-y-auto bg-background text-foreground">
@@ -181,7 +242,8 @@ function Inspector() {
           hex, <span className="data-value">*8D…;</span> and{" "}
           <span className="data-value">@timestamp8D…;</span> forms are accepted. Everything is
           decoded in your browser; nothing is sent anywhere. Position needs an even and an odd frame
-          of the same aircraft, in time order.
+          of the same aircraft, in time order. A surface position also needs a reference position
+          (for example the airfield).
         </p>
 
         <Textarea
@@ -193,9 +255,41 @@ function Inspector() {
           aria-label="Raw frames"
           className="data-value text-xs"
         />
+        <div className="flex flex-wrap items-end gap-3">
+          <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+            Reference latitude (optional)
+            <Input
+              value={refLat}
+              onChange={(e) => setRefLat(e.target.value)}
+              inputMode="decimal"
+              placeholder="51.990"
+              className="data-value h-8 w-36 text-xs"
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+            Reference longitude (optional)
+            <Input
+              value={refLon}
+              onChange={(e) => setRefLon(e.target.value)}
+              inputMode="decimal"
+              placeholder="4.375"
+              className="data-value h-8 w-36 text-xs"
+            />
+          </label>
+        </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="hud" onClick={() => setText(EXAMPLE_FRAMES)}>
             Load example frames
+          </Button>
+          <Button
+            variant="hud"
+            onClick={() => {
+              setText(SURFACE_FRAMES);
+              setRefLat("51.990");
+              setRefLon("4.375");
+            }}
+          >
+            Load surface example
           </Button>
           <Button variant="hud" onClick={() => setText("")} disabled={!text}>
             Clear
@@ -210,8 +304,9 @@ function Inspector() {
         </div>
 
         <p className="text-[11px] leading-snug text-muted-foreground">
-          Educational tool. Not decoded: Gillham-coded altitude, GNSS height, surface position,
-          status messages, Comm-B and ACAS contents. Not for operational or safety use.
+          Educational tool. Not decoded: Gillham-coded altitude, GNSS height, aircraft status and
+          target state messages, the meaning of accuracy and integrity codes, Comm-B and ACAS
+          contents. Not for operational or safety use.
         </p>
       </main>
       <SiteFooter />
