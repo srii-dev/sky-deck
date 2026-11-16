@@ -44,7 +44,7 @@ export default defineConfig(({ command, mode }) => {
       tailwindcss(),
       tsConfigPaths({ projects: ["./tsconfig.json"] }),
       tanstackStart({
-        // Server-only code (*.server.ts, server/ folders) must never reach the browser bundle: fail the build if it does.
+        // Same import-protection rules the old wrapper set: server/ folders and the server-only specifier must not be imported by browser code (*.server.* files are covered by TanStack Start's own defaults).
         importProtection: {
           behavior: "error",
           client: { files: ["**/server/**"], specifiers: ["server-only"] },
