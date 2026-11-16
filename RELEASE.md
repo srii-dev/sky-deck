@@ -26,7 +26,7 @@ Other items:
 - [ ] `SITE_URL` set once there is a domain (canonical links, sitemap).
 - [ ] Monitoring and quota alarms for the free tiers: not set up (needs the hosting accounts). Error reports (boundary, window and promise errors) go to the host's log as `[client-error]` lines; `/api/health` is ready for an uptime checker; no analytics by decision (21e).
 - [ ] Supabase Auth Site URL set to the real address, and the Google sign-in decision made.
-- [ ] A Content-Security-Policy tried in report-only mode (see section 2).
+- [x] A Content-Security-Policy tried in report-only mode (see section 2). Enforcing it needs nonces on the inline scripts first.
 
 ## 2. Security review (17b)
 
@@ -38,7 +38,8 @@ Checked on 2026-11-09:
 - **Database, accepted**: the security advisor warns that signed-in users can call `delete_my_account()`. That is the intended way to delete an account; the function only ever deletes the caller's own row (`auth.uid()`), has a fixed search path, and is not callable by anonymous visitors.
 - **Dependencies**: `bun audit` reports one moderate advisory (minimatch, denial of service through patterns) in development tooling (eslint). It is not in the shipped app.
 - **Headers (new)**: server and static responses now send `X-Content-Type-Options`, `Referrer-Policy` and `Permissions-Policy`.
-- **Not done**: a Content-Security-Policy (the map needs workers, blobs and many tile hosts, and inline scripts are used for the theme and structured data), `frame-ancestors` (embedding the page is a feature, so framing stays allowed), Cross-Origin-Opener-Policy (a later sign-in popup may need it), rate-limit load testing, and a penetration test.
+- **Report-only Content-Security-Policy (2026-11-16):** sent on HTML pages (`src/lib/csp.ts`); a full browser session on the production build gave no report, a deliberate violation gave one. Reports are logged as `[csp-report]` (read them with `wrangler tail`).
+- **Not done**: an enforcing Content-Security-Policy (inline scripts for the theme and hydration need nonces first), `frame-ancestors` (embedding the page is a feature, so framing stays allowed), Cross-Origin-Opener-Policy (a later sign-in popup may need it), rate-limit load testing, and a penetration test.
 
 ## 3. Quota and failure drills (17c)
 

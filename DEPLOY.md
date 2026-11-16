@@ -47,6 +47,15 @@ bunx wrangler secret put FEED_BUDGET_PER_MIN --name skydeck   # optional
 - Open the site on a phone and a laptop, then follow `RELEASE.md` section 5.
 - Set the Supabase Auth Site URL to the address (Supabase dashboard, Authentication, URL configuration).
 
+## Optional settings and switches
+
+- `SITE_URL`: the public address (for canonical links, the sitemap and link previews). Set on the live preview.
+- `SITE_INDEXING`: set to `off` (`bunx wrangler secret put SITE_INDEXING --name skydeck`, type `off`) to keep the site out of search engines until launch; delete it to allow indexing.
+- Publish without the ACARS card or the Satellite map: build with `VITE_FLAGS="-acars,-satellite"` (set the variable for that one command: `VITE_FLAGS="-satellite" bun run build`), then deploy as usual. Both are on in a normal build.
+- Link-preview image: `node scripts/make-share-image.mjs` redraws `public/og-image.png` (for example after a rebrand).
+- Policy reports: `bunx wrangler tail skydeck` shows `[csp-report]` lines (directive, blocked address, page).
+- Uptime check: `node scripts/uptime-check.mjs https://<address>` by hand. The scheduled workflow (`.github/workflows/uptime.yml`) also needs the repository variable `SITE_URL`, and GitHub runs it only from the default branch (`main`).
+
 ## Roll back
 
 ```sh
