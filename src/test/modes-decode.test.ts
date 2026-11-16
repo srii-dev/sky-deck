@@ -208,9 +208,9 @@ describe("airborne velocity", () => {
 
 describe("other messages", () => {
   it("labels type codes it does not decode", () => {
-    // TC 31 (operational status), synthetic.
-    const m = msg(withParity("8D4840D6F8000000000000"), "other");
-    expect(m.typeCode).toBe(31);
+    // TC 29 (target state and status, still not decoded), synthetic.
+    const m = msg(withParity("8D4840D6E8000000000000"), "other");
+    expect(m.typeCode).toBe(29);
     expect(m.name).toMatch(/not decoded/);
   });
 });
