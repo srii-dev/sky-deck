@@ -80,6 +80,7 @@ Then open the URL that Vite prints (usually http://localhost:3000 or http://loca
 | `bun run test` | Run the tests once |
 | `bun run test:watch` | Run the tests in watch mode |
 | `bun run test:e2e` | Run the browser smoke tests (needs `bun x playwright install chromium-headless-shell` once) |
+| `bun run test:e2e:worker` | Build first, then run the browser tests against the production build in Cloudflare's local runtime |
 | `bun run lint` | Lint the code |
 | `bun run format` | Format with Prettier |
 
