@@ -13,6 +13,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
+    "test:e2e:worker": "node scripts/e2e-worker.mjs",
     "preview:worker": "wrangler dev --cwd .output --name skydeck --ip 127.0.0.1 --port 4174",
     "deploy": "wrangler deploy --cwd .output --name skydeck"
   },
