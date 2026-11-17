@@ -53,14 +53,19 @@ test("the manifest is valid and its icons load", async ({ request }) => {
   }
 });
 
-test("no source maps are published for the app's scripts", async ({ page, request }) => {
+test("no source maps are published for any of the app's scripts", async ({ page, request }) => {
+  await page.goto("/");
   await page.goto("/about");
-  const script = await page.locator('script[src$=".js"]').first().getAttribute("src");
-  expect(script).toBeTruthy();
-  const res = await request.get(script! + ".map");
-  expect(res.status() === 404 || !(res.headers()["content-type"] ?? "").includes("json")).toBe(
-    true,
-  );
+  const scripts = await page
+    .locator('script[src$=".js"], link[rel="modulepreload"]')
+    .evaluateAll((els) =>
+      els
+        .map((e) => e.getAttribute("src") ?? e.getAttribute("href"))
+        .filter((u): u is string => !!u && u.endsWith(".js")),
+    );
+  expect(scripts.length).toBeGreaterThan(0);
+  for (const script of scripts)
+    expect((await request.get(script + ".map")).status(), script).toBe(404);
 });
 
 test("an unknown address is a real 404 on the production build too", async ({ request }) => {
