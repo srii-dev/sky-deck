@@ -34,7 +34,8 @@ jobs:
       # Known vulnerabilities of high or critical severity fail the run. Lower ones (today one moderate
       # advisory in a development tool) are listed in the report below but do not.
       - name: Dependency audit (high and critical block)
-        run: bun audit --audit-level=high
+        # shortcut: GHSA-fc5q-39xc-vjpf (picomatch ReDoS, build and lint tools only, no fixed version published as of 2026-11-17); remove this flag once a fix exists.
+        run: bun audit --audit-level=high --ignore GHSA-fc5q-39xc-vjpf
       - name: Dependency audit (full report, informational)
         continue-on-error: true
         run: bun audit
