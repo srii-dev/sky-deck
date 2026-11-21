@@ -15,7 +15,7 @@ Blockers carried over from Phase 0 (the status column in `dev-plan.md` has not b
 - [x] **0g Route data freshness**: wrong routes are detected and hidden (Phases 11 and 14).
 - [ ] **0h Cold-start console errors**: not reproduced or fixed.
 - [x] **0i Stale-cache quirk**: fixed earlier (see the changelog).
-- [ ] **0j Cloudflare deployment**: procedure written (`DEPLOY.md`), production build tested locally in workerd; not yet deployed.
+- [ ] **0j Cloudflare deployment**: procedure written (`DEPLOY.md`), production build tested locally in workerd; a preview runs at https://skydeck.sky-deck.workers.dev, the production deployment is not done.
 - [x] **0k AGENTS.md and README wording**: backend rule updated; the Lovable block and note were removed (15a).
 
 Other items:

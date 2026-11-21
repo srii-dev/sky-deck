@@ -4,7 +4,7 @@ A live 3D flight tracker for the web. See aircraft move in real time on a terrai
 
 SkyDeck is an independent project. It is inspired by the general category of flight-tracker apps and is not affiliated with, endorsed by, or a copy of any commercial app.
 
-> **Status:** early work in progress. The live map, search, filters, trails and aircraft categories work, and so do the glide-range ring with reachable airports, an ADS-B message inspector and on-demand ACARS messages. Unchecked items under [Roadmap](#roadmap) are planned, not built.
+> **Status:** early work in progress. The live map, search, filters, trails and aircraft categories work, and so do the glide-range ring with reachable airports, an ADS-B message inspector and on-demand ACARS messages. What is planned is in [Roadmap](#roadmap).
 
 ## Features
 
@@ -121,15 +121,15 @@ scripts/                build-airports.mjs (regenerates the airport list from Ou
 
 SkyDeck relies on free community data. Please be gentle with it and respect each provider's terms.
 
-- **Aircraft positions:** [adsb.lol](https://adsb.lol) and [airplanes.live](https://airplanes.live). The [OpenSky Network](https://opensky-network.org) is deliberately not used: its terms limit the REST API to non-profit research and education, and require a written license for operational use in a live product
+- **Aircraft positions:** [adsb.lol](https://adsb.lol) and [airplanes.live](https://airplanes.live). The [OpenSky Network](https://opensky-network.org) is deliberately not used: its terms require a written license for operational use
 - **Routes:** the community route data published by adsb.lol
 - **Precipitation radar:** [RainViewer](https://www.rainviewer.com/) (free for personal and educational use; the browser fetches its public tiles directly)
 - **Echo tops:** the [Iowa Environmental Mesonet](https://mesonet.agron.iastate.edu) NEXRAD echo-top WMS (US only)
 - **SIGMETs, AIRMETs and pilot reports:** the NOAA Aviation Weather Center data API, through the same server proxy
 - **Airspace areas:** the FAA's open-data ArcGIS layers Class_Airspace and Special_Use_Airspace, through a server proxy that caches answers for 12 hours
-- **Airport weather, runways and elevation:** the [NOAA Aviation Weather Center](https://aviationweather.gov) data API, through a server proxy with a short cache. Its [usage notes](https://aviationweather.gov/data/api/) (read on 2026-11-08) ask for small, infrequent requests (at most 100 a minute) with a custom User-Agent, and do not allow cross-origin browser calls; they state no licence, attribution wording or commercial-use rule. It is US government data
-- **Airport delays and closures:** the FAA [NAS Status](https://nasstatus.faa.gov) feed, through the same proxy. The site and its XML feed state no licence, rate limit or attribution wording (checked 2026-11-08; the pages it links to, such as the FAA privacy policy, refused an automated fetch and were not read). It is US government data
-- **Digital ATIS:** [atis.info](https://atis.info) (datis.clowd.io redirects there), through the server proxy with a short cache. It documents its API but states no licence or terms (checked 2026-11-08), so treat it as a small third-party service
+- **Airport weather, runways and elevation:** the [NOAA Aviation Weather Center](https://aviationweather.gov) data API, through a server proxy with a short cache (small, infrequent requests, custom User-Agent; US government data, no licence stated)
+- **Airport delays and closures:** the FAA [NAS Status](https://nasstatus.faa.gov) feed, through the same proxy (US government data; no licence or rate limit stated)
+- **Digital ATIS:** [atis.info](https://atis.info), through the server proxy with a short cache (no licence or terms stated, so treated as a small third-party service)
 - **Airport charts:** only an outbound link to the FAA's own [terminal procedures search](https://www.faa.gov/air_traffic/flight_info/aeronav/digital_products/dtpp/search/); no chart is fetched or copied
 - **Airports (reachable-airport list and map markers):** large and medium airports from [OurAirports](https://ourairports.com/data/) open data (Unlicense), filtered by `scripts/build-airports.mjs`
 - **Map data:** OpenStreetMap contributors, served through [OpenFreeMap](https://openfreemap.org)
@@ -154,17 +154,7 @@ The same credits, with the wording each source asks for, are shown in the app: o
 
 ## Roadmap
 
-Done and planned:
-
-- [x] Glide range ring and reachable airports (educational estimate only)
-- [x] ADS-B message inspector for pasted raw frames
-- [ ] ADS-B message inspector with live frames from your own receiver
-- [x] ACARS messages for the selected aircraft (Airframes, on demand)
-- [ ] ACARS browse page, and a viewer for your own decoder's output
-- [ ] Airport pages with weather and crowd-sourced security wait times
-- [ ] Replay, plain-English alerts and a watchlist
-- [x] Expanded aircraft silhouettes (four-engine heavy, twin-engine heavy, rear-engine jet, turboprop, military jet)
-- [ ] 3D aircraft models and 3D airports
+What is built, open and planned is tracked in [`dev-plan.md`](dev-plan.md); released changes are in [`CHANGELOG.md`](CHANGELOG.md).
 
 ## Development notes
 
