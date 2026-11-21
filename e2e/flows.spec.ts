@@ -20,15 +20,24 @@ test.describe.configure({ timeout: 90_000 });
 // cannot be looked at, and a missing stored list and a slow page look the same from the assertion alone.
 test.afterEach(async ({ page }, testInfo) => {
   if (testInfo.status === testInfo.expectedStatus) return;
-  const state = await page
-    .evaluate(() => ({
-      url: location.href,
-      storedKeys: Object.keys(localStorage).filter((k) => k.startsWith("skydeck")),
-      watchlist: localStorage.getItem("skydeck:watchlist"),
-      text: document.body.innerText.replace(/\s+/g, " ").slice(0, 300),
-    }))
-    .catch((e: unknown) => ({ error: String(e) }));
-  console.log(`[flow-debug] ${testInfo.title} (retry ${testInfo.retry}): ${JSON.stringify(state)}`);
+  for (const [i, p] of page.context().pages().entries()) {
+    const state = await p
+      .evaluate(() => ({
+        url: location.href,
+        watchlist: localStorage.getItem("skydeck:watchlist"),
+        watchButtons: [...document.querySelectorAll("button")]
+          .map((b) => b.getAttribute("aria-label") ?? "")
+          .filter((l) => /watch|panel|details/i.test(l)),
+        regions: [
+          ...document.querySelectorAll("[role=complementary],[role=region],[role=dialog]"),
+        ].map((e) => e.getAttribute("aria-label") ?? e.tagName),
+        headings: [...document.querySelectorAll("h1,h2,h3")].map((h) => h.textContent).slice(0, 6),
+      }))
+      .catch((e: unknown) => ({ error: String(e) }));
+    console.log(
+      `[flow-debug] ${testInfo.title} (retry ${testInfo.retry}) page ${i}: ${JSON.stringify(state)}`,
+    );
+  }
 });
 
 /** Aircraft the stub places around the default view (SKD999, far away, is only found by a search). */
