@@ -2,6 +2,7 @@ import { DATA_BUSY_MESSAGE, type Aircraft, type FeedResponse } from "./aircraft"
 import { isMilitaryFlag, parseYear } from "./aircraft-details";
 import { classifyAircraft } from "./aircraft-kind";
 import { budgetFromEnv, RefreshBudget } from "./refresh-budget";
+import { upstreamUrl } from "./upstream-override";
 import {
   coalesce,
   defaultSleep,
@@ -170,7 +171,8 @@ export async function getJson(url: string, timeoutMs = 6000, deps?: SourceDeps):
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
-    const res = await fetchImpl(url, {
+    // Every provider and route request passes here; the e2e tests point them at a local stub (upstream-override.ts).
+    const res = await fetchImpl(upstreamUrl(url, process.env["ADSB_UPSTREAM_OVERRIDE"]), {
       headers: { "User-Agent": UA, Accept: "application/json" },
       signal: ctrl.signal,
     });
