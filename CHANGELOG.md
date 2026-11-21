@@ -16,6 +16,9 @@ All notable changes to SkyDeck. The format follows [Keep a Changelog](https://ke
 
 - End-to-end smoke tests (Phase 16f in part): Playwright (`bun run test:e2e`, Chromium headless only) loads every public page, the health, robots and sitemap addresses, the map page with the data calls blocked, and the not-found page. It runs against `vite dev`, as its own CI job. Screenshot tests (21k), flows through the map and other browsers are not built; the production build is tested separately (see the next entry).
 
+- Screenshot matrix and accessibility checks (Phase 21k, 5f, 15h in part): every public page at three widths in both themes, kept as a CI artifact, plus checks of names, labels, keyboard focus and text contrast.
+- Map flow tests (Phase 16f): end-to-end flows through the map against a local stub provider with invented aircraft, switched on by the test-only `ADSB_UPSTREAM_OVERRIDE` (honoured only for a localhost address).
+
 - Live view numbers (Phase 20d, 20g, 20j in part): the status chip says how many seconds the picture is behind, the aircraft panel says when an aircraft was last seen, and a read-only debug box with the delay, the drawn moment and the feed age shows with the `labs` flag. Not yet seen with live data.
 - Production build under test (Phase 16f, 0h, 17c in part): `bun run test:e2e:worker` runs the browser tests against the production build in Cloudflare's local runtime (headers, manifest, service worker, no source maps), as its own CI job, and the dev-server tests now warm the server first. A real offline visit is not automated.
 
@@ -74,6 +77,8 @@ All notable changes to SkyDeck. The format follows [Keep a Changelog](https://ke
 - OpenSky Network as a data provider (its terms require a written licence for live use) (#13).
 
 ### Fixed
+
+- Closing the Settings, Watchlist, Collection, Alert rules, Account, Credits or Shortcuts dialog gives keyboard focus back to the button that opened it (it fell to the page before).
 
 - The canonical link of every page named the home page; it now names the page itself, and a missing page has none.
 - A search with only punctuation no longer reaches the data provider, one bad entry in a provider answer no longer discards the rest, and the refresh budget's demand map has a hard size limit.

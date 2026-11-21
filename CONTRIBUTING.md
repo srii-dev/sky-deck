@@ -31,6 +31,8 @@ bun run lint
 bun run build
 ```
 
+The browser tests have four parts: `e2e/smoke.spec.ts` (every page loads), `e2e/screens.spec.ts` (screenshots at three widths in both themes, saved in `test-results/screens/`), `e2e/a11y.spec.ts` (names, keyboard, contrast) and `e2e/flows.spec.ts` (flows through the map). The flows never touch the live providers: Playwright starts `e2e/stub-upstream.mjs` and points the app at it with `ADSB_UPSTREAM_OVERRIDE`. To add a flow, give the stub the aircraft or answer you need, select aircraft through the search box or the N and P keys (they are drawn on a canvas), and wait for a state on the page, never for a fixed time. On CI the flows run only against the production build (the worker job); against the dev server they run on your own machine.
+
 Lint has no errors and a few known warnings; do not add new ones. Format only the files you changed (`bun x prettier --write <files>`), and do not run Prettier on `README.md`.
 
 ## Branches and pull requests
