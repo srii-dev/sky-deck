@@ -47,7 +47,7 @@ Lint has no errors and a few known warnings; do not add new ones. Format only th
 1. The four checks pass.
 2. Every item of the half is tried in a visible browser at 1280, about 746 and 375 px wide, including the empty and failure states (provider down, quota used up, nothing found). Keep a screenshot of each changed screen at the three widths with the report.
 3. A new or changed data source: make one real request to see its format, read its terms, and add the credit to the Credits dialog (`src/lib/credits.ts`) and the README.
-4. Update `dev-plan.md`, `roadmap.md` and the README for what changed.
+4. Update `dev-plan.md` and the README for what changed.
 5. Write a short report in the pull request: commits, commands with pass counts, what tests prove, what is NOT verified, risks.
 
 Unfinished features ship behind a feature flag (`src/lib/flags.ts`, `useFlag` in `src/hooks/use-flag.ts`), so `dev` always works.

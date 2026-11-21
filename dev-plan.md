@@ -1,6 +1,6 @@
 # SkyDeck dev plan
 
-The full phase plan for SkyDeck, as of 2026-11-07. SkyDeck is meant to become Sri's own take on a full-featured flight tracker app, built for the web. It is independent: it uses its own name, code and visuals and is not affiliated with any commercial app. `roadmap.md` lists only the phases still planned; the README describes what exists today.
+The full phase plan for SkyDeck, as of 2026-11-07. SkyDeck is meant to become Sri's own take on a full-featured flight tracker app, built for the web. It is independent: it uses its own name, code and visuals and is not affiliated with any commercial app. The README describes what exists today and `CHANGELOG.md` what was released.
 
 ## How to read this plan
 
@@ -43,86 +43,11 @@ Terms were not fully read for any source. Read each source's terms before buildi
 
 ## Numbering note
 
-The original plan had five phases: 1 live map, 2 glide and reach, 3 message inspector, 4 airports, 5 personal features. The ACARS card was later labelled "Phase 4a" in local plan files and PR history, which clashed with the original Phase 4 (airports). This plan keeps Phases 1 to 5 and moves ACARS to **Phase 6** (the built card is 6a; it was called "4a" before). Weather and the other feature areas continue from Phase 7. Because a backend is now allowed, **Phase 18** (backend foundation) is added and comes before the backend-dependent features. Foundation and operations phases added later also have numbers: 18 backend, 19 scale and data pipeline, 20 real-time experience, 21 operations, 22 app polish, 23 community and help. The number order is not the build order (see Suggested order).
+The original plan had five phases: 1 live map, 2 glide and reach, 3 message inspector, 4 airports, 5 personal features. The ACARS card was later labelled "Phase 4a" in local plan files and PR history, which clashed with the original Phase 4 (airports). This plan keeps Phases 1 to 5 and moves ACARS to **Phase 6** (the built card is 6a; it was called "4a" before). Weather and the other feature areas continue from Phase 7. Because a backend is now allowed, **Phase 18** (backend foundation) is added and comes before the backend-dependent features. Foundation and operations phases added later also have numbers: 18 backend, 19 scale and data pipeline, 20 real-time experience, 21 operations, 22 app polish, 23 community and help. The number order is not the build order (see Remaining work).
 
-## Done so far
+## Research notes
 
-| Phase | What | PR |
-| --- | --- | --- |
-| 1a | Live map, aircraft panel, category icons, search, filters, trails, wide-area coverage, provider fallback and back-off, notices, emergency squawk confirmation | before #3 |
-| 1b | Request sharing and per-provider pacing | #3 |
-| 2a | Glide-range ring with rule-of-thumb ratios and height above terrain | before #3 |
-| 2b | Airports inside the ring listed in the aircraft panel | #4 |
-| 2c | Those airports as map dots and IATA labels | #5 |
-| 2d | About 4,500 large and medium airports from OurAirports, loaded on demand | #6 |
-| 2e | "Nearest in range" line in the panel header | #7 |
-| 3a | ADS-B message inspector at `/inspector` (paste Mode S frames) | #8, #9 |
-| 6a | On-demand ACARS card in the aircraft panel (was called "4a") | #10 |
-| 1c | Housekeeping: lint fix #11, docs refresh #12, OpenSky removed #13, credits dialog #14, final testing pass and layout fixes #15, docs #16 |  |
-
-## Backend and AI options (research)
-
-### Backend
-
-| Option | Free limits | Fits SkyDeck because | Watch out for |
-| --- | --- | --- | --- |
-| **Cloudflare Workers + @@21a@@ (+ KV)** | @@21a@@ free: 500 MB per database, 5 GB per account, 10 databases (official docs). Workers free plan limits apply. | Deploy target is already Cloudflare Workers; no extra vendor; Workers AI is built in (below). | No built-in auth: sign-in would need a library (a new dependency, so ask first). 21a free queries fail when daily row limits are exceeded (a changelog entry mentions a change from 2026-09-01; confirm on the official page). |
-| **Supabase (Postgres + Auth)** | 500 MB database, 2 active projects, free projects pause after about a week of inactivity, 50,000 monthly active users (secondary sources, not the official page). | The original plan used it; ready-made email and Google sign-in; row-level security for crowd reports. | Pausing needs a keep-alive job or a manual restore. Second vendor and a client dependency. |
-
-**Decided 2026-11-07 (backend): both.** Supabase for sign-in and the crowd-sourced data (it removes the hardest part), Cloudflare for hosting, caching and AI.
-
-### Free AI (clears the old "AI gate")
-
-| Option | Free allowance | Notes |
-| --- | --- | --- |
-| **Cloudflare Workers AI** | 10,000 Neurons per day on the Workers free plan, shared across models; resets 00:00 UTC (official Cloudflare docs, read 2026-11-07). Over that, requests fail until the reset. | No separate API key when called from a Worker (a binding); text models available; fits the Cloudflare deploy. Which models are free and the exact messages per day were not measured. |
-| Google Gemini API free tier | Flash-class models with per-minute and per-day limits; sources disagree on the numbers and say Google's own pages are authoritative. | Needs an API key (server-side secret). Check whether free-tier prompts may be used to improve the provider's products before sending any message text. |
-| Groq free tier | Limits vary by model and are set per organisation; sources list different numbers. | Needs a key. Fast, small daily pools. |
-| OpenRouter free models | One secondary source says about 50 requests per day across free models. | Needs a key. Weakest guarantee. |
-
-**Decided 2026-11-07 (AI): two providers, Gemini first and Cloudflare Workers AI as the fallback.** The server hides both behind one small "AI provider" interface: try Gemini first, and when Gemini returns its rate-limit or daily-cap error (or the server's own counter says the cap is reached), switch to Workers AI for the rest of that period. Each provider has its own budget counter, so the free pools add up. Sri will supply a Gemini API key. It is kept only as a server-side secret (a Cloudflare secret in production, an uncommitted local file in development): never pasted into chat, issues or pull requests, and never committed. Gemini's free limits must be read from Google's own pages before building (sources disagree). Free-tier prompts may be used by the provider, so no message text goes to Gemini until that is checked. If it is not acceptable, Workers AI becomes the only provider for message text. The cache is shared, so the provider that produced a summary is stored with it.
-
-How AI would be used so free quotas are enough:
-
-- **On demand only** (a button), never automatic for every message or flight.
-- **Cache every result** in the database, keyed by the message or flight, so each item is summarised at most once.
-- **Daily budget cap** in the server: when the free pool is used up, show the rule-based text instead and say so.
-- **Always labelled "AI-generated"**, with the original text one click away.
-- **Fallback**: Phase 6c (rule-based explanations) works with no AI at all.
-- Message text sent to an AI provider counts as sharing it with a third party; review that in the ACARS legal review.
-
-## Data sources (research results)
-
-| Need | Source | Verification | Findings and risks |
-| --- | --- | --- | --- |
-| METAR, TAF | aviationweather.gov Data API | **Tested** (JSON, keyless) | Docs: 100 requests per minute, no more than 1 request per minute per thread, custom User-Agent requested. No CORS header seen, so call it from the server. Cache for minutes. |
-| SIGMET / AIRMET | aviationweather.gov `airsigmet` | **Tested** (JSON, keyless) | Same limits and server-side rule. |
-| PIREPs | aviationweather.gov `pirep` | **Tested** (needs a bounding box or station list, else HTTP 400) | Query per view or per airport. |
-| Winds aloft | aviationweather.gov wind/temperature product | Docs/search (not tested) | Confirm the endpoint and format. |
-| Flight category (VFR / MVFR / IFR / LIFR) | Derived from METAR visibility and ceiling | Not a source; computed | Compute it ourselves, or use a field in the METAR JSON if present (not checked). |
-| FAA airport delays, ground stops, closures | FAA NAS Status XML feed | **Tested** (200, XML, keyless) | No CORS header, so server side. Vendor pages call it public domain, but I did not find an FAA terms page. Cache for minutes. |
-| D-ATIS | `datis.clowd.io` redirects to `atis.info/api/{ICAO}` | **Tested** (JSON, CORS open) | Covers only airports with D-ATIS (about 75 per sources). No terms page read. Treat the operator as a small community service. |
-| Weather radar | RainViewer public API | **Tested** (JSON, CORS open) | Free tier is personal and educational use only, attribution required, max zoom 7, 100 requests per IP per minute, no future (nowcast) frames since 2026-01-01, tile path IDs are hashes. No availability guarantee. Fine for this non-commercial project; ask them before any commercial use. |
-| Radar (US alternative) | NOAA / NWS `mapservices.weather.noaa.gov` MRMS base reflectivity (WMS) | Docs/search | US only; terms not found; contact `nws.mapservices@noaa.gov`. Possible fallback and the source for the radar timeline if RainViewer's limits do not fit. |
-| Echo tops | Iowa State Mesonet OGC (NEXRAD echo tops over WMS), or NOAA MRMS GRIB2 files | Docs/search; MRMS file directory **tested** (200) | WMS is the easy route; raw GRIB2 would need server-side processing. US only. |
-| Lightning | Blitzortung | Docs/search | Its own contact page limits use of its data to private and entertainment purposes, and it has no public API. **Do not use without explicit permission.** |
-| Lightning (alternative) | NOAA GOES GLM data (netCDF) | Docs/search | Free, but needs a server-side job to grid and tile it. Heavy; treat as a stretch goal. |
-| TFR polygons | Official FAA feed | **None found** | `tfr.faa.gov/tfr_map_ims/jsonTFRData.jsp` returned 404; `tfr3/export/json` returned a web page; a public ArcGIS "TFR public view" layer returned 0 features and was last edited in 2025. Options: filter FDC NOTAMs from the SWIM feed (above), or scrape tfr.faa.gov pages (terms unknown). |
-| NOTAMs | FAA SWIM Cloud Distribution Service (SCDS), chosen 2026-11-07 | Docs/search (FAA support pages) | Free to consume. Needs two accounts (access agreement portal and the SCDS portal) and a signed Service Access Agreement per service; the FAA says account and subscription approval is automatic after that. Data arrives only through JMS queues (a persistent connection), not as web requests, so it needs a small always-on consumer service that writes into our database (Phase 18f). The agreement text, its terms for non-commercial use and which queue carries NOTAMs were not read. The FAA can end access if the rules are broken. The older FAA NOTAM API needs credentials and is being retired. |
-| Airspace boundaries (Class B/C/D etc.) | FAA ArcGIS `Boundary_Airspace` FeatureServer | **Tested** (layer metadata, CORS open) | Updated about every 8 weeks (university metadata). Fetch once and cache; do not query per user. |
-| Airport charts | FAA digital Terminal Procedures Publication (d-TPP) | Docs/search | Free; 28-day cycle; bulk download. No stable per-chart URL was confirmed, so link out to the FAA search first and host nothing. |
-| Runways, frequencies | OurAirports (`runways.csv`, Unlicense) | Known from Phase 2d; not re-tested | Same dataset already used. |
-| Gates, taxiways, terminals | OpenStreetMap aeroway features via OpenFreeMap tiles | Not tested | Check what the OpenFreeMap schema carries before promising gates. |
-| Airport cameras | YouTube live embeds from a hand-curated list | Not tested | Each stream must allow embedding; the list needs upkeep. |
-| TSA checkpoint waits | Official feed | **None found** | The old MyTSA wait-time endpoint did not respond, and a 2026 report says TSA's public tool was retired in 2023. Only crowd-sourced reports are possible (Phase 4k, uses the backend). |
-| Military and government aircraft | ADS-B provider database flags | **Tested** (`/v2/mil` on adsb.lol returns aircraft with `dbFlags: 1`) | Our server code does not keep `dbFlags` yet; it must be added to the feed schema. Government flags not checked. |
-| Aircraft incident history | NTSB accident data (US civil, 1962 onward, downloadable, searchable by registration) | Docs/search | Current download terms not confirmed. Aviation Safety Network: no terms found, assume no bulk use. Non-US coverage is missing. |
-| Flight schedules, inbound aircraft | Free tiers of schedule APIs | Docs/search | Aviationstack free is 100 requests per month (too small); AeroDataBox and AirLabs limits not found. Not enough for a live feature; keep post-release. |
-| Gates assignment, baggage claim | Airline and airport systems | **None found** | Not available for free. |
-| Filed-route waypoints | Filed flight plans | Not researched; likely **None found** | Free ADS-B sources do not carry flight plans. |
-| Aircraft photos | Planespotters photo API | **Tested** (returns 403 without a User-Agent that includes a contact URL; CORS open) | Needs a contact in the User-Agent; read their terms and attribution rules before use. |
-| Historical positions | adsb.lol historical dumps (ODbL) | From the earlier terms review; not re-tested | Share-alike and attribution apply; large. |
-| ACARS | Airframes API | Earlier review | Pre-release; terms still being finalised; send the email before launch. |
+Backend, free-AI and data-source research (2026-11-07) lives in [`SOURCES.md`](SOURCES.md). The Backend and AI choices are settled (see Decisions needed).
 
 ## Phase 0: Before any public launch (blockers)
 
@@ -151,10 +76,10 @@ New. Needed before 4k, 5g, 6f, 6h, 9b, 10f and any stored data.
 | 18a | Record the platform. **Done in 18 half 1 (docs):** Supabase for sign-in and data, Cloudflare for hosting, caching and AI, and MongoDB Atlas (free tier) later for the FAA NOTAM store written by the SWIM service (decision 2026-11-07); the picture is in `ARCHITECTURE.md` and the configuration rules in `CONTRIBUTING.md`. **Not done:** the wording in `AGENTS.md` and README that still describes the old no-backend rule needs the owner's approval; the proposed text is in local `docs/plan-18-half-1.md`. |
 | 18b | Secrets and configuration. **Done in 18 half 1:** `src/lib/server-config.server.ts` (groups `supabase` and `gemini`; `requireConfig` names missing variables and never prints values; refuses to run if a secret-looking `VITE_` variable exists), `.env.example` (names only), and `.env` files are now git-ignored (they were not before). Nothing reads these yet; features call `requireConfig` when they are built. Not verified: that the `.server.ts` suffix keeps the file out of the browser bundle, and that `process.env` carries Cloudflare secrets on Workers (to check in 16b). |
 | 18c | Database schema and migrations. **Done in 18 half 1 (not run):** `supabase/migrations/20261107000000_profiles.sql` (one `profiles` table with row-level security and a signup trigger), `supabase/README.md` (rules, how to apply, planned tables) and `src/test/migrations.test.ts` (every table must enable row-level security, no secrets in SQL). The SQL has never been run: no Supabase project or local Postgres was available. A local database or emulator needs the Supabase CLI and Docker, which are not installed. |
-| 18d | **Done in Phase 18 (email only):** sign in, create account, sign out and delete account through the Account dialog (Settings), `@supabase/supabase-js`, session kept in this browser, friendly errors; account deletion is a database function. Tested end to end on the real project with a test user created in the database. **Not done:** Google sign-in (needs a Google Cloud OAuth client), the email confirmation link was not exercised (Auth Site URL must be set in the Supabase dashboard to the site address), password reset. Sign-in (email and Google) with sessions; sign-out; account deletion. Used by Phase 5g. |
+| 18d | **Done in Phase 18 (email only):** sign in, create account, sign out and delete account through the Account dialog (Settings), `@supabase/supabase-js`, session kept in this browser, friendly errors; account deletion is a database function. Tested end to end on the real project with a test user created in the database. **Not done:** Google sign-in (needs a Google Cloud OAuth client), the email confirmation link was not exercised (Auth Site URL must be set in the Supabase dashboard to the site address), password reset. |
 | 18e | **Partly done in Phase 18:** a per-visitor sliding-window limiter (in memory per instance), used on the error-report endpoint (5 a minute per visitor, 20 per instance); size limits there already existed. A hide-or-delete tool for bad reports waits for the first user-written content (4k). Abuse protection: per-visitor rate limits on every write endpoint, input validation, size limits, a way to hide or delete bad reports. |
 | 18f | **Not done:** needs deployment (Phase 16b) and a place for the SWIM consumer. Shared cache and scheduled jobs (provider cache that survives across isolates, keep-alive for the free Supabase project that pauses, nightly data refresh). Fixes the "per server instance only" limit of pacing and caching. Also the SWIM consumer: a small always-on Node service that reads the FAA JMS queue and writes NOTAMs to **MongoDB Atlas (free tier, 512 MB; the Student Pack credit is not needed yet)**. Workers cannot be that long-lived consumer, so it needs somewhere free to run; none has been chosen or researched yet. Cloudflare Workers cannot use MongoDB's HTTP Data API (ended 2025-09-30) and the driver over TCP is unverified there, so the app reads NOTAMs through the service or a cache, not directly. |
-| 18g | **Done in Phase 18 as a library, unused and not run against the real providers:** `src/lib/ai-service.ts` with fallback order, daily budgets, kill switch, cache, labelled output and Gemini and Workers AI adapters. Needs the Gemini key (server-side only) and the Cloudflare binding before use. AI service wrapper over two providers (Workers AI, Gemini): one interface, a budget counter per provider, fallback order (Gemini first, then Workers AI), a cache table that records which provider answered, kill switch, labelled output. |
+| 18g | **Done in Phase 18 as a library, unused and not run against the real providers:** `src/lib/ai-service.ts` with fallback order, daily budgets, kill switch, cache, labelled output and Gemini and Workers AI adapters. Needs the Gemini key (server-side only) and the Cloudflare binding before use. |
 | 18h | **Partly done in Phase 18:** `DATA.md` lists what is stored where, for how long and how to delete it; the public privacy page is Phase 16e. Privacy basics: what is stored, how long, how to delete it, written in the privacy page (Phase 16e). |
 | 18i | **Not done:** seed users need either the service role key or SQL inserts into the auth schema; decide when the first feature needs sample data. Test accounts and seed data: a fixed set of test users, test reports and sample data for development and for each half-phase test pass, kept in the repo (no real data, no secrets). |
 
@@ -172,7 +97,7 @@ New. The app works for one visitor. A public launch changes the load, and the fr
 | 19f | Load model. **Done in 19 half 2** as a test (`src/test/feed-load.test.ts`): a seeded crowd of 10, 100 and 1,000 visitors runs through the real tile planner and the real server cache with a fake provider and clock. At 1,000 visitors the offered calls are about 2,600 per 7 s poll, and upstream calls are about 116 per poll (16.6 per second) over 125 distinct tiles, against about 750 distinct circles with one circle per visitor. No real provider is contacted. A real-network load test waits for the deployment. |
 | 19g | Graceful overload. **Done in 19 half 2:** while every provider fails, the last good aircraft stay on screen for up to 2 minutes (the status chip shows the age and the map stops moving them after 40 s), then the list clears. Together with the 30 s cache fallback from half 1. |
 | 19h | **Not built:** needs the deployment (16b) to test a store shared across instances. Store shared across server instances (Cloudflare KV or a Durable Object) behind the same cache interface, so every isolate reads the same tiles and the same pacing budget. Needs the deployment from 16b to test. |
-| 19i | **Done in Phase 19 (per server instance):** `src/lib/refresh-budget.ts` keeps a budget of optional upstream requests per minute (`FEED_BUDGET_PER_MIN`, default 90, 0 for no limit; a starting guess until the provider says what it allows). Below 60% of it every tile refreshes as before; as it fills up the busiest tiles keep refreshing and quiet tiles are answered from a copy up to 30 s old; once it is used up, copies up to 60 s old are served. Tiles with no copy and copies older than 60 s are always refreshed and are not counted, so the real rate is the budget plus about one request per tile a minute. In the crowd model (80 tiles, uneven demand, 5 minutes) the upstream rate fell from about 690 to about 120 a minute, busy tiles refreshed about every 20 s and quiet ones about every 50 s, and no copy older than 60 s was served. Not tested against a real provider; not shared between instances (19h). Refresh budget: the load model shows that even with shared tiles, 1,000 visitors over 125 tiles still cost about 17 upstream calls per second, far above what one instance's 500 ms pacing allows (2 per second) and above what adsb.lol may accept (unknown). Refresh rarely watched tiles less often, refresh the busiest tiles first, and keep the total under a configured budget (set from the operator's answer in 19d). |
+| 19i | **Done in Phase 19 (per server instance):** `src/lib/refresh-budget.ts` keeps a budget of optional upstream requests per minute (`FEED_BUDGET_PER_MIN`, default 90, 0 for no limit; a starting guess until the provider says what it allows). Below 60% of it every tile refreshes as before; as it fills up the busiest tiles keep refreshing and quiet tiles are answered from a copy up to 30 s old; once it is used up, copies up to 60 s old are served. Tiles with no copy and copies older than 60 s are always refreshed and are not counted, so the real rate is the budget plus about one request per tile a minute. In the crowd model (80 tiles, uneven demand, 5 minutes) the upstream rate fell from about 690 to about 120 a minute, busy tiles refreshed about every 20 s and quiet ones about every 50 s, and no copy older than 60 s was served. Not tested against a real provider; not shared between instances (19h). |
 
 ## Phase 20: Real-time experience
 
@@ -182,14 +107,14 @@ Why it needs a deliberate delay: today the browser polls every 7 s and moves eac
 
 | Phase | Work |
 | --- | --- |
-| 20a | **Done in Phase 20:** per-aircraft sample buffer (last 12 reports) with the report's true time (arrival minus its age). Sample buffer: keep the last samples of every aircraft with their true timestamps (the provider's age of position, not our arrival time), instead of only the latest. |
-| 20b | **Done in Phase 20:** draws at now minus the delay by interpolating position, altitude, heading and speed; dead reckoning only past the newest report, capped at 30 s (not 'a few seconds': the real feed stalls for 25 s or more), then held and dimmed. Delayed renderer: draw every aircraft at "now minus delay" by interpolating between its two surrounding samples (position, altitude, heading, speed). Dead reckoning is used only past the newest sample, capped to a few seconds, and then the aircraft is marked stale. |
-| 20c | **Done in Phase 20:** delay from the 90th percentile of update gaps plus typical report age plus 1 s (4 to 25 s), default 10 s, changes at most 0.1 s per second; Settings has Smooth and Live (2 to 5 s). Measured on the real feed: it settled at about 15 s. Adaptive delay: measure how late samples really arrive (jitter, skipped polls) and set the delay to cover it, with a floor and a ceiling; the default delay is about 10 s (Sri's decision, 2026-11-07), and a "Live / Smooth" setting lets the user trade latency for smoothness. |
-| 20d | **Done in Phase 20:** an aircraft missing from the data stays and keeps moving, fades over the last 20 s and is removed after 60 s. The 'last seen' age is shown in the aircraft panel (queue item 6, 2026-11-16; not yet seen with live data). Gap handling: an aircraft missing from one or two updates stays on screen and keeps moving along its last heading, then fades out after a time limit with its "last seen" age shown; no sudden vanishing and reappearing. |
+| 20a | **Done in Phase 20:** per-aircraft sample buffer (last 12 reports) with the report's true time (arrival minus its age). |
+| 20b | **Done in Phase 20:** draws at now minus the delay by interpolating position, altitude, heading and speed; dead reckoning only past the newest report, capped at 30 s (not 'a few seconds': the real feed stalls for 25 s or more), then held and dimmed. |
+| 20c | **Done in Phase 20:** delay from the 90th percentile of update gaps plus typical report age plus 1 s (4 to 25 s), default 10 s, changes at most 0.1 s per second; Settings has Smooth and Live (2 to 5 s). Measured on the real feed: it settled at about 15 s. |
+| 20d | **Done in Phase 20:** an aircraft missing from the data stays and keeps moving, fades over the last 20 s and is removed after 60 s. The 'last seen' age is shown in the aircraft panel (queue item 6, 2026-11-16; not yet seen with live data). |
 | 20e | Push instead of poll: the server sends changes to the browser as they arrive (server-sent events or a WebSocket through a Durable Object) from the shared tile cache, instead of every visitor polling. Cuts latency and requests; depends on 19b and 19c. |
 | 20f | Change-only updates: send only aircraft that changed since the last update, with compact fields, to keep bandwidth small at faster refresh rates. |
 | 20g | **Partly done in Phase 20:** the delay in use is shown in Settings and, as 'N s behind', in the status chip (queue item 6; not yet seen with live data). No browser/server clock offset is estimated (sample times use the browser clock and the provider's report age). Clock alignment: estimate the offset between browser and server clocks so timestamps compare correctly, and tell the user the current delay (for example "Live, 8 s behind") in the status chip. |
-| 20h | **Done in Phase 20:** the trail stops at the drawn moment and the panel's position, altitude, speed, heading and vertical rate come from the drawn moment. The flight charts still use all samples. Consistent panel and trails: the selected aircraft's panel values, trail and glide ring come from the same delayed moment as its icon, so numbers and picture agree. |
+| 20h | **Done in Phase 20:** the trail stops at the drawn moment and the panel's position, altitude, speed, heading and vertical rate come from the drawn moment. The flight charts still use all samples. |
 | 20i | Pan and zoom without holes: prefetch the tiles around the view and keep a short buffer for them, so moving the map does not show an empty area while data loads. |
 | 20j | **Partly done in Phase 20:** a simulated feed test (jitter, dropped and late updates) counts jumps and freezes. A small read-only debug box (delay, drawn moment, feed age) shows only with the `labs` flag (queue item 6; not yet seen with live data). Tests and metrics: simulated feeds with jitter, dropped updates and late packets; count visible jumps, freezes and gaps; a small debug overlay with delay, buffer length and update age. |
 | 20k | Reuse the buffer for session replay (9a) and for the 30-day replay design (9b). |
@@ -212,7 +137,7 @@ New. Removing Lovable (15a) also removes its error reporting and editor tooling,
 | 21h | Versioning, changelog and release process. **Done in 21 half 2:** `CHANGELOG.md` (Keep a Changelog, everything under Unreleased), and the release steps and versioning rule (0.x until launch, first tag `v0.1.0` at the soft launch) in `CONTRIBUTING.md`. No version tag or `package.json` version was changed. |
 | 21i | Documentation for contributors. **Done in 21 half 2:** `CONTRIBUTING.md` (setup, the four checks, branches, the half-phase test pass, adding a data source safely, releases, dependencies) and `ARCHITECTURE.md`. A `CLAUDE.md` proposal is drafted in local `docs/claude-md-proposal.md` and is NOT added to the repository: it needs the owner's OK. |
 | 21j | Feature flags. **Done in 21 half 2:** `src/lib/flags.ts` (defaults in code, then the build-time `VITE_FLAGS` list, then a tester's `skydeck.flags` list in the browser; `-name` turns a flag off) and the `useFlag` hook; one registered flag, `labs`, off by default. Server-side flags are not included yet. |
-| 21k | **Done (queue item 8, PR 64, 2026-11-20):** `e2e/screens.spec.ts` screenshots every public page at 1280, 746 and 375 px in both themes (no sideways scroll, no page error, heading present) and CI keeps them as the `screenshots` artifact; there are no pixel baselines on purpose. Earlier notes: Screenshot checks. **Partly done in 21 half 2:** the rule (screenshots of every changed screen at 1280, about 746 and 375 px, both themes once they exist, kept with the report) is part of the test pass in `CONTRIBUTING.md`. Automating it needs a browser test tool (a new dependency), chosen together with the end-to-end tests in 16f. |
+| 21k | **Done (queue item 8, PR 64, 2026-11-20):** `e2e/screens.spec.ts` screenshots every public page at 1280, 746 and 375 px in both themes (no sideways scroll, no page error, heading present) and CI keeps them as the `screenshots` artifact; there are no pixel baselines on purpose. |
 
 ## Phase 2f: Descent path
 
@@ -251,13 +176,13 @@ Reuses the OurAirports data from Phase 2. Sources are in the table above.
 
 | Phase | Feature | Backend? |
 | --- | --- | --- |
-| 5a | **Done in Phase 5:** a Watch button for the airframe and for the flight number in the aircraft panel and one for airports in the airport panel; a Watchlist dialog (star in the map tools) with live status; up to 50 items, kept in this browser. Watchlist for flights, airports and aircraft (browser first) | No |
-| 5b | **Done in Phase 5:** in-app messages for takeoff, landing and emergency squawk of watched items and for movements within 6 nm of a watched airport, only while the page is open, only in the area the map loaded; a takeoff or landing needs the new state in two updates in a row; one alert per item and kind every 10 minutes; a switch in the dialog. No browser notifications and nothing in the background. In-app alerts for takeoff, landing and emergency squawk on watched items (tab open) | No |
-| 5c | **Done in Phase 5:** the 15 most recently viewed flights, in the Watchlist dialog. Recently viewed flights | No |
-| 5d | **Done in Phase 5 (basic):** a Chase camera switch next to Follow: the map tilts to 68 degrees, zooms in to at least 12 and turns smoothly to the aircraft's heading. There is no camera offset behind the aircraft and no terrain-aware height. Follow chase-cam: a 3D follow view behind the selected aircraft (basic follow mode and 3D trails already exist) | No |
+| 5a | **Done in Phase 5:** a Watch button for the airframe and for the flight number in the aircraft panel and one for airports in the airport panel; a Watchlist dialog (star in the map tools) with live status; up to 50 items, kept in this browser. | No |
+| 5b | **Done in Phase 5:** in-app messages for takeoff, landing and emergency squawk of watched items and for movements within 6 nm of a watched airport, only while the page is open, only in the area the map loaded; a takeoff or landing needs the new state in two updates in a row; one alert per item and kind every 10 minutes; a switch in the dialog. No browser notifications and nothing in the background. | No |
+| 5c | **Done in Phase 5:** the 15 most recently viewed flights, in the Watchlist dialog. | No |
+| 5d | **Done in Phase 5 (basic):** a Chase camera switch next to Follow: the map tilts to 68 degrees, zooms in to at least 12 and turns smoothly to the aircraft's heading. There is no camera offset behind the aircraft and no terrain-aware height. | No |
 | 5e | **Partly done in Phase 5:** skeleton placeholders for airport data and the terrain profile, and a retry button on the terrain profile. The rest of the loading, error and rate-limit states already existed (busy feed notice, airport and weather retry). Loading skeletons, error and rate-limit states | No |
 | 5f | **More done (queue item 8, PR 64):** `e2e/a11y.spec.ts` checks names, labels, ids and tab order on every page, tabs through each text page, opens the map dialogs and popovers with the keyboard, and measures text contrast in both themes; it found that dialogs lost focus on close (fixed with `src/lib/return-focus.ts`). A screen reader pass still needs a person. Earlier notes: **Partly done in Phase 5:** an automated check of the page with the aircraft panel and dialogs open found no unnamed controls, duplicate ids or positive tab indexes; map camera moves no longer force animation for visitors who prefer reduced motion and a global reduced-motion rule stops pulsing and flashing effects; one small toggle enlarged. Not done: a screen-reader walk-through, a colour contrast measurement, a keyboard-only pass of every dialog; the switches are 36 by 20 px (shadcn default, their labels are the click target). Accessibility pass (keyboard, focus, contrast, screen reader labels, reduced motion) | No |
-| 5g | **Done in Phase 5:** the watchlist and recent flights sync to the signed-in user's account (two tables with row-level security and limits); on sign-in both lists are united once, then every change is written to both; a failed save leaves the list on the device and shows a note. Tested end to end on the real project. A removal made on another device while signed out comes back (a union cannot tell removed from never had). Sign-in and cloud sync of the watchlist and recently viewed | Yes (Phase 18d) |
+| 5g | **Done in Phase 5:** the watchlist and recent flights sync to the signed-in user's account (two tables with row-level security and limits); on sign-in both lists are united once, then every change is written to both; a failed save leaves the list on the device and shows a note. Tested end to end on the real project. A removal made on another device while signed out comes back (a union cannot tell removed from never had). | Yes (Phase 18d) |
 
 ## Phase 6: Pilot messages (ACARS)
 
@@ -268,7 +193,7 @@ Today: an on-demand card in the aircraft panel (6a, done). Until the legal revie
 | 6a | ACARS card in the panel | Done. |
 | 6b | **Not built:** a page of recent messages for every aircraft needs the Airframes answer (0c) and the legal review (0d) first, and more requests than the per-aircraft card. Browse page | Recent Airframes messages, filter by label and text, same on-demand guardrails. |
 | 6c | **Round 5 check:** `airframesio/acars-message-documentation` has no licence and says its documentation is still pending, with only about ten label descriptions, so nothing was copied; permission or a licence from its maintainers is needed first. **Partly done in Phase 6:** each message has an Explain this message section that lists the standard aviation abbreviations found in it as whole capital words (about 30, for example ETA, RWY, PAX), tagged "Explained by SkyDeck rules, not by AI". Label codes are NOT explained: no verified list of label meanings was found (the sources checked, the decoder repository and libacars, have no table in what was read), so none was invented. The documentation repository `airframesio/acars-message-documentation` is the next place to look once its licence is confirmed. Plain-English decoding by rules | A dictionary of message labels and common abbreviations, tagged "explained by SkyDeck rules". No AI. |
-| 6d | **Done in Phase 6 except the report button:** the original text is labelled Original received message (monospaced, as received, with a Copy button), next to an Explain this message section; metadata the data did not carry is shown as unavailable, and empty or cut messages are marked partial. Not built: the report a wrong summary button. Seen only in component tests with invented text, not on a live message. Original vs summary view | Expandable "Original received message" (monospaced, exactly as received, copyable) next to the explanation. Metadata fields shown separately and marked "unavailable" when missing. Partial or undecodable messages marked as such. A "report a wrong summary" button once Phase 18 exists. |
+| 6d | **Done in Phase 6 except the report button:** the original text is labelled Original received message (monospaced, as received, with a Copy button), next to an Explain this message section; metadata the data did not carry is shown as unavailable, and empty or cut messages are marked partial. Not built: the report a wrong summary button. Seen only in component tests with invented text, not on a live message. | Expandable "Original received message" (monospaced, exactly as received, copyable) next to the explanation. Metadata fields shown separately and marked "unavailable" when missing. Partial or undecodable messages marked as such. A "report a wrong summary" button once Phase 18 exists. |
 | 6e | **Not built:** needs a VHF receiver and a decoder output format check. Own receiver | Viewer for the output of a decoder Sri runs (`acarsdec` or `dumpvdl2`). Needs a VHF receiver. |
 | 6f | **Not built:** needs a configured AI key (see 14c) and the legal review. AI summaries | Uses the free AI plan in "Backend and AI options" (on demand, cached, daily cap, labelled "AI-generated", original always available). Needs Phase 18g and the ACARS legal review. |
 | 6g | **Not built:** needs stored messages or web push (10f). Message notifications | Notification levels (All, Interesting, Breaking) for watched aircraft. Depends on 5b. |
@@ -281,21 +206,21 @@ All are map overlays that must survive a basemap switch.
 
 | Phase | Feature | Source (see table) |
 | --- | --- | --- |
-| 7a | **Done in Phase 7:** RainViewer radar tiles, personal and educational use, attribution link shown with the timeline. The NOAA MRMS fallback was not built. Precipitation radar | RainViewer (tested); NOAA MRMS WMS as US fallback |
-| 7b | **Done in Phase 7:** play, pause and scrub over the past frames (about 2 hours); RainViewer sent no forecast frames, so none are shown. Radar timeline (past frames; forecast frames only if a source provides them, labelled as forecasts) | RainViewer past frames only |
-| 7c | **Done in Phase 7 (US only, current frame only):** Iowa Mesonet NEXRAD echo-top WMS layer. The Mesonet disclaimer was not read in full. Echo tops | Iowa State Mesonet WMS (US) |
+| 7a | **Done in Phase 7:** RainViewer radar tiles, personal and educational use, attribution link shown with the timeline. The NOAA MRMS fallback was not built. | RainViewer (tested); NOAA MRMS WMS as US fallback |
+| 7b | **Done in Phase 7:** play, pause and scrub over the past frames (about 2 hours); RainViewer sent no forecast frames, so none are shown. | RainViewer past frames only |
+| 7c | **Done in Phase 7 (US only, current frame only):** Iowa Mesonet NEXRAD echo-top WMS layer. The Mesonet disclaimer was not read in full. | Iowa State Mesonet WMS (US) |
 | 7d | **Not built:** Blitzortung is not allowed without permission and GOES GLM needs a processing job. Lightning, coloured by age | Blitzortung is not allowed without permission; GOES GLM needs a processing job. Stretch goal |
-| 7e | **Done in Phase 7:** US and international SIGMETs, G-AIRMET (the slot nearest to now; line features such as freezing-level lines are not drawn) and PIREPs (last 2 hours, view limited to 30 degrees), with a click card. PIREPs, SIGMETs and AIRMETs | aviationweather.gov (tested) |
+| 7e | **Done in Phase 7:** US and international SIGMETs, G-AIRMET (the slot nearest to now; line features such as freezing-level lines are not drawn) and PIREPs (last 2 hours, view limited to 30 degrees), with a click card. | aviationweather.gov (tested) |
 | 7f | **Not built:** the aviationweather.gov wind/temperature product answers that it was discontinued with the retirement of the NAM model (checked 2026-11-08). Needs another source. Winds aloft | aviationweather.gov wind and temperature product (endpoint to confirm) |
 
 ## Phase 8: Routes, terrain and airspace
 
 | Phase | Feature | Notes |
 | --- | --- | --- |
-| 8a | **Done in Phase 8:** a dashed great-circle line between the origin and destination from the route lookup, with airport labels, switchable in Layers (on by default for the selected flight); labelled approximate because the real path is not known. Route line for the selected flight | Origin and destination from the existing route lookup; great-circle line labelled as an approximation. |
-| 8b | **Done in Phase 8:** a terrain profile card in the aircraft panel along the straight route line (60 samples from the AWS Terrarium tiles at zoom 7, coarse), with the aircraft's position and altitude in text; the chart is scaled to the terrain. The track-based profile and the PIREP overlay were not done. Terrain profile | Elevation along the track and the route using the AWS terrain tiles we already load. PIREP overlay after 7e. |
+| 8a | **Done in Phase 8:** a dashed great-circle line between the origin and destination from the route lookup, with airport labels, switchable in Layers (on by default for the selected flight); labelled approximate because the real path is not known. | Origin and destination from the existing route lookup; great-circle line labelled as an approximation. |
+| 8b | **Done in Phase 8:** a terrain profile card in the aircraft panel along the straight route line (60 samples from the AWS Terrarium tiles at zoom 7, coarse), with the aircraft's position and altitude in text; the chart is scaled to the terrain. The track-based profile and the PIREP overlay were not done. | Elevation along the track and the route using the AWS terrain tiles we already load. PIREP overlay after 7e. |
 | 8c | **Not built as TFRs:** the only related FAA layer (`National_Defense_Airspace_TFR_Areas`) has 8 standing areas, not the daily TFRs. **Special use areas (restricted, prohibited, warning, alert, MOA) are shown instead** from `Special_Use_Airspace`, with their times of use as text; whether an area is active now is not known. Temporary flight restriction polygons | No keyless feed found (see table). Options: NOTAM access (4g) or scraping tfr.faa.gov after reading its terms. Educational, not for planning. |
-| 8d | **Done in Phase 8, with a different layer than planned:** `Boundary_Airspace` holds ARTCC boundaries and special rules, not Class B/C/D; the right layer is `Class_Airspace` (Class B, C, D with floor and ceiling). Queried per rounded 1 degree box (6 degrees at most), simplified, cached 12 hours on the server. The FAA service allows only 6,000 request units a minute to all callers together (an HTTP 429 was seen during testing). Airspace boundaries | FAA ArcGIS `Boundary_Airspace` (tested), cached. |
+| 8d | **Done in Phase 8, with a different layer than planned:** `Boundary_Airspace` holds ARTCC boundaries and special rules, not Class B/C/D; the right layer is `Class_Airspace` (Class B, C, D with floor and ceiling). Queried per rounded 1 degree box (6 degrees at most), simplified, cached 12 hours on the server. The FAA service allows only 6,000 request units a minute to all callers together (an HTTP 429 was seen during testing). | FAA ArcGIS `Boundary_Airspace` (tested), cached. |
 | 8e | **Not built:** no free source found. Filed-route waypoints | No free source found; likely stays unbuilt. |
 
 ## Phase 9: History and replay
@@ -311,10 +236,10 @@ All are map overlays that must survive a basemap switch.
 | Phase | Feature | Backend? |
 | --- | --- | --- |
 | 10a | Emergency squawk banner | Done in Phase 1. |
-| 10b | **Done in Phase 10:** rules with aircraft type, military flag, flight number prefix, altitude range, squawk, in the air or on the ground and an area, checked on every aircraft update while the page is open; an alert when an aircraft starts matching (the first pass only learns, so a new rule never floods), 30 minute cooldown per aircraft and rule, at most 3 messages per rule per update; up to 20 rules; the dialog shows how many aircraft match now. Rules are kept in this browser, not synced to the account. Alert rules (altitude, type, region, callsign) checked in the browser | No (tab open) |
-| 10c | **Done in Phase 10:** areas are circles drawn on the map with two clicks (centre, then a point on the edge, 1 to 500 nm) or named by an airport or city in plain English; they are shown as dashed circles. Polygons are not supported. Map-drawn alert areas | No |
-| 10d | **Done in Phase 10:** a Military condition uses the feed's military flag (readsb dbFlags bit 1, already part of the aircraft data since Phase 22). Only the military flag is used, never the privacy flags. Military and government aircraft alerts | No (add `dbFlags` to the feed schema first) |
-| 10e | **Done in Phase 10 as a keyword parser, not AI:** understands heavy/narrowbody/business jet/light/helicopter/glider/balloon/drone, military, below/above/between altitudes (5,000, 5k, FL350), callsign/flight prefixes, squawk codes and emergency/hijack, in the air or on the ground, and within N nm/miles/km of an airport code or city; says what it understood and what it ignored, and refuses places it cannot find. An AI version can use the same result shape later. Natural-language alert creation | A small rule parser first; an AI version uses the free AI plan (Phase 18g) |
+| 10b | **Done in Phase 10:** rules with aircraft type, military flag, flight number prefix, altitude range, squawk, in the air or on the ground and an area, checked on every aircraft update while the page is open; an alert when an aircraft starts matching (the first pass only learns, so a new rule never floods), 30 minute cooldown per aircraft and rule, at most 3 messages per rule per update; up to 20 rules; the dialog shows how many aircraft match now. Rules are kept in this browser, not synced to the account. | No (tab open) |
+| 10c | **Done in Phase 10:** areas are circles drawn on the map with two clicks (centre, then a point on the edge, 1 to 500 nm) or named by an airport or city in plain English; they are shown as dashed circles. Polygons are not supported. | No |
+| 10d | **Done in Phase 10:** a Military condition uses the feed's military flag (readsb dbFlags bit 1, already part of the aircraft data since Phase 22). Only the military flag is used, never the privacy flags. | No (add `dbFlags` to the feed schema first) |
+| 10e | **Done in Phase 10 as a keyword parser, not AI:** understands heavy/narrowbody/business jet/light/helicopter/glider/balloon/drone, military, below/above/between altitudes (5,000, 5k, FL350), callsign/flight prefixes, squawk codes and emergency/hijack, in the air or on the ground, and within N nm/miles/km of an airport code or city; says what it understood and what it ignored, and refuses places it cannot find. An AI version can use the same result shape later. | A small rule parser first; an AI version uses the free AI plan (Phase 18g) |
 | 10f | **Not built:** web push when the tab is closed needs a backend job that checks rules on a schedule and push subscriptions (Phase 18f, deployment). Notifications when the tab is closed (web push) | Yes (Phase 18, scheduled checks) |
 
 ## Phase 11: My flights
@@ -340,9 +265,9 @@ Browser-local until sign-in (5g) exists, then synced.
 
 | Phase | Feature |
 | --- | --- |
-| 13a | **Done in Phase 13:** every type and registration opened on the map is remembered in this browser (up to 600 types and 3,000 registrations), with first time, times opened and the icon shape; a trophy button opens the Collection. Not synced to the account yet (that needs a table and a migration). Collect aircraft types and registrations you have selected |
-| 13b | **Done in Phase 13:** 13 achievements (5, 25 and 100 types; 10, 50 and 250 registrations; helicopter, glider, heavy jet, four-engine heavy, turboprop plus rear-engine jet, military, one of each main category), worked out from the collection with a progress bar and a message when one unlocks. Achievements |
-| 13c | **Done in Phase 13:** three daily challenges, the same for everyone on the same date, rotating through eight (including "find a helicopter, a glider and a heavy jet"); progress counts what was opened today. Challenges (for example, "find a helicopter, a glider and a heavy jet") |
+| 13a | **Done in Phase 13:** every type and registration opened on the map is remembered in this browser (up to 600 types and 3,000 registrations), with first time, times opened and the icon shape; a trophy button opens the Collection. Not synced to the account yet (that needs a table and a migration). |
+| 13b | **Done in Phase 13:** 13 achievements (5, 25 and 100 types; 10, 50 and 250 registrations; helicopter, glider, heavy jet, four-engine heavy, turboprop plus rear-engine jet, military, one of each main category), worked out from the collection with a progress bar and a message when one unlocks. |
+| 13c | **Done in Phase 13:** three daily challenges, the same for everyone on the same date, rotating through eight (including "find a helicopter, a glider and a heavy jet"); progress counts what was opened today. |
 | 13d | **Round 5 check:** the Planespotters terms could not be read (the contact page refuses automated requests and the API root has none); Sri needs to read them in a browser and say whether thumbnails with a link to the photographer are allowed. **Not built:** the Planespotters terms were not read, and hotlinking third-party photos needs attribution and a licence check first. Aircraft photos on collected aircraft (Planespotters API, after reading its terms) |
 
 ## Phase 14: Insights
@@ -351,7 +276,7 @@ Rule-based first; the AI versions use the free AI plan.
 
 | Phase | Feature |
 | --- | --- |
-| 14a | **Done in Phase 14:** a Flight facts card in the aircraft panel: phase (the Phase 11 stage rules), route length, how far along it is, time to the destination with the clock time it implies, and whether the nose points at the destination. A route that does not fit where the aircraft is, is ignored and said so. Estimates from the broadcast position and a straight line, without winds or air traffic control. Per-flight facts card (route, distance, phase of flight, time to destination) |
+| 14a | **Done in Phase 14:** a Flight facts card in the aircraft panel: phase (the Phase 11 stage rules), route length, how far along it is, time to the destination with the clock time it implies, and whether the nose points at the destination. A route that does not fit where the aircraft is, is ignored and said so. Estimates from the broadcast position and a straight line, without winds or air traffic control. |
 | 14b | **Already done in Phase 4 (4j):** the airport panel's rule-based brief from weather, FAA status, ATIS, runway guess and traffic. Nothing new was needed. Airport brief (see 4j) |
 | 14c | **Not built:** needs a configured AI provider key on the server (Gemini or Workers AI, Phase 18g); none is set, and nothing in the page calls the AI service wrapper yet. AI insights: per-flight and airport briefs, on demand, cached, labelled |
 
@@ -380,12 +305,12 @@ Features that every flight tracker is expected to have and that the first list m
 
 | Phase | Feature | Notes |
 | --- | --- | --- |
-| 23a | **Done in Phase 23:** a Help and FAQ page (how to read the map, where the data comes from, the limits, common questions) at `/help`. Help and FAQ | How to read the map, what the data sources are, what the limits are. |
-| 23b | **Done in Phase 23 as a link, not a form:** Feedback in the footer opens the project's GitHub issues page with a bug report and a feedback template. GitHub gives the spam protection and the owner's inbox; a visitor needs a free GitHub account. A form on our own server would need a table, a rate limit and a place to read it, and was not built. Feedback and bug report | A simple form or link, with spam protection, and an inbox the owner can read. |
-| 23c | **Done in Phase 23:** `/whats-new` is built from `CHANGELOG.md` when the app is built, so the changelog stays the one place the history is written. What's new page | Built from the changelog (21h). |
-| 23d | **Done in Phase 23:** `/status` asks the aircraft sources, weather, FAA status and airspace, and accounts, from the server at most once a minute, and says working, slow, refused, not answering, not set up or not used. It shows airplanes.live as refused (HTTP 403), which is true. It does not keep history and sends no alerts. Status page | A page showing whether data providers, the feed and AI are working, based on 21d. |
+| 23a | **Done in Phase 23:** a Help and FAQ page (how to read the map, where the data comes from, the limits, common questions) at `/help`. | How to read the map, what the data sources are, what the limits are. |
+| 23b | **Done in Phase 23 as a link, not a form:** Feedback in the footer opens the project's GitHub issues page with a bug report and a feedback template. GitHub gives the spam protection and the owner's inbox; a visitor needs a free GitHub account. A form on our own server would need a table, a rate limit and a place to read it, and was not built. | A simple form or link, with spam protection, and an inbox the owner can read. |
+| 23c | **Done in Phase 23:** `/whats-new` is built from `CHANGELOG.md` when the app is built, so the changelog stays the one place the history is written. | Built from the changelog (21h). |
+| 23d | **Done in Phase 23:** `/status` asks the aircraft sources, weather, FAA status and airspace, and accounts, from the server at most once a minute, and says working, slow, refused, not answering, not set up or not used. It shows airplanes.live as refused (HTTP 403), which is true. It does not keep history and sends no alerts. | A page showing whether data providers, the feed and AI are working, based on 21d. |
 | 23e | **Not built:** there is no user content to moderate yet (no wait reports, no feedback on our server). Moderation tools | A small private page for the owner to hide or delete crowd-sourced security wait reports and message feedback, and to see abuse counts. |
-| 23f | **Done in Phase 23 (draft):** the Terms page says what visitors can send (feedback through GitHub), how it is used and how to ask for removal. To be read by Sri. Terms for user content | What users may submit (wait reports, feedback), how it is used, and how to ask for removal. |
+| 23f | **Done in Phase 23 (draft):** the Terms page says what visitors can send (feedback through GitHub), how it is used and how to ask for removal. To be read by Sri. | What users may submit (wait reports, feedback), how it is used, and how to ask for removal. |
 | 23g | **Partly done in Phase 23 (draft):** the written complaints and takedown process is on the Terms page. The working private contact address is still missing; today it is the GitHub issues page. Needs Sri. Takedown and contact process | A working contact address and a written process for complaints (needed for ACARS and credits). |
 | 23h | **Partly done in Phase 23:** `/press` has a one-sentence and a paragraph description, key facts, colours, the app icon files and the credit lines. No screenshots or wordmark file yet. Press and about kit | Short description, screenshots, logo files and attribution wording. |
 
@@ -395,9 +320,9 @@ Near the end, before final testing. Design work for the release: removing Lovabl
 
 | Phase | Feature |
 | --- | --- |
-| 15a | **Done in code (2026-11-16):** `vite.config.ts` is now a plain config (Tailwind, tsconfig paths, TanStack Start with import protection, Nitro with the `cloudflare-module` preset, React, `VITE_` variables defined for server code, lightningcss, the `@` alias, React de-duplication, dev port 8080), the Lovable package is gone (`lightningcss` is now a direct dependency), `src/lib/lovable-error-reporting.ts`, `.lovable/`, the `bunfig.toml` exceptions, the `AGENTS.md` block and the README note are removed. The production build has the same 136 files, the same size and the same `wrangler.json` as before. **Not done (the owner):** disconnect the project in Lovable and remove the Lovable GitHub app from the repository. Remove Lovable. Found in the repo before: the build config `vite.config.ts` is built on `@lovable.dev/vite-tanstack-config` (a dependency plus matching entries in `package.json`, `bun.lock` and `bunfig.toml`), `src/lib/lovable-error-reporting.ts` (used by the root error component in `src/routes/__root.tsx`), the Lovable block at the top of `AGENTS.md`, and a Lovable paragraph in the README. Replacing the config package means writing the plain TanStack Start, Cloudflare and Nitro Vite config ourselves, so this is real work, not only deleting links. Sri also has to disconnect the project on the Lovable and GitHub side. After that the "never rewrite history" rule can be relaxed. Needs Sri's OK to edit `AGENTS.md` and to change dependencies. |
+| 15a | **Done in code (2026-11-16):** `vite.config.ts` is now a plain config (Tailwind, tsconfig paths, TanStack Start with import protection, Nitro with the `cloudflare-module` preset, React, `VITE_` variables defined for server code, lightningcss, the `@` alias, React de-duplication, dev port 8080), the Lovable package is gone (`lightningcss` is now a direct dependency), `src/lib/lovable-error-reporting.ts`, `.lovable/`, the `bunfig.toml` exceptions, the `AGENTS.md` block and the README note are removed. The production build has the same 136 files, the same size and the same `wrangler.json` as before. **Not done (the owner):** disconnect the project in Lovable and remove the Lovable GitHub app from the repository. |
 | 15b | **Not built (needs Sri):** the name and domain (Decision 7) are not settled, so the SkyDeck name stays; the header uses a plain plane mark. Brand identity: name and domain check (Decision 7), logo mark and wordmark, favicon and app icons, colour palette and type, a short brand note in the repo. Fonts must be the self-hosted ones from 16a. |
-| 15c | **Done in Phase 15 (without the high-contrast mode):** a light theme beside the dark one, picked in Settings as Dark, Light or System (dark is the default; the choice is kept in `skydeck:theme`), applied before the first paint so there is no flash; every colour is a variable in `styles.css`; a test checks the text and background pairs of both themes against WCAG AA (it found the dark theme's red button text at 3.7:1, so that red was darkened a little). The map style stays a separate choice. A separate high-contrast mode and the toast and map-icon colours in the light theme were not reviewed. Themes: design tokens for colour, spacing and type in one place, a finished dark theme and light theme, a high-contrast check, and a theme switch (this replaces the theme part of the old settings item). The map styles stay separate from the page theme. |
+| 15c | **Done in Phase 15 (without the high-contrast mode):** a light theme beside the dark one, picked in Settings as Dark, Light or System (dark is the default; the choice is kept in `skydeck:theme`), applied before the first paint so there is no flash; every colour is a variable in `styles.css`; a test checks the text and background pairs of both themes against WCAG AA (it found the dark theme's red button text at 3.7:1, so that red was darkened a little). The map style stays a separate choice. A separate high-contrast mode and the toast and map-icon colours in the light theme were not reviewed. |
 | 15d | **Round 5:** the header of the non-map pages has Search (opens the map with the search box focused) and Sign in (opens the map with the account dialog); both were seen working. Airports and My flights links wait for those pages. **Done in Phase 15 for the pages that are not the map:** a header (logo mark, name, Map and Inspector links) and a footer (disclaimer, Credits and data sources, GitHub link) on the inspector and the 404 page. The map keeps its own compact bar. Not done: a search entry and sign-in in the header, Airports and My flights links (no such pages), legal pages and contact (Phase 16e). Header and footer on every page: header with logo, navigation (Map, Airports, Inspector, My flights when they exist), search entry and sign-in; footer with Credits and data sources, legal pages, disclaimer, GitHub link and contact. The map page may use a compact header. |
 | 15e | **Not built:** moving the map to `/map` changes every shared link; this needs a decision on redirects and the landing design first. Landing page: a page that explains SkyDeck in a few seconds (hero with a live map preview or video, feature highlights, data sources and honesty notes, a call to action to open the map, footer). Moving it to `/` means the map moves to `/map`; update links, the inspector's back link, the README and redirects. Must be server-rendered for fast first paint and search, work on phone, tablet and desktop, and respect reduced motion. |
 | 15f | **Partly done (2026-11-16):** a share image (`public/og-image.png`, 1200 x 630) drawn from the app's own design by `scripts/make-share-image.mjs`, and Open Graph and Twitter tags on every page. How chat apps render it was not checked; a designed brand image and README banner remain. **Not built:** needs designed images and screenshots. Banners and share images: Open Graph and social preview images, README banner, GitHub social image, screenshots. |
@@ -417,11 +342,11 @@ Landing page: where to build it (Decision 8)
 
 | Phase | Feature |
 | --- | --- |
-| 16a | **Done in Phase 16:** Chakra Petch (four weights) and JetBrains Mono (one variable file for 400 to 600), latin and latin-ext only, copied from Google Fonts into `public/fonts` (about 200 kB) under the SIL Open Font License; `@font-face` in `styles.css`, the two main files preloaded, no request goes to Google any more; the credit entry says so. Other scripts (Cyrillic, Greek, Thai, Vietnamese) fall back to the system font. Self-hosted fonts (see Phase 0) |
-| 16b | **Done in part (2026-11-10):** Sri is logged in to Cloudflare; `DEPLOY.md`, `wrangler` and the `preview:worker` and `deploy` scripts added; the production build passes the smoke tests locally in workerd. **Not built:** custom domain, preview deployments, shared caching. Cloudflare Workers deployment, including a working preview and shared caching |
-| 16c | **Done in Phase 16 (small):** a web app manifest, generated icons (192, 512, maskable, Apple touch), and a service worker that keeps the built files and shows a plain offline page when a page cannot be fetched. It never stores or answers live data (aircraft, weather, sign-in, the API). The app itself still needs a connection. Only registered in the built app, not in development; never run on a real production host. Installable PWA and offline shell |
-| 16d | **Done in Phase 16, partly:** the map library now has its own file (`maplibre`, 1,065 kB, 289 kB gzipped), so the map page's own code is 27 kB and the library stays cached across releases. The library itself is still over 1 MB; that cannot be made smaller here. Performance: split the large map chunk (about 1 MB) |
-| 16e | **Done in Phase 16 as a draft for Sri to read:** About, Privacy (written from DATA.md), Terms and Disclaimer pages with the header and footer, linked from the footer and in the sitemap. The takedown and general contact is the project's GitHub issues page; a private contact (an email address) still has to be chosen and added. This is not legal advice. Legal pages: about, privacy, terms, disclaimer, takedown contact |
+| 16a | **Done in Phase 16:** Chakra Petch (four weights) and JetBrains Mono (one variable file for 400 to 600), latin and latin-ext only, copied from Google Fonts into `public/fonts` (about 200 kB) under the SIL Open Font License; `@font-face` in `styles.css`, the two main files preloaded, no request goes to Google any more; the credit entry says so. Other scripts (Cyrillic, Greek, Thai, Vietnamese) fall back to the system font. |
+| 16b | **Done in part (2026-11-10):** Sri is logged in to Cloudflare; `DEPLOY.md`, `wrangler` and the `preview:worker` and `deploy` scripts added; the production build passes the smoke tests locally in workerd. **Not built:** custom domain, preview deployments, shared caching. |
+| 16c | **Done in Phase 16 (small):** a web app manifest, generated icons (192, 512, maskable, Apple touch), and a service worker that keeps the built files and shows a plain offline page when a page cannot be fetched. It never stores or answers live data (aircraft, weather, sign-in, the API). The app itself still needs a connection. Only registered in the built app, not in development; never run on a real production host. |
+| 16d | **Done in Phase 16, partly:** the map library now has its own file (`maplibre`, 1,065 kB, 289 kB gzipped), so the map page's own code is 27 kB and the library stays cached across releases. The library itself is still over 1 MB; that cannot be made smaller here. |
+| 16e | **Done in Phase 16 as a draft for Sri to read:** About, Privacy (written from DATA.md), Terms and Disclaimer pages with the header and footer, linked from the footer and in the sitemap. The takedown and general contact is the project's GitHub issues page; a private contact (an email address) still has to be chosen and added. This is not legal advice. |
 | 16f | **Flows done (queue item 9, PR 65, 2026-11-21):** `e2e/flows.spec.ts` drives search, shortcuts, filters and CSV, units, watchlist, saved views, share links, alert rules, collection, emergency banner, clean view, first-run guide, replay, provider failure and the phone sheet against a stub provider (`e2e/stub-upstream.mjs`, `ADSB_UPSTREAM_OVERRIDE`); sign-in is still not driven. Earlier notes: **Done in part (2026-11-10):** Playwright approved and added; smoke tests of every public page, health, robots, sitemap, the map page and the not-found page run in their own CI job against `vite dev`. **Not built:** flows through the map, sign-in and watchlist tests, the production build under test (needs wrangler), other browsers. End-to-end tests of the main flows |
 | 16g | **Not built:** a language setting means translating every text in the app; no translations exist, and it should wait until the text has settled. Language setting (the theme setting moved to 15c) |
 
@@ -436,7 +361,7 @@ Landing page: where to build it (Decision 8)
 | 17e | **Checklist written, not closed:** `RELEASE.md` lists every open blocker; most need Sri. Release checklist: Phase 0 blockers closed, credits and README match every source's terms, Lovable removed (15a), monitoring and quota alarms for free tiers |
 | 17f | **Not started:** nothing is deployed; the plan and rollback steps are in `RELEASE.md`. Soft launch to a few people, a rollback plan and a known-issues list |
 
-## Remaining work, in order (2026-11-10)
+## Remaining work, in order (written 2026-11-10, trimmed 2026-11-21)
 
 Everything not listed here is built and merged into `dev`. **Phase 17 (final checks and testing, then release) is the last stage:** nothing is added after it except fixes it finds.
 
@@ -450,7 +375,6 @@ Everything not listed here is built and merged into `dev`. **Phase 17 (final che
 | 0a, 0b, 0c, 0d, 0f | Esri imagery terms (keep, key or drop), airplanes.live access, the Airframes answer, the ACARS legal review, credits wording matched to the terms. |
 | 23g contact | A private contact address for takedowns and complaints. |
 | 15e landing page | Decide the landing design and how `/map` redirects shared links. |
-| 16f, 21k tests | Playwright is approved and added (16f smoke tests done); screenshot tests (21k) and flow tests remain. |
 | 12b, 3D models | OK for a 3D layer library, and model files with a checked licence. |
 | 18i, 21f | Seed data approach and how Supabase backups are made. |
 
@@ -471,67 +395,9 @@ Everything not listed here is built and merged into `dev`. **Phase 17 (final che
 
 **E. Final stage: Phase 17.** 17a full feature pass in a visible browser on desktop, tablet and phone, 17b security review again on the live build, 17c quota and failure drills, 17d accessibility and performance audit on the live build, 17e release checklist (`RELEASE.md`) closed, 17f soft launch with a rollback plan. The 17 work done so far (the development-build pass and the first security review) stays in `RELEASE.md` and is repeated on the deployed build.
 
-## Suggested order
+## How work is delivered
 
-1. **Phase 0 blockers** that need only Sri's decisions (Esri, fonts, credits), and the **backend and AI decisions** (settled).
-2. **Phase 18** (18a to 18c first), **Phase 19** (measure first, 19a; 19a is done), **Phase 20** (real-time smoothing, needs the faster shared feed from 19b) and **Phase 21** (21a, 21c early), then the rest as needed.
-3. **Phase 4a to 4c, 4f, 4j**: airport pages, weather, nearby airports, FAA status.
-4. **Phase 5a, 5b, 5e, 5f**: watchlist, alerts, states and accessibility.
-5. **Phase 8a, 8b, 8d**: route line, terrain profile, airspace.
-6. **Phase 7a, 7b, 7e**: radar and PIREPs.
-7. **Phase 4g, 4k, 5g**: ATIS and NOTAMs, crowd waits, sign-in.
-8. **Phase 6b to 6d**, then **6f**, after the legal review.
-9. **Phase 9a, 10b to 10d, 11a, 13, 14**.
-10. **Phase 12**, **Phases 22 and 23** (polish, help and moderation), then **Phase 15** (independence, brand and landing page), **Phase 16** (platform) and **Phase 17** (final testing and release).
-
-## Delivery plan: one branch per half phase
-
-Decision on 2026-11-07: every phase is delivered in two halves. Each half gets its own branch, is tested at the end, and only then becomes a pull request.
-
-Rules:
-
-- **Branch name:** `ide/phase-<number>-half-<1 or 2>`, cut from `origin/dev` (for example `ide/phase-4-half-1`). Phases with a single item use one branch, `ide/phase-<number>`.
-- **Commits:** small, one concern each, with named files staged. Unfinished features sit behind a feature flag (21j) so `dev` always works.
-- **Push once** when the half is finished and tested, by explicit branch name. Never rewrite pushed history.
-- **Test gate before the pull request** (the "half-phase test pass"):
-  1. `bun run test`, `bun x tsc --noEmit`, `bun run build` and `bun run lint` pass (lint: no new warnings).
-  2. A walk through every item of the half in a visible browser at 1280, ~746 and 375 px, with the data-failure and empty states (provider down, quota used up, nothing found).
-  3. New or changed data sources: one real request checked, the terms read, the attribution added to the Credits dialog and the README.
-  4. The plan files, README and roadmap updated for what changed.
-  5. A short report: commits, commands run with counts, what is proven by tests, what is NOT VERIFIED, risks.
-- **Pull request:** targets `dev`, describes the half, includes the report, and says what was not verified. The owner merges. (The Copilot review comment stays paused until Sri resumes it.)
-- **After merge:** fetch, cut the next half from the new `dev`.
-
-Halves by phase (the first half is listed first):
-
-| Phase | Half 1 | Half 2 |
-| --- | --- | --- |
-| 0 | Decisions and terms: 0a to 0d | Fixes: 0e to 0k (fonts and credits are code; the rest are checks) |
-| 2f | Descent path (one branch) |  |
-| 3 | 3c more decoded fields | 3b live receiver feed (after receiver decisions) |
-| 4 | 4a to 4f: pages, weather, nearby, active runway, map detail, FAA delays | 4g to 4k: ATIS and NOTAMs, charts, cameras, brief, security waits |
-| 5 | 5a to 5d: watchlist, alerts, recently viewed, chase-cam | 5e to 5g: states, accessibility, sign-in |
-| 6 | 6b to 6e: browse page, rule-based explanations, original vs summary, own receiver | 6f to 6i: AI summaries, notifications, history, source categories |
-| 7 | 7a to 7c: radar, timeline, echo tops | 7d to 7f: lightning, PIREPs and SIGMETs, winds aloft |
-| 8 | 8a to 8c: route line, terrain profile, TFRs | 8d to 8e: airspace, waypoints |
-| 9 | 9a session replay | 9b to 9c: 30-day replay, incident history |
-| 10 | 10b to 10d: alert rules, map-drawn areas, military and government | 10e to 10f: natural-language alerts, web push |
-| 11 | 11a to 11b: stage tracker, inbound aircraft | 11c to 11d: clearance and baggage, lock-screen style updates |
-| 12 | 12a to 12b: silhouettes, 3D aircraft models | 12c: 3D airports |
-| 13 | 13a to 13b: collection, achievements | 13c to 13d: challenges, aircraft photos |
-| 14 | 14a to 14b: flight facts, airport brief | 14c: AI insights |
-| 15 | 15a to 15d: remove Lovable, brand, themes, header and footer | 15e to 15h: landing page, share images, metadata, design QA |
-| 16 | 16a to 16d: fonts, deployment, PWA, performance | 16e to 16g: legal pages, end-to-end tests, language |
-| 17 | 17a to 17c: full feature test, security review, quota drills | 17d to 17f: audits, release checklist, soft launch |
-| 18 | 18a to 18c: platform record, secrets, database migrations | 18d to 18i: sign-in (needs the Supabase project), abuse protection, shared cache and jobs, AI wrapper, privacy basics, test data |
-| 19 | 19a to 19d: measure (done), central ingestion, tile coverage, provider strategy | 19e to 19h: static data cache, load test, graceful overload |
-| 20 | 20a to 20f: buffer, delayed renderer, adaptive delay, gaps, push, change-only updates | 20g to 20k: clock alignment, consistent panel, pan and zoom, tests and metrics, replay reuse |
-| 21 | 21a to 21f: CI, previews, error reporting, monitoring, analytics decision, backups | 21g to 21k: dependency updates, release process, docs, feature flags, screenshot checks |
-| 22 | 22a, 22c, 22e, 22g: shareable links, my location, saved views, search upgrades | 22b, 22d, 22f, 22k: layer panel, ruler, flight charts, fullscreen. A third half then covers 22h to 22j and 22l to 22n: aircraft details, settings, shortcuts, export, first-run guide, phone behaviour |
-| 23 | 23a to 23d: help, feedback, what's new, status page | 23e to 23h: moderation, user-content terms, takedown process, press kit |
-| 24 | Post-release: planned separately after launch |  |
-
-Because items depend on each other (for example 4g needs 18f), the build order in "Suggested order" decides which half is cut next, not the phase number.
+One branch per phase item, cut from `origin/dev`, a pull request into `dev`, merged with a merge commit after CI is green; never rewrite pushed history. The full rules are in [`CONTRIBUTING.md`](CONTRIBUTING.md). The build order is the order of "Remaining work" above, not the phase number.
 
 ## Decisions needed
 
