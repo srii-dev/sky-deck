@@ -211,7 +211,7 @@ export interface GeminiOptions {
   fetchImpl?: typeof fetch;
 }
 
-export const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
+export const DEFAULT_GEMINI_MODEL = "gemini-3.5-flash-lite";
 
 /** Gemini through the Google AI Studio REST API. The key is sent in a header, never in the URL. */
 export function createGeminiProvider(opts: GeminiOptions): AiProvider {
@@ -248,7 +248,7 @@ export interface WorkersAiBinding {
   run(model: string, input: { prompt: string }): Promise<unknown>;
 }
 
-export const DEFAULT_WORKERS_AI_MODEL = "@cf/meta/llama-3.1-8b-instruct";
+export const DEFAULT_WORKERS_AI_MODEL = "@cf/google/gemma-4-26b-a4b-it";
 
 /** Cloudflare Workers AI through a Worker binding. It only exists once the app runs on Cloudflare (Phase 16b). */
 export function createWorkersAiProvider(
