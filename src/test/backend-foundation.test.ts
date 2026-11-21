@@ -286,7 +286,7 @@ describe("AI provider adapters (no network)", () => {
     const run = vi.fn(async () => ({ response: "from cf" }));
     const p = createWorkersAiProvider({ run });
     expect(await p.generate("q")).toBe("from cf");
-    expect(run).toHaveBeenCalledWith("@cf/meta/llama-3.1-8b-instruct", { prompt: "q" });
+    expect(run).toHaveBeenCalledWith("@cf/google/gemma-4-26b-a4b-it", { prompt: "q" });
     const empty = createWorkersAiProvider({ run: async () => ({}) });
     expect(await empty.generate("q")).toBe("");
   });
