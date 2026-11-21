@@ -21,6 +21,11 @@ const stubUrl = `http://127.0.0.1:${port + 3}`;
 process.env["E2E_STUB_URL"] = externalBase ? "" : stubUrl;
 
 const flows = "**/flows.spec.ts";
+// On CI the flows run only against the production build (the worker job). Against the dev server on a CI machine they are
+// flaky in ways that do not show on the production build or on a developer machine: Vite compiles lazily, so a page
+// can take much longer to hydrate, and a second navigation inside one test then races it. They still run against the
+// dev server on a developer machine, where they pass every time.
+const flowsIgnore = !worker && process.env.CI ? [flows] : undefined;
 const desktop = { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 800 } };
 
 export default defineConfig({
@@ -42,11 +47,18 @@ export default defineConfig({
       // dev server; running them once (dev target) keeps the worker job short.
       testIgnore: worker ? [flows, "**/screens.spec.ts", "**/a11y.spec.ts"] : [flows],
     },
-    { name: "flows", use: desktop, testMatch: flows, grepInvert: /@phone|@failure/ },
+    {
+      name: "flows",
+      use: desktop,
+      testMatch: flows,
+      testIgnore: flowsIgnore,
+      grepInvert: /@phone|@failure/,
+    },
     {
       name: "phone",
       use: { ...devices["Desktop Chrome"], viewport: { width: 375, height: 812 }, hasTouch: true },
       testMatch: flows,
+      testIgnore: flowsIgnore,
       grep: /@phone/,
     },
     // Switching the stub to fail would disturb the other flows (the app's provider back-off is shared by every page),
@@ -55,6 +67,7 @@ export default defineConfig({
       name: "provider-failure",
       use: desktop,
       testMatch: flows,
+      testIgnore: flowsIgnore,
       grep: /@failure/,
       dependencies: ["flows", "phone"],
     },
