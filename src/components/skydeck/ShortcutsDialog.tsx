@@ -6,6 +6,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { SHORTCUTS } from "@/lib/shortcuts";
+import { returnFocus } from "@/lib/return-focus";
 
 interface Props {
   open: boolean;
@@ -16,7 +17,10 @@ interface Props {
 export function ShortcutsDialog({ open, onOpenChange }: Props) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="glass-panel max-h-[85dvh] max-w-md overflow-y-auto">
+      <DialogContent
+        {...returnFocus}
+        className="glass-panel max-h-[85dvh] max-w-md overflow-y-auto"
+      >
         <DialogHeader>
           <DialogTitle className="font-display tracking-wide">Keyboard shortcuts</DialogTitle>
           <DialogDescription>

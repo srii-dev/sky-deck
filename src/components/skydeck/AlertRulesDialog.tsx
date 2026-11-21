@@ -27,6 +27,7 @@ import {
   type AlertRule,
   type RuleConditions,
 } from "@/lib/alert-rules";
+import { returnFocus } from "@/lib/return-focus";
 
 /* Alert rules (Phase 10b to 10e): a plain-English box, hand-set conditions, an area drawn on the map, and the list. */
 
@@ -90,7 +91,7 @@ export function AlertRulesDialog(p: Props) {
 
   return (
     <Dialog open={p.open} onOpenChange={p.onOpenChange}>
-      <DialogContent className="max-h-[88dvh] max-w-lg overflow-y-auto">
+      <DialogContent {...returnFocus} className="max-h-[88dvh] max-w-lg overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Alert rules</DialogTitle>
           <DialogDescription>

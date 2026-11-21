@@ -23,6 +23,7 @@ import { THEME_LABELS, THEME_PREFS, type ThemePref } from "@/lib/theme";
 import { UNIT_LABELS, type UnitSystem } from "@/lib/units";
 import { cn } from "@/lib/utils";
 import type { Basemap } from "./map-config";
+import { returnFocus } from "@/lib/return-focus";
 
 export interface SettingsProps {
   open: boolean;
@@ -162,7 +163,10 @@ export function SettingsDialog(p: SettingsProps) {
         p.onOpenChange(o);
       }}
     >
-      <DialogContent className="glass-panel max-h-[88dvh] max-w-md overflow-y-auto">
+      <DialogContent
+        {...returnFocus}
+        className="glass-panel max-h-[88dvh] max-w-md overflow-y-auto"
+      >
         <DialogHeader>
           <DialogTitle className="font-display tracking-wide">Settings</DialogTitle>
           <DialogDescription>
