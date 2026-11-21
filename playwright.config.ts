@@ -15,6 +15,9 @@ const externalBase = process.env.E2E_BASE_URL;
 
 export default defineConfig({
   testDir: "./e2e",
+  // The screenshot and accessibility specs measure layout and markup, which the production build shares with the dev
+  // server; running them once (dev target) keeps the worker job short.
+  testIgnore: worker ? ["**/screens.spec.ts", "**/a11y.spec.ts"] : undefined,
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: 2,
