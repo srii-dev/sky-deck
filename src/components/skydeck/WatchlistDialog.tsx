@@ -23,6 +23,7 @@ import type { FlightView } from "@/hooks/use-flight-stages";
 import { FlightProgress } from "./FlightProgress";
 import { Input } from "@/components/ui/input";
 import { useState } from "react";
+import { returnFocus } from "@/lib/return-focus";
 
 /* Watchlist (Phase 5a), recently viewed flights (5c) and the alerts switch (5b). */
 
@@ -90,7 +91,7 @@ export function WatchlistDialog(p: Props) {
   };
   return (
     <Dialog open={p.open} onOpenChange={p.onOpenChange}>
-      <DialogContent className="max-h-[85dvh] max-w-md overflow-y-auto">
+      <DialogContent {...returnFocus} className="max-h-[85dvh] max-w-md overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Watchlist</DialogTitle>
           <DialogDescription>

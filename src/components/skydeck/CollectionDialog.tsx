@@ -18,6 +18,7 @@ import {
   type Collection,
 } from "@/lib/collection";
 import { cn } from "@/lib/utils";
+import { returnFocus } from "@/lib/return-focus";
 
 /* Collection (Phase 13a to 13c): what has been opened, today's challenges and the achievements. */
 
@@ -68,7 +69,7 @@ export function CollectionDialog({
         onOpenChange(o);
       }}
     >
-      <DialogContent className="max-h-[85dvh] max-w-md overflow-y-auto">
+      <DialogContent {...returnFocus} className="max-h-[85dvh] max-w-md overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Collection</DialogTitle>
           <DialogDescription>

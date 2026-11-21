@@ -8,6 +8,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { CREDIT_GROUPS, CREDITS, CREDITS_DISCLAIMER, type CreditEntry } from "@/lib/credits";
+import { returnFocus } from "@/lib/return-focus";
 
 function Entry({ entry }: { entry: CreditEntry }) {
   return (
@@ -45,7 +46,7 @@ export function CreditsDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl">
+      <DialogContent {...returnFocus} className="max-h-[85vh] overflow-y-auto sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>Credits and data sources</DialogTitle>
           <DialogDescription>

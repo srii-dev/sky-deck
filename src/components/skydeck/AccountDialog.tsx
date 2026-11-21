@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { AuthApi } from "@/hooks/use-auth";
 import { formError, MIN_PASSWORD_LENGTH, type AuthMode } from "@/lib/auth-forms";
+import { returnFocus } from "@/lib/return-focus";
 
 /*
  * Account dialog (Phase 18d): sign in, create an account, sign out, delete the account.
@@ -95,7 +96,7 @@ export function AccountDialog({ open, onOpenChange, auth, syncNote }: Props) {
         onOpenChange(v);
       }}
     >
-      <DialogContent className="max-w-sm">
+      <DialogContent {...returnFocus} className="max-w-sm">
         <DialogHeader>
           <DialogTitle>Account</DialogTitle>
           <DialogDescription>
