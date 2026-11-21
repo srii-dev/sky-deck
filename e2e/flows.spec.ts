@@ -16,6 +16,21 @@ test.skip(!STUB, "needs the stub provider, which E2E_BASE_URL runs do not start"
 const expect = baseExpect.configure({ timeout: 15_000 });
 test.describe.configure({ timeout: 90_000 });
 
+// When a flow fails, print what the page held (stored keys and the first lines of text) into the log: a CI failure
+// cannot be looked at, and a missing stored list and a slow page look the same from the assertion alone.
+test.afterEach(async ({ page }, testInfo) => {
+  if (testInfo.status === testInfo.expectedStatus) return;
+  const state = await page
+    .evaluate(() => ({
+      url: location.href,
+      storedKeys: Object.keys(localStorage).filter((k) => k.startsWith("skydeck")),
+      watchlist: localStorage.getItem("skydeck:watchlist"),
+      text: document.body.innerText.replace(/\s+/g, " ").slice(0, 300),
+    }))
+    .catch((e: unknown) => ({ error: String(e) }));
+  console.log(`[flow-debug] ${testInfo.title} (retry ${testInfo.retry}): ${JSON.stringify(state)}`);
+});
+
 /** Aircraft the stub places around the default view (SKD999, far away, is only found by a search). */
 const COUNT = 12;
 const GROUND_HEX = "A5C110";
