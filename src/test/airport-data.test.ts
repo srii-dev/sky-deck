@@ -128,6 +128,12 @@ describe("FAA NAS status", () => {
     expect(e[0]?.summary).toBe("Departure delays, 16 minutes to 30 minutes");
   });
 
+  it("labels an arrival delay as an arrival", () => {
+    const xml =
+      '<Delay><ARPT>SFO</ARPT><Reason>WX</Reason><Arrival_Departure Type="Arrival"><Min>31 minutes</Min><Max>45 minutes</Max></Arrival_Departure></Delay>';
+    expect(parseNasStatus(xml, "SFO")[0]?.summary).toBe("Arrival delays, 31 minutes to 45 minutes");
+  });
+
   it("finds a closure", () => {
     const e = parseNasStatus(NAS, "SBN");
     expect(e[0]?.kind).toBe("closure");

@@ -124,7 +124,10 @@ export function AcarsMessages({
 
   const run = async () => {
     setState({ status: "loading" });
-    const result = await load(hex);
+    const result = await load(hex).catch((): AcarsFetchResult => ({
+      ok: false,
+      error: "Could not load messages",
+    }));
     setState({ status: "done", result });
   };
   const loading = state.status === "loading";

@@ -228,7 +228,7 @@ export function parseNasStatus(xml: string, iata: string): NasEvent[] {
   }
   for (const b of blocks(xml, "Delay")) {
     if (field(b, "ARPT").toUpperCase() !== code) continue;
-    const type = between(b, 'Arrival_Departure Type="Arrival"', 0) ? "Arrival" : "Departure";
+    const type = b.includes('Arrival_Departure Type="Arrival"') ? "Arrival" : "Departure";
     const min = field(b, "Min");
     const max = field(b, "Max");
     const range = min && max ? min + " to " + max : min || max;

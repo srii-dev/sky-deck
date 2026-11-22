@@ -64,6 +64,12 @@ describe("sanitizeText", () => {
 });
 
 describe("normalizeAirframesMessage", () => {
+  it("drops a timestamp too large for a date instead of failing later", () => {
+    expect(
+      normalizeAirframesMessage({ ...sample, timestamp: 1e300, createdAt: undefined })?.time,
+    ).toBeNull();
+  });
+
   it("maps the documented fields", () => {
     expect(normalizeAirframesMessage(sample)).toEqual({
       id: 1001,

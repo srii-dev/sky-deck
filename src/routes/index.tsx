@@ -357,9 +357,18 @@ function SkyDeck() {
 
   // Debounce viewport changes so panning doesn't spam the feed.
   const [pendingViewport, setPendingViewport] = useState<Viewport | null>(null);
+  const viewportAppliedAt = useRef(0);
   useEffect(() => {
     if (!pendingViewport) return;
-    const t = setTimeout(() => setViewport(pendingViewport), viewport ? 400 : 0);
+    // Follow mode moves the map every frame, which would keep resetting a plain debounce: wait at most 2 s.
+    const overdue = Date.now() - viewportAppliedAt.current > 2000;
+    const t = setTimeout(
+      () => {
+        viewportAppliedAt.current = Date.now();
+        setViewport(pendingViewport);
+      },
+      viewport && !overdue ? 400 : 0,
+    );
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingViewport]);
