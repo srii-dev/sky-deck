@@ -1054,6 +1054,8 @@ export default function FlightMap(props: FlightMapProps) {
     let last = 0;
     let lastTickWall = 0;
     let lastSelectedEmit = 0;
+    // An empty source stays empty: skipping the update saves a full map repaint every frame when nothing is shown.
+    let drewNothing = false;
     const tick = (ts: number) => {
       raf = requestAnimationFrame(tick);
       if (ts - last < FRAME_MS || !styleReadyRef.current) return;
@@ -1129,7 +1131,8 @@ export default function FlightMap(props: FlightMapProps) {
           geometry: { type: "Point", coordinates: [lon, lat] },
         });
       }
-      src.setData({ type: "FeatureCollection", features });
+      if (features.length || !drewNothing) src.setData({ type: "FeatureCollection", features });
+      drewNothing = features.length === 0;
       if (selPos && propsRef.current.follow && !map.isMoving()) {
         map.setCenter([selPos[1], selPos[0]]);
         // Chase camera: turn towards the heading a little each frame, so the view follows turns smoothly.
