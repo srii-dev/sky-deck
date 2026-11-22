@@ -618,8 +618,9 @@ export default function FlightMap(props: FlightMapProps) {
         type: "raster-dem",
         tiles: [TERRARIUM],
         encoding: "terrarium",
-        tileSize: 256,
-        maxzoom: 14,
+        // 256 px tiles shown at 512 px and no finer than zoom 12: about a quarter of the requests, relief looks the same.
+        tileSize: 512,
+        maxzoom: 12,
         attribution: DEM_ATTRIB,
       });
     }
@@ -628,8 +629,9 @@ export default function FlightMap(props: FlightMapProps) {
         type: "raster-dem",
         tiles: [TERRARIUM],
         encoding: "terrarium",
-        tileSize: 256,
-        maxzoom: 14,
+        // 256 px tiles shown at 512 px and no finer than zoom 12: about a quarter of the requests, relief looks the same.
+        tileSize: 512,
+        maxzoom: 12,
       });
     }
     if (!map.getLayer("sd-hillshade") && p.basemap !== "satellite") {
