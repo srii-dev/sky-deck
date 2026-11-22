@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import {
   Map as MLMap,
+  type ExpressionSpecification,
   NavigationControl,
   ScaleControl,
   setWorkerUrl,
@@ -106,6 +107,42 @@ const FT_TO_M = 0.3048;
 const KT_TO_MS = 0.514444;
 const M_PER_DEG = 111320;
 const FRAME_MS = 90;
+/** Below this zoom, planes that would overlap are hidden, keeping the most important ones (declutter). */
+const DECLUTTER_BELOW_ZOOM = 8;
+/** Draw order when every plane is shown: higher on top, so the selected plane and emergencies stay visible. */
+const SORT_ON_TOP: ExpressionSpecification = [
+  "case",
+  ["get", "sel"],
+  1000,
+  ["get", "emg"],
+  900,
+  ["get", "alt"],
+];
+/** Placement order when overlaps are hidden: lower is placed first and wins. Selected, emergencies, then airborne. */
+const SORT_FIRST_WINS: ExpressionSpecification = [
+  "case",
+  ["get", "sel"],
+  -3,
+  ["get", "emg"],
+  -2,
+  [">", ["get", "alt"], 0],
+  -1,
+  0,
+];
+
+/** Hides overlapping planes when zoomed out; shows every plane when zoomed in. */
+function applyDeclutter(map: MLMap) {
+  if (!map.getLayer("sd-aircraft")) return;
+  const declutter = map.getZoom() < DECLUTTER_BELOW_ZOOM;
+  if (map.getLayoutProperty("sd-aircraft", "icon-allow-overlap") === !declutter) return;
+  map.setLayoutProperty("sd-aircraft", "icon-allow-overlap", !declutter);
+  map.setLayoutProperty("sd-aircraft", "icon-ignore-placement", !declutter);
+  map.setLayoutProperty(
+    "sd-aircraft",
+    "symbol-sort-key",
+    declutter ? SORT_FIRST_WINS : SORT_ON_TOP,
+  );
+}
 
 /*
  * Aircraft motion (Phase 20). Each aircraft keeps its recent position reports as samples with their true
@@ -531,7 +568,7 @@ export default function FlightMap(props: FlightMapProps) {
           "icon-pitch-alignment": "map",
           "icon-allow-overlap": true,
           "icon-ignore-placement": true,
-          "symbol-sort-key": ["case", ["get", "sel"], 1000, ["get", "emg"], 900, ["get", "alt"]],
+          "symbol-sort-key": SORT_ON_TOP,
           "icon-size": [
             "interpolate",
             ["linear"],
@@ -971,8 +1008,11 @@ export default function FlightMap(props: FlightMapProps) {
     map.on("style.load", () => {
       styleReadyRef.current = false;
       installOverlays();
+      applyDeclutter(map);
       scheduleDeferredScene();
     });
+
+    map.on("zoomend", () => applyDeclutter(map));
 
     const emitViewport = () => {
       const c = map.getCenter();
