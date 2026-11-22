@@ -213,7 +213,7 @@ export function MapTools({
   return (
     <div className="pointer-events-auto flex items-start gap-2">
       {/* In a short window (a phone on its side) the column wraps into a second column instead of running off the screen. */}
-      <div className="flex max-h-[calc(100dvh-var(--hud-h,76px)-84px)] flex-col flex-wrap content-start gap-2">
+      <div className="flex max-h-[calc(100dvh-var(--hud-h,76px)-84px)] flex-col flex-wrap content-start gap-2 md:max-h-[calc(100dvh-var(--hud-h,76px)-148px)]">
         <Button
           variant="panel"
           size="icon"

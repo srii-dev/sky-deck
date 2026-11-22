@@ -68,17 +68,14 @@ async function openMap(page: Page, path = "/") {
 
 const count = (page: Page, text: string) => page.getByText(text, { exact: true });
 const searchBox = (page: Page) =>
-  page.getByRole("textbox", { name: "Search flights and airports" });
+  page.getByRole("combobox", { name: "Search flights and airports" });
 const panel = (page: Page) => page.getByRole("complementary", { name: "Aircraft details" });
 const heading = (page: Page, name: string) => panel(page).getByRole("heading", { name });
 
 /** Types into the search box and chooses the result whose label starts with `label`. */
 async function pick(page: Page, query: string, label: string) {
   await searchBox(page).fill(query);
-  await page
-    .getByRole("listitem")
-    .getByRole("button", { name: new RegExp("^" + label) })
-    .click();
+  await page.getByRole("option", { name: new RegExp("^" + label) }).click();
   await expect(heading(page, label)).toBeVisible();
 }
 
@@ -403,10 +400,7 @@ test(
   async ({ page }) => {
     await openMap(page);
     await searchBox(page).fill("SKD303");
-    await page
-      .getByRole("listitem")
-      .getByRole("button", { name: /^SKD303/ })
-      .click();
+    await page.getByRole("option", { name: /^SKD303/ }).click();
     const sheet = page.getByRole("region", { name: "Aircraft details" });
     await expect(sheet.getByRole("heading", { name: "SKD303" })).toBeVisible();
     await expect(panel(page)).toBeHidden();

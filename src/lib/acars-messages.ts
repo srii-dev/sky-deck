@@ -73,8 +73,9 @@ const num = (v: unknown): number | null => (typeof v === "number" && Number.isFi
 
 function parseTime(v: unknown): number | null {
   if (typeof v === "number" && Number.isFinite(v)) {
-    // Seconds or milliseconds since the epoch.
-    return v < 1e11 ? v * 1000 : v;
+    // Seconds or milliseconds since the epoch; a value outside the range a Date can hold is unusable.
+    const ms = v < 1e11 ? v * 1000 : v;
+    return Number.isNaN(new Date(ms).getTime()) ? null : ms;
   }
   if (typeof v === "string") {
     const t = Date.parse(v);

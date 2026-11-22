@@ -34,7 +34,8 @@ async function open(page: Page, path: string, theme: "dark" | "light" = "dark") 
   // Never depend on live data: the browser only reaches ADS-B through our own server functions.
   await page.route("**/_serverFn/**", (route) => route.abort());
   await page.goto(path);
-  if (path === "/") await page.waitForTimeout(2000);
+  // The map canvas exists only after hydration (the map is client-only), so keys pressed after it reach React.
+  if (path === "/") await page.locator("canvas.maplibregl-canvas").waitFor({ timeout: 30_000 });
   else await page.waitForLoadState("networkidle", { timeout: 10_000 }).catch(() => undefined);
 }
 
@@ -197,12 +198,17 @@ for (const name of OPENERS) {
 
     await page.keyboard.press("Escape");
     await expect(surface).toBeHidden();
+    // By name, not by element: a re-render may replace the button, and focus must then land on the new one.
     await expect
       .poll(
-        () => opener.evaluate((b) => b === document.activeElement),
+        () =>
+          page.evaluate(() => {
+            const a = document.activeElement;
+            return a?.getAttribute("aria-label") ?? a?.textContent?.trim() ?? a?.tagName ?? "";
+          }),
         "focus returns to the button",
       )
-      .toBe(true);
+      .toBe(name);
   });
 }
 

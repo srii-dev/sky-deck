@@ -12,7 +12,7 @@ export function EmergencyBanner({
   return (
     <div
       role="alert"
-      className="glow-danger pointer-events-auto flex max-w-[min(92vw,640px)] items-center gap-3 rounded-md border border-destructive bg-destructive/90 px-3 py-2 text-destructive-foreground backdrop-blur"
+      className="glow-danger pointer-events-auto flex max-w-[min(100%,640px)] items-center gap-3 rounded-md border border-destructive bg-destructive/90 px-3 py-2 text-destructive-foreground backdrop-blur"
     >
       <AlertTriangle className="animate-emergency size-5 shrink-0" />
       <div className="min-w-0">

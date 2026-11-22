@@ -56,7 +56,8 @@ describe("recorder", () => {
   it("ignores a repeated position and bad coordinates", () => {
     const rec = createRecorder();
     ingest(rec, [ac("a", -74)], T0);
-    ingest(rec, [ac("a", -74)], T0 + 7000);
+    // The same report sent again 7 s later: its age has grown by 7 s, so its report time is unchanged.
+    ingest(rec, [ac("a", -74, { seenPos: 7 })], T0 + 7000);
     ingest(rec, [{ ...ac("b", NaN) }], T0 + 7000);
     expect(rec.tracks.get("a")?.samples).toHaveLength(1);
     expect(rec.tracks.has("b")).toBe(false);

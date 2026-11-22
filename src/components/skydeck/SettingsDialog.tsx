@@ -170,7 +170,8 @@ export function SettingsDialog(p: SettingsProps) {
         <DialogHeader>
           <DialogTitle className="font-display tracking-wide">Settings</DialogTitle>
           <DialogDescription>
-            Kept in this browser only. SkyDeck has no accounts and does not track you.
+            Kept in this browser only. SkyDeck does not track you; an optional account only syncs
+            your watchlist and recent flights.
           </DialogDescription>
         </DialogHeader>
 

@@ -35,6 +35,15 @@ describe("appendSample", () => {
     expect(list).toHaveLength(2);
   });
 
+  it("keeps sampling an aircraft that stands still, so it is not shown as lost", () => {
+    let list: readonly MotionSample[] = [s(1000, 40, -74, { onGround: true, gs: 0 })];
+    list = appendSample(list, s(1800, 40, -74, { onGround: true, gs: 0 }));
+    expect(list).toHaveLength(1);
+    list = appendSample(list, s(8000, 40, -74, { onGround: true, gs: 0 }));
+    expect(list).toHaveLength(2);
+    expect(list[1]?.t).toBe(8000);
+  });
+
   it("limits the history", () => {
     let list: readonly MotionSample[] = [];
     for (let i = 0; i < MAX_SAMPLES + 5; i++)

@@ -106,6 +106,9 @@ function approxNm(lat1: number, lon1: number, lat2: number, lon2: number): numbe
  * Add a sample. Returns the same list when it adds nothing: a report that is not newer than the last one, or a
  * repeat of the same position (the provider sends the last report again until the aircraft sends a new one).
  */
+/** Two reports at the same place this close in time are one report seen twice. */
+const REPEAT_WINDOW_MS = 2000;
+
 export function appendSample(
   list: readonly MotionSample[],
   s: MotionSample,
@@ -114,7 +117,10 @@ export function appendSample(
   const last = list[list.length - 1];
   if (last) {
     if (s.t <= last.t) return list;
-    if (s.lat === last.lat && s.lon === last.lon && s.altFt === last.altFt) return list;
+    // The same report sent again keeps its time (cached copies age seenPos), give or take network jitter. A later
+    // report at the same place is real: a parked or holding aircraft must keep fresh samples, or it looks lost.
+    const samePlace = s.lat === last.lat && s.lon === last.lon && s.altFt === last.altFt;
+    if (samePlace && s.t - last.t < REPEAT_WINDOW_MS) return list;
   }
   const next = list.length >= max ? [...list.slice(list.length - max + 1), s] : [...list, s];
   return next;

@@ -357,9 +357,18 @@ function SkyDeck() {
 
   // Debounce viewport changes so panning doesn't spam the feed.
   const [pendingViewport, setPendingViewport] = useState<Viewport | null>(null);
+  const viewportAppliedAt = useRef(0);
   useEffect(() => {
     if (!pendingViewport) return;
-    const t = setTimeout(() => setViewport(pendingViewport), viewport ? 400 : 0);
+    // Follow mode moves the map every frame, which would keep resetting a plain debounce: wait at most 2 s.
+    const overdue = Date.now() - viewportAppliedAt.current > 2000;
+    const t = setTimeout(
+      () => {
+        viewportAppliedAt.current = Date.now();
+        setViewport(pendingViewport);
+      },
+      viewport && !overdue ? 400 : 0,
+    );
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingViewport]);
@@ -1063,7 +1072,7 @@ function SkyDeck() {
       {/* Emergency alert */}
       {emergencies.length > 0 && (
         <div
-          className="pointer-events-none absolute inset-x-0 z-30 flex justify-center px-3"
+          className={`pointer-events-none absolute inset-x-0 z-30 flex justify-center pl-16 pr-3 md:px-3 ${selected ? "md:pr-[428px]" : ""}`}
           style={{ top: "calc(var(--hud-h, 76px) + 8px)" }}
         >
           <EmergencyBanner aircraft={emergencies} onPick={pickAircraft} />

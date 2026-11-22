@@ -16,6 +16,7 @@ import { prune, type CacheEntry } from "./request-control";
  */
 
 const ROUTE_TTL_MS = 60 * 60 * 1000;
+const ROUTE_RETRY_MS = 60 * 1000;
 
 const routeCache = new Map<string, CacheEntry<FlightRoute | null>>();
 
@@ -86,8 +87,15 @@ export const getFlightRoute = createServerFn({ method: "GET" })
       const origin = airports[0];
       const destination = airports[airports.length - 1];
       if (airports.length >= 2 && origin && destination) value = { origin, destination };
-    } catch {
-      value = null;
+    } catch (e) {
+      // A 404 means the route is unknown, which is worth remembering. Any other failure (timeout, 5xx) is
+      // remembered for one minute only and not cached by browsers, so the route comes back once the source recovers.
+      if ((e as { status?: number }).status !== 404) {
+        setResponseHeader("Cache-Control", "no-store");
+        prune(routeCache, ROUTE_TTL_MS, 2000);
+        routeCache.set(cs, { at: Date.now() - ROUTE_TTL_MS + ROUTE_RETRY_MS, value: null });
+        return null;
+      }
     }
     prune(routeCache, ROUTE_TTL_MS, 2000);
     routeCache.set(cs, { at: Date.now(), value });

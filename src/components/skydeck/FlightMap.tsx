@@ -1243,7 +1243,6 @@ export default function FlightMap(props: FlightMapProps) {
 
   useEffect(() => {
     applyTrail();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.trail, props.trail3d, props.selectedHex, props.showTrail]);
 
   // Turning the chase camera on tilts the map and moves in close behind the aircraft.

@@ -75,6 +75,8 @@ export function SearchBox({ aircraft, onAircraft, onAirport }: Props) {
     }
   };
 
+  const listOpen = open && items.length > 0;
+
   return (
     <div className="relative w-full">
       <div className="glass-panel flex items-center rounded-md pl-3">
@@ -96,12 +98,18 @@ export function SearchBox({ aircraft, onAircraft, onAirport }: Props) {
           onBlur={() => setTimeout(() => setOpen(false), 150)}
           onKeyDown={(e) => {
             if (e.key === "Enter") void submit();
+            if (e.key === "ArrowDown" || e.key === "ArrowUp") e.preventDefault();
             if (e.key === "ArrowDown") setActive((i) => Math.min(items.length - 1, i + 1));
             if (e.key === "ArrowUp") setActive((i) => Math.max(0, i - 1));
             if (e.key === "Escape") setOpen(false);
           }}
           placeholder="Callsign, reg., hex or airport"
           aria-label="Search flights and airports"
+          role="combobox"
+          aria-autocomplete="list"
+          aria-expanded={listOpen}
+          aria-controls="search-suggestions"
+          aria-activedescendant={listOpen && items[active] ? `search-option-${active}` : undefined}
           className="data-value h-10 border-0 bg-transparent text-sm uppercase shadow-none placeholder:normal-case placeholder:text-muted-foreground focus-visible:ring-0"
         />
         {q && (
@@ -114,15 +122,25 @@ export function SearchBox({ aircraft, onAircraft, onAirport }: Props) {
           </button>
         )}
       </div>
-      {open && items.length > 0 && (
-        <ul className="glass-panel absolute inset-x-0 top-full z-30 mt-1 overflow-hidden rounded-md py-1">
+      {listOpen && (
+        <ul
+          id="search-suggestions"
+          role="listbox"
+          aria-label="Suggestions"
+          className="glass-panel absolute inset-x-0 top-full z-30 mt-1 overflow-hidden rounded-md py-1"
+        >
           {items.map((it, i) => (
             <li
+              role="presentation"
               key={
                 it.kind + (it.kind === "ac" ? it.a.hex : it.kind === "apt" ? it.a.icao : it.term)
               }
             >
               <button
+                id={`search-option-${i}`}
+                role="option"
+                aria-selected={i === active}
+                tabIndex={-1}
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => pick(it)}
                 onMouseEnter={() => setActive(i)}
