@@ -27,6 +27,8 @@ import {
 } from "@/lib/glide-ring";
 import { currentAirportList, isLargeLoaded, loadLargeAirports } from "@/lib/airport-list";
 import { serverFlags } from "@/lib/flags";
+import { rulerSummary } from "@/lib/measure";
+import type { UnitSystem } from "@/lib/units";
 import {
   REACHABLE_LIMIT,
   reachableAirports,
@@ -280,6 +282,8 @@ export interface FlightMapProps {
   rulerActive?: boolean | undefined;
   rulerPoints?: [number, number][] | undefined;
   onRulerPoint?: ((point: [number, number]) => void) | undefined;
+  /** Units for the live ruler label that follows the cursor after the first point. */
+  rulerUnits?: UnitSystem | undefined;
   /** When the aircraft data arrived (ms, Date.now()). Sample times are measured from it. */
   receivedAt?: number | null | undefined;
   /** Every aircraft in the data, before filters. One missing from here (not just filtered out) fades out. */
@@ -315,6 +319,7 @@ export interface FlightMapProps {
 
 export default function FlightMap(props: FlightMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const rulerLabelRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MLMap | null>(null);
   const tracksRef = useRef(new Map<string, Track>());
   const delayRef = useRef<DelayState>(initialDelay("smooth"));
@@ -677,11 +682,13 @@ export default function FlightMap(props: FlightMapProps) {
     else map.setTerrain(null);
   };
 
-  const applyRuler = () => {
+  const applyRuler = (hover?: [number, number]) => {
     const map = mapRef.current;
     const src = map?.getSource("sd-ruler") as GeoJSONSource | undefined;
     if (!src) return;
-    const pts = propsRef.current.rulerPoints ?? [];
+    const set = propsRef.current.rulerPoints ?? [];
+    // One point set: the line follows the cursor until the second click.
+    const pts = set.length === 1 && hover ? [set[0]!, hover] : set;
     const features: GeoJSON.Feature[] = pts.map((p) => ({
       type: "Feature",
       properties: {},
@@ -1036,6 +1043,21 @@ export default function FlightMap(props: FlightMapProps) {
     map.on("mousemove", (e) => {
       if (propsRef.current.rulerActive) {
         map.getCanvas().style.cursor = "crosshair";
+        const first =
+          propsRef.current.rulerPoints?.length === 1 ? propsRef.current.rulerPoints[0] : null;
+        const label = rulerLabelRef.current;
+        if (first) {
+          const hover: [number, number] = [e.lngLat.lng, e.lngLat.lat];
+          applyRuler(hover);
+          if (label) {
+            label.textContent = rulerSummary(
+              [first, hover],
+              propsRef.current.rulerUnits ?? "aviation",
+            );
+            label.style.transform = `translate(${e.point.x + 14}px, ${e.point.y + 14}px)`;
+            label.hidden = false;
+          }
+        } else if (label) label.hidden = true;
         return;
       }
       if (!map.getLayer("sd-aircraft")) return;
@@ -1151,6 +1173,11 @@ export default function FlightMap(props: FlightMapProps) {
       }
     };
     map.on("sourcedata", onSourceData);
+    const hideRulerLabel = () => {
+      if (rulerLabelRef.current) rulerLabelRef.current.hidden = true;
+      applyRuler();
+    };
+    map.getCanvas().addEventListener("mouseleave", hideRulerLabel);
 
     return () => {
       cancelAnimationFrame(raf);
@@ -1295,6 +1322,9 @@ export default function FlightMap(props: FlightMapProps) {
 
   useEffect(() => {
     applyRuler();
+    // The cursor label is only for the first point; a second click or leaving the ruler hides it.
+    if (rulerLabelRef.current && (props.rulerPoints?.length !== 1 || !props.rulerActive))
+      rulerLabelRef.current.hidden = true;
     const map = mapRef.current;
     if (map && !props.rulerActive) map.getCanvas().style.cursor = "";
   }, [props.rulerPoints, props.rulerActive]);
@@ -1342,6 +1372,12 @@ export default function FlightMap(props: FlightMapProps) {
   return (
     <div className="absolute inset-0" role="region" aria-label="Live flight map">
       <div ref={containerRef} className="h-full w-full" />
+      <div
+        ref={rulerLabelRef}
+        hidden
+        aria-hidden="true"
+        className="glass-panel data-value pointer-events-none absolute left-0 top-0 z-10 rounded px-2 py-1 text-xs whitespace-nowrap"
+      />
     </div>
   );
 }

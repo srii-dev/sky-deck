@@ -836,6 +836,7 @@ function SkyDeck() {
             rulerActive={rulerActive}
             rulerPoints={rulerPoints}
             onRulerPoint={(p) => setRulerPoints((pts) => nextRulerPoints(pts, p))}
+            rulerUnits={units}
           />
         </Suspense>
       </ClientOnly>
