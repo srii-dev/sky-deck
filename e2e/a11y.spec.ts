@@ -198,12 +198,17 @@ for (const name of OPENERS) {
 
     await page.keyboard.press("Escape");
     await expect(surface).toBeHidden();
+    // By name, not by element: a re-render may replace the button, and focus must then land on the new one.
     await expect
       .poll(
-        () => opener.evaluate((b) => b === document.activeElement),
+        () =>
+          page.evaluate(() => {
+            const a = document.activeElement;
+            return a?.getAttribute("aria-label") ?? a?.textContent?.trim() ?? a?.tagName ?? "";
+          }),
         "focus returns to the button",
       )
-      .toBe(true);
+      .toBe(name);
   });
 }
 
