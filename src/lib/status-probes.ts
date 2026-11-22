@@ -32,6 +32,8 @@ export const PROBE_TIMEOUT_MS = 5000;
 /** An answer slower than this still counts as working, but is called slow. */
 export const SLOW_MS = 3000;
 
+const ADSBLOL_PROBE = "https://api.adsb.lol/v2/point/40.64/-73.78/5";
+
 export function buildProbes(env: Record<string, string | undefined>): Probe[] {
   const supabaseUrl = (env["SUPABASE_URL"] ?? "").trim().replace(/\/+$/, "");
   const anon = (env["SUPABASE_ANON_KEY"] ?? "").trim();
@@ -40,7 +42,7 @@ export function buildProbes(env: Record<string, string | undefined>): Probe[] {
       id: "adsb-lol",
       name: "adsb.lol",
       usedFor: "Live aircraft positions (main source)",
-      request: { url: "https://api.adsb.lol/v2/point/40.64/-73.78/5" },
+      request: { url: ADSBLOL_PROBE, headers: adsbLolHeaders(ADSBLOL_PROBE, env) },
     },
     {
       id: "airplanes-live",
@@ -175,3 +177,4 @@ export async function runAllProbes(
   const results = await Promise.all(buildProbes(env).map((p) => runProbe(p, fetchFn, now)));
   return summarize(results, now());
 }
+import { adsbLolHeaders } from "./server-config.server";

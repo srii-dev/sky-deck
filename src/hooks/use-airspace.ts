@@ -55,11 +55,13 @@ export function useAirspace(choices: AirspaceChoices, viewport: Viewport | null)
 
   const areas = useMemo(() => {
     if (!any) return null;
+    // Too wide to load: draw nothing rather than the last view's areas, which the queries keep as placeholders.
+    if (!box) return EMPTY;
     return [
       ...(choices.controlled ? (controlled.data?.areas ?? EMPTY) : EMPTY),
       ...(choices.special ? (special.data?.areas ?? EMPTY) : EMPTY),
     ];
-  }, [any, choices.controlled, choices.special, controlled.data, special.data]);
+  }, [any, box, choices.controlled, choices.special, controlled.data, special.data]);
 
   return {
     areas,

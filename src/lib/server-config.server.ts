@@ -16,6 +16,11 @@ export const CONFIG_GROUPS = {
     required: ["SUPABASE_URL", "SUPABASE_ANON_KEY"],
     optional: ["SUPABASE_SERVICE_ROLE_KEY"],
   },
+  /** adsb.lol API key: sent as x-api-key so the feed is not limited per shared Cloudflare address. Optional. */
+  adsblol: {
+    required: ["ADSBLOL_API_KEY"],
+    optional: [],
+  },
   /** AI provider, Gemini first (Phase 18g). */
   gemini: {
     required: ["GEMINI_API_KEY"],
@@ -101,4 +106,10 @@ export function requireConfig<G extends ConfigGroup>(
   for (const name of CONFIG_GROUPS[group].required) values[name] = (env[name] ?? "").trim();
   if (group === "supabase") checkUrl("SUPABASE_URL", values["SUPABASE_URL"] ?? "");
   return values as Record<(typeof CONFIG_GROUPS)[G]["required"][number], string>;
+}
+
+/** Extra headers for a request to the adsb.lol API: its key when one is configured. Never logged. */
+export function adsbLolHeaders(url: string, env: Env = process.env): Record<string, string> {
+  const key = (env["ADSBLOL_API_KEY"] ?? "").trim();
+  return key && url.startsWith("https://api.adsb.lol/") ? { "x-api-key": key } : {};
 }

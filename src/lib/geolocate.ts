@@ -22,6 +22,19 @@ export function locationErrorMessage(code: number | undefined): string {
   }
 }
 
+export const SYSTEM_BLOCKED_MESSAGE =
+  "This site is allowed, but your device has location turned off for the browser. Turn it on in your system settings (Windows: Settings, Privacy and security, Location; Mac: System Settings, Privacy and Security, Location Services), then try again.";
+
+/** True when the browser says this site may use location, so a refusal came from the operating system. */
+async function systemBlocked(): Promise<boolean> {
+  try {
+    const s = await navigator.permissions?.query({ name: "geolocation" });
+    return s?.state === "granted";
+  } catch {
+    return false;
+  }
+}
+
 export function locate(): Promise<Position> {
   return new Promise((resolve, reject) => {
     if (typeof navigator === "undefined" || !navigator.geolocation) {
@@ -30,7 +43,13 @@ export function locate(): Promise<Position> {
     }
     navigator.geolocation.getCurrentPosition(
       (p) => resolve({ lat: p.coords.latitude, lon: p.coords.longitude }),
-      (e) => reject(new Error(locationErrorMessage(e.code))),
+      (e) => {
+        if (e.code !== 1) return reject(new Error(locationErrorMessage(e.code)));
+        // Allowed for the site but still refused: the device has location switched off for the browser.
+        void systemBlocked().then((os) =>
+          reject(new Error(os ? SYSTEM_BLOCKED_MESSAGE : locationErrorMessage(1))),
+        );
+      },
       { enableHighAccuracy: false, timeout: 10_000, maximumAge: 60_000 },
     );
   });
