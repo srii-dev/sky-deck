@@ -75,9 +75,11 @@ All notable changes to SkyDeck. The format follows [Keep a Changelog](https://ke
 ### Removed
 
 - OpenSky Network as a data provider (its terms require a written licence for live use) (#13).
+- 28 unused UI components from the original scaffold and the 24 packages only they used (#71).
 
 ### Fixed
 
+- Parked or holding aircraft were shown as "Last seen" and dimmed after 5 s; Follow mode no longer leaves the data area behind; a failed route lookup is retried after a minute instead of cached for an hour; FAA arrival delays were labelled as departures; a bad ACARS timestamp no longer breaks the message card; toolbar, legend, banner and panel no longer overlap at 1024x768 or on phones; the search box is announced as a combobox (#70).
 - Closing the Settings, Watchlist, Collection, Alert rules, Account, Credits or Shortcuts dialog gives keyboard focus back to the button that opened it (it fell to the page before).
 
 - The canonical link of every page named the home page; it now names the page itself, and a missing page has none.

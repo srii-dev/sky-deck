@@ -35,8 +35,9 @@ async function open(page: Page, path: string, theme: "dark" | "light" = "dark") 
   await page.route("**/_serverFn/**", (route) => route.abort());
   await page.goto(path);
   // The map canvas exists only after hydration (the map is client-only), so keys pressed after it reach React.
-  if (path === "/") await page.locator("canvas.maplibregl-canvas").waitFor({ timeout: 30_000 });
-  else await page.waitForLoadState("networkidle", { timeout: 10_000 }).catch(() => undefined);
+  if (path === "/") {
+    await page.locator("canvas.maplibregl-canvas").waitFor({ timeout: 30_000 });
+  } else await page.waitForLoadState("networkidle", { timeout: 10_000 }).catch(() => undefined);
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -180,7 +181,10 @@ for (const name of OPENERS) {
     const controls = await opener.getAttribute("aria-controls");
     const surface = controls ? page.locator(`[id="${controls}"]`) : page.getByRole("dialog").last();
     await expect(surface).toBeVisible();
-    await expect.poll(() => surface.evaluate((s) => s.contains(document.activeElement))).toBe(true);
+    // Generous waits: on CI and in headless runs the map renders in software and keeps the page busy.
+    await expect
+      .poll(() => surface.evaluate((s) => s.contains(document.activeElement)), { timeout: 15_000 })
+      .toBe(true);
 
     // A modal dialog must keep focus inside. A popover (non-modal) may let Tab move on, which is the expected pattern.
     const modal = await surface.evaluate(
@@ -206,7 +210,7 @@ for (const name of OPENERS) {
             const a = document.activeElement;
             return a?.getAttribute("aria-label") ?? a?.textContent?.trim() ?? a?.tagName ?? "";
           }),
-        "focus returns to the button",
+        { message: "focus returns to the button", timeout: 15_000 },
       )
       .toBe(name);
   });
