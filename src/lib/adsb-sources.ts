@@ -2,6 +2,7 @@ import { DATA_BUSY_MESSAGE, type Aircraft, type FeedResponse } from "./aircraft"
 import { isMilitaryFlag, parseYear } from "./aircraft-details";
 import { classifyAircraft } from "./aircraft-kind";
 import { budgetFromEnv, RefreshBudget } from "./refresh-budget";
+import { adsbLolHeaders } from "./server-config.server";
 import { upstreamUrl } from "./upstream-override";
 import {
   coalesce,
@@ -173,7 +174,7 @@ export async function getJson(url: string, timeoutMs = 6000, deps?: SourceDeps):
   try {
     // Every provider and route request passes here; the e2e tests point them at a local stub (upstream-override.ts).
     const res = await fetchImpl(upstreamUrl(url, process.env["ADSB_UPSTREAM_OVERRIDE"]), {
-      headers: { "User-Agent": UA, Accept: "application/json" },
+      headers: { "User-Agent": UA, Accept: "application/json", ...adsbLolHeaders(url) },
       signal: ctrl.signal,
     });
     if (!res.ok) throw Object.assign(new Error(`HTTP ${res.status}`), { status: res.status });

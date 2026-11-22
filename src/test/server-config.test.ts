@@ -4,6 +4,7 @@ import {
   configStatus,
   findLeakedSecretNames,
   requireConfig,
+  adsbLolHeaders,
 } from "@/lib/server-config.server";
 
 const good = {
@@ -70,5 +71,21 @@ describe("server configuration", () => {
     expect(findLeakedSecretNames({ VITE_FLAGS: "labs", VITE_SUPABASE_URL: "https://x" })).toEqual(
       [],
     );
+  });
+});
+
+describe("adsbLolHeaders", () => {
+  const url = "https://api.adsb.lol/v2/point/40/-73/25";
+  it("sends the key only to the adsb.lol API, and only when one is set", () => {
+    expect(adsbLolHeaders(url, { ADSBLOL_API_KEY: " k1 " })).toEqual({ "x-api-key": "k1" });
+    expect(adsbLolHeaders(url, {})).toEqual({});
+    expect(
+      adsbLolHeaders("https://api.airplanes.live/v2/point/40/-73/25", { ADSBLOL_API_KEY: "k1" }),
+    ).toEqual({});
+    expect(
+      adsbLolHeaders("https://vrs-standing-data.adsb.lol/routes/AB/ABC1.json", {
+        ADSBLOL_API_KEY: "k1",
+      }),
+    ).toEqual({});
   });
 });

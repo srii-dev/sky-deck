@@ -94,6 +94,16 @@ describe("locate (geolocation faked)", () => {
     await expect(locate()).rejects.toThrow(/blocked/);
   });
 
+  it("says the device blocks location when the site is allowed but the request is refused", async () => {
+    vi.stubGlobal("navigator", {
+      permissions: { query: async () => ({ state: "granted" }) },
+      geolocation: {
+        getCurrentPosition: (_ok: unknown, err: (e: { code: number }) => void) => err({ code: 1 }),
+      },
+    });
+    await expect(locate()).rejects.toThrow(/system settings/);
+  });
+
   it("rejects when the browser has no geolocation", async () => {
     vi.stubGlobal("navigator", {});
     await expect(locate()).rejects.toThrow(/does not support/);
