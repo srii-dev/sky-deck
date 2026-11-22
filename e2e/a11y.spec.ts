@@ -165,56 +165,86 @@ for (const path of TEXT_PAGES) {
 
 const OPENERS = ["Filters", "Map layers", "Saved views", "Watchlist", "Collection", "Settings"];
 
-for (const name of OPENERS) {
-  test(`map page: "${name}" opens with the keyboard, closes with Escape and gives focus back`, async ({
-    page,
-  }) => {
-    test.setTimeout(60_000);
-    await open(page, "/");
-    // A handle, not a role locator: an open modal hides the rest of the page from the accessibility tree, so the
-    // button cannot be found by role again until the dialog closes.
-    const opener = (await page.getByRole("button", { name, exact: true }).first().elementHandle())!;
-    await opener.focus();
-    await page.keyboard.press("Enter");
-
-    // The opened surface is the element the button points at (Radix sets aria-controls), else the newest dialog.
-    const controls = await opener.getAttribute("aria-controls");
-    const surface = controls ? page.locator(`[id="${controls}"]`) : page.getByRole("dialog").last();
-    await expect(surface).toBeVisible();
-    // Generous waits: on CI and in headless runs the map renders in software and keeps the page busy.
-    await expect
-      .poll(() => surface.evaluate((s) => s.contains(document.activeElement)), { timeout: 15_000 })
-      .toBe(true);
-
-    // A modal dialog must keep focus inside. A popover (non-modal) may let Tab move on, which is the expected pattern.
-    const modal = await surface.evaluate(
-      (s) => s.getAttribute("aria-modal") === "true" || s.closest("[aria-modal='true']") !== null,
-    );
-    if (modal) {
-      for (let i = 0; i < 8; i++) {
-        await page.keyboard.press("Tab");
-        expect(
-          await surface.evaluate((s) => s.contains(document.activeElement)),
-          `focus left the "${name}" dialog after ${i + 1} Tab presses`,
-        ).toBe(true);
-      }
-    }
-
-    await page.keyboard.press("Escape");
-    await expect(surface).toBeHidden();
-    // By name, not by element: a re-render may replace the button, and focus must then land on the new one.
-    await expect
-      .poll(
-        () =>
-          page.evaluate(() => {
-            const a = document.activeElement;
-            return a?.getAttribute("aria-label") ?? a?.textContent?.trim() ?? a?.tagName ?? "";
-          }),
-        { message: "focus returns to the button", timeout: 15_000 },
-      )
-      .toBe(name);
-  });
+/** Waits until the page answers quickly three times in a row: the map has finished its heavy first tile and terrain work. */
+async function waitUntilResponsive(page: Page) {
+  let quick = 0;
+  for (let i = 0; i < 120 && quick < 3; i++) {
+    const t0 = Date.now();
+    await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => r(null))));
+    quick = Date.now() - t0 < 150 ? quick + 1 : 0;
+    await page.waitForTimeout(250);
+  }
 }
+
+// One map page for all six: loading the 3D map is the expensive part, and on CI it renders in software, so six maps at
+// once kept the page too busy to answer. Each dialog is opened and closed in turn on the same page.
+test.describe("map page dialogs", () => {
+  test.describe.configure({ mode: "serial" });
+  let page: Page;
+  test.beforeAll(async ({ browser }) => {
+    test.setTimeout(120_000);
+    page = await browser.newPage();
+    await open(page, "/");
+    await waitUntilResponsive(page);
+  });
+  test.afterAll(async () => {
+    await page?.close();
+  });
+
+  for (const name of OPENERS) {
+    test(`"${name}" opens with the keyboard, closes with Escape and gives focus back`, async () => {
+      test.setTimeout(60_000);
+      // A handle, not a role locator: an open modal hides the rest of the page from the accessibility tree, so the
+      // button cannot be found by role again until the dialog closes.
+      const opener = (await page
+        .getByRole("button", { name, exact: true })
+        .first()
+        .elementHandle())!;
+      await opener.focus();
+      await page.keyboard.press("Enter");
+
+      // The opened surface is the element the button points at (Radix sets aria-controls), else the newest dialog.
+      const controls = await opener.getAttribute("aria-controls");
+      const surface = controls
+        ? page.locator(`[id="${controls}"]`)
+        : page.getByRole("dialog").last();
+      await expect(surface).toBeVisible();
+      await expect
+        .poll(() => surface.evaluate((s) => s.contains(document.activeElement)), {
+          timeout: 15_000,
+        })
+        .toBe(true);
+
+      // A modal dialog must keep focus inside. A popover (non-modal) may let Tab move on, which is the expected pattern.
+      const modal = await surface.evaluate(
+        (s) => s.getAttribute("aria-modal") === "true" || s.closest("[aria-modal='true']") !== null,
+      );
+      if (modal) {
+        for (let i = 0; i < 8; i++) {
+          await page.keyboard.press("Tab");
+          expect(
+            await surface.evaluate((s) => s.contains(document.activeElement)),
+            `focus left the "${name}" dialog after ${i + 1} Tab presses`,
+          ).toBe(true);
+        }
+      }
+
+      await page.keyboard.press("Escape");
+      await expect(surface).toBeHidden();
+      // By name, not by element: a re-render may replace the button, and focus must then land on the new one.
+      await expect
+        .poll(
+          () =>
+            page.evaluate(() => {
+              const a = document.activeElement;
+              return a?.getAttribute("aria-label") ?? a?.textContent?.trim() ?? a?.tagName ?? "";
+            }),
+          { message: "focus returns to the button", timeout: 15_000 },
+        )
+        .toBe(name);
+    });
+  }
+});
 
 // ---------------------------------------------------------------------------------------------------------------
 // Contrast, measured on the real pages

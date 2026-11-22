@@ -1,4 +1,5 @@
 import { createFileRoute, ClientOnly, Link } from "@tanstack/react-router";
+import { flushSync } from "react-dom";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -352,7 +353,9 @@ function SkyDeck() {
   useEffect(() => {
     const s = parseShareParams(window.location.search);
     if (s.basemap) setBasemap(allowedBasemap(s.basemap, serverFlags().satellite));
-    if (s.hex) setSelectedHex(s.hex);
+    // Committed at once: as a normal update, the render with the aircraft panel is heavy enough that on a slow device
+    // the map's frequent updates kept interrupting it, it never committed, and the link lost its aircraft.
+    if (s.hex) flushSync(() => setSelectedHex(s.hex ?? null));
   }, []);
 
   // Debounce viewport changes so panning doesn't spam the feed.

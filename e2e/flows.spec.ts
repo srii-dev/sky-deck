@@ -266,6 +266,9 @@ test("the address carries the selected aircraft and reopening it selects it agai
   await expect.poll(() => new URL(page.url()).searchParams.get("hex")).toBe("a5c101");
 
   const second = await context.newPage();
+  // A slow device: the shared selection used to be lost when the heavy first render kept being interrupted.
+  const cdp = await context.newCDPSession(second);
+  await cdp.send("Emulation.setCPUThrottlingRate", { rate: 6 });
   await second.goto(page.url());
   await expect(second.getByText("Live", { exact: true })).toBeVisible({ timeout: 30_000 });
   // Passes alone every time; with two workers on one dev server the panel can take more than one feed cycle to show.
