@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <radialGradient id="bg" cx="35%" cy="28%" r="85%">
+      <stop offset="0" stop-color="#16263a"/>
+      <stop offset="1" stop-color="#0b131e"/>
+    </radialGradient>
+    <linearGradient id="plane" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffc94a"/>
+      <stop offset="1" stop-color="#f0a21f"/>
+    </linearGradient>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="9" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <!-- Airliner drawn nose-up, then turned 45 degrees to fly up and to the right. -->
+  <g transform="rotate(45 256 256) translate(256 256) scale(1.12) translate(-256 -262)" filter="url(#glow)" fill="url(#plane)" stroke="url(#plane)" stroke-width="20" stroke-linejoin="round">
+    <path d="M256 92c14 0 22 16 22 38v84l116 62c9 5 14 13 14 22v8l-130-34v70l38 28c4 3 6 7 6 11v10l-56-16-56 16v-10c0-4 2-8 6-11l38-28v-70l-130 34v-8c0-9 5-17 14-22l116-62v-84c0-22 8-38 22-38z"/>
+  </g>
+</svg>
