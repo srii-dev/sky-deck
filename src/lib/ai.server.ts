@@ -4,9 +4,12 @@ import {
   createAiService,
   createGeminiProvider,
   createMemoryAiCache,
+  createMemoryBudgetStore,
   createWorkersAiProvider,
   type AiFailureReason,
+  type AiPause,
   type AiProvider,
+  type AiProviderName,
   type AiRequest,
   type AiResult,
   type WorkersAiBinding,
@@ -37,6 +40,25 @@ let builtWith = "";
 /** Headlines per message (Airframes id plus text hash). Memory only, never written to storage. */
 const briefCache = createMemoryAiCache(3 * 60 * 60 * 1000, 3000);
 
+// Daily counts and provider pauses outlive service rebuilds; the AiHub saves them (no text) to its storage.
+const budgets = createMemoryBudgetStore();
+const paused = new Map<AiProviderName, AiPause>();
+
+/** The pacing counters only: call counts per provider and day, and provider pauses. Never prompts or answers. */
+export interface AiPacingState {
+  counts: [string, number][];
+  paused: [AiProviderName, AiPause][];
+}
+
+export function pacingSnapshot(): AiPacingState {
+  return { counts: budgets.snapshot(), paused: [...paused] };
+}
+
+export function restorePacing(state: AiPacingState) {
+  budgets.restore(state.counts ?? []);
+  for (const [name, p] of state.paused ?? []) paused.set(name, p);
+}
+
 export function asWorkersAiBinding(v: unknown): WorkersAiBinding | null {
   const b = v as WorkersAiBinding | null | undefined;
   return b && typeof b.run === "function" ? b : null;
@@ -63,6 +85,8 @@ export function buildAiService(binding: WorkersAiBinding | null, read: ReadVar):
     providers,
     dailyBudget: DAILY_BUDGET,
     perMinute: PER_MINUTE,
+    budgets,
+    paused,
     enabled: () => enabled,
   });
   builtWith = shape;

@@ -336,6 +336,8 @@ export function AcarsFeedPanel({
   // Batch pacing survives the effect restarting on every feed update: no batch before `nextBatchAt`.
   const nextBatchAt = useRef(0);
   const batchGap = useRef(BATCH_GAP_MS);
+  // One batch at a time, also when a feed update restarts the effect during a slow request.
+  const inFlight = useRef(false);
 
   const live = useMemo(() => {
     const m = new Map<string, Aircraft>();
@@ -385,6 +387,12 @@ export function AcarsFeedPanel({
     let stop = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const step = async () => {
+      // Wait for a batch still in flight, then for the gap it set (doubled when the AI was busy).
+      const wait = inFlight.current ? 1000 : nextBatchAt.current - Date.now();
+      if (wait > 0) {
+        timer = setTimeout(step, wait);
+        return;
+      }
       // The feed brings ~100 messages every few seconds, more than the AI can keep up with: describe the ones
       // worth reading first (emergency, caution, weather), then the newest.
       const todo = messages
@@ -404,10 +412,13 @@ export function AcarsFeedPanel({
         return next;
       });
       let result: Awaited<ReturnType<typeof describeAcarsBatch>> | null = null;
+      inFlight.current = true;
       try {
         result = await describeAcarsBatch({ data: { messages: todo.map(aiInput) } });
       } catch {
         result = null;
+      } finally {
+        inFlight.current = false;
       }
       const busy = !!result && !result.ok && !!result.busy;
       // Busy: wait longer each time (8 s, 16 s, ... 2 min) instead of giving those messages up.

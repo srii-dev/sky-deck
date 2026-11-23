@@ -16,10 +16,11 @@ import {
   createMemoryAiCache,
   nextUtcMidnight,
   providerErrorKind,
+  utcDay,
   type AiProvider,
   type AiProviderName,
 } from "@/lib/ai-service";
-import { getAiService } from "@/lib/ai.server";
+import { getAiService, pacingSnapshot, restorePacing } from "@/lib/ai.server";
 
 function provider(name: AiProviderName, answer: string | (() => string)) {
   const p: AiProvider & { calls: number } = {
@@ -275,5 +276,25 @@ describe("getAiService and the shared AiHub", () => {
     run.mockResolvedValueOnce({ response: '[{"id":1,"brief":"Local brief"}]' });
     const r = await getAiService({})!.acarsBriefs([msg(99, "FALLBACK TEST")]);
     expect(r.briefs).toEqual({ 99: "Local brief" });
+  });
+
+  // Last in the file: the pause it restores stays for the rest of the module.
+  it("snapshots only counters and restores a saved daily pause", async () => {
+    g.__env__ = { AI: { run } };
+    const key = "workers-ai|" + utcDay(Date.now());
+    const before = new Map(pacingSnapshot().counts).get(key) ?? 0;
+    await getAiService({})!.generate({ task: "t", prompt: "persist-1" });
+    const state = pacingSnapshot();
+    expect(new Map(state.counts).get(key)).toBe(before + 1);
+    expect(JSON.stringify(state)).not.toContain("persist-1");
+
+    restorePacing({
+      counts: [],
+      paused: [["workers-ai", { until: Date.now() + 3_600_000, daily: true }]],
+    });
+    await expect(
+      getAiService({})!.generate({ task: "t", prompt: "persist-2" }),
+    ).rejects.toMatchObject({ reason: "budget" });
+    expect(run).toHaveBeenCalledTimes(1);
   });
 });

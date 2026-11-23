@@ -76,7 +76,17 @@ export interface AiCache {
   set(key: string, value: CachedAnswer, now: number): void;
 }
 
-export function createMemoryBudgetStore(): AiBudgetStore & { reset(): void } {
+/** A provider that reported a limit is skipped until `until`; `daily` says which kind of limit. */
+export interface AiPause {
+  until: number;
+  daily: boolean;
+}
+
+export function createMemoryBudgetStore(): AiBudgetStore & {
+  reset(): void;
+  snapshot(): [string, number][];
+  restore(entries: [string, number][]): void;
+} {
   const counts = new Map<string, number>();
   const k = (p: string, d: string) => p + "|" + d;
   return {
@@ -92,6 +102,10 @@ export function createMemoryBudgetStore(): AiBudgetStore & { reset(): void } {
       }
     },
     reset: () => counts.clear(),
+    snapshot: () => [...counts],
+    restore: (entries) => {
+      for (const [key, n] of entries) counts.set(key, n);
+    },
   };
 }
 
@@ -163,6 +177,8 @@ export interface AiServiceOptions {
   /** The kill switch. */
   enabled: () => boolean;
   budgets?: AiBudgetStore;
+  /** Provider pauses; pass a map to keep them across service rebuilds or to save them. */
+  paused?: Map<AiProviderName, AiPause>;
   cache?: AiCache;
   now?: () => number;
   /** Give up on one provider after this long, then try the next. */
@@ -176,8 +192,7 @@ export function createAiService(opts: AiServiceOptions) {
   const timeoutMs = opts.timeoutMs ?? 15_000;
   /** Start times of the calls in the last minute, per provider. */
   const recent = new Map<AiProviderName, number[]>();
-  /** A provider that reported a limit is skipped until `until`; `daily` says which kind of limit. */
-  const paused = new Map<AiProviderName, { until: number; daily: boolean }>();
+  const paused = opts.paused ?? new Map<AiProviderName, AiPause>();
 
   async function generate(req: AiRequest): Promise<AiResult> {
     if (!opts.enabled()) throw new AiUnavailableError("disabled", "AI features are switched off.");
