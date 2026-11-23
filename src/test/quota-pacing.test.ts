@@ -141,6 +141,46 @@ describe("adsb.lol key quota with the real planner", () => {
     expect(oldest).toBeLessThan((plan.circles.length + 1) * 140_000);
   });
 
+  it("spreads the week over the days for a wide view left open", async () => {
+    const view = mapView(50, 10, 3);
+    const plan = planCoverage(view);
+    expect(plan.tier).toBe("wide");
+    expect(plan.circles.length).toBeGreaterThanOrEqual(6);
+    const seen = new Set<string>();
+    const weekEnd = Date.UTC(2026, 10, 30); // the next Monday
+    const perDay: number[] = [];
+    let quotaFailures = 0;
+    let p = 0;
+    // shortcut: one poll a minute instead of every 7 s keeps the run short; the pace gap is minutes long anyway.
+    while (t < weekEnd - 3_600_000) {
+      const dayEnd = Date.UTC(2026, 10, new Date(t).getUTCDate() + 1);
+      const daysLeft = (weekEnd - t) / 86_400_000;
+      const share = (ADSBLOL_FREE_LIMITS.perWeek - sent) / daysLeft;
+      const before = sent;
+      for (; t < dayEnd && t < weekEnd - 3_600_000; t += 60_000, p++) {
+        const plan = planCoverage(view);
+        for (let i = 0; i < plan.circles.length; i++) {
+          const c = plan.circles[i]!;
+          if (!wideCircleDue(i, seen.has(c.key), p)) continue;
+          const s = snapFeedCircle(c.lat, c.lon, c.radiusNm);
+          const r = await loadFeedCached(s.lat, s.lon, s.radiusNm, deps);
+          if (r.error) quotaFailures++;
+          else seen.add(c.key);
+        }
+      }
+      perDay.push(sent - before);
+      // Never more than the day's even share of what is left (half a day on Monday), plus one new view.
+      expect(sent - before).toBeLessThanOrEqual(
+        share * Math.min(1, (dayEnd - T0) / 86_400_000) + NEW_TILE_RESERVE,
+      );
+    }
+    console.info("[quota] wide view, sent per day", perDay, "failed tiles", quotaFailures);
+    expect(quotaFailures).toBe(0);
+    // Sunday evening there is still room: a new wide view elsewhere gets every tile.
+    const us = await poll(mapView(39, -98, 3), 0, new Set());
+    expect(us.answered).toBe(us.asked);
+  });
+
   it("fetches a tile with no copy while refreshes of tiles with one wait", async () => {
     await loadFeedCached(1, 2, 50, deps);
     // Leave just the new-tile reserve in the 30-second window.

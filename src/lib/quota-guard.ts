@@ -49,6 +49,12 @@ export const ADSBLOL_FREE_LIMITS: QuotaLimits = {
  */
 export const NEW_TILE_RESERVE = 6;
 
+/**
+ * The longest a tile waits for its turn: past this its copy may take the next paced slot whatever its turn says,
+ * so a view with many tiles (tiles x gap longer than this) still has its oldest copies refreshed in time.
+ */
+export const QUOTA_TURN_MAX_MS = 30 * 60_000;
+
 const dayKey = (now: number) => new Date(now).toISOString().slice(0, 10);
 const monthKey = (now: number) => new Date(now).toISOString().slice(0, 7);
 /** The UTC date of the Monday that starts the week. */
@@ -159,13 +165,15 @@ export class QuotaGuard {
   /**
    * Whether a tile whose copy is `ageMs` old may be refreshed now; if so the paced slot is taken. At most one
    * refresh per pace gap. The `tiles` being watched take turns: a tile waits until its copy is `tiles` gaps old,
-   * the busiest (`rank` 0, from RefreshBudget.demandRank) no longer, the quietest (`rank` 1) twice as long.
+   * the busiest (`rank` 0, from RefreshBudget.demandRank) no longer, the quietest (`rank` 1) twice as long, and
+   * none longer than QUOTA_TURN_MAX_MS.
    */
   takeRefresh(now: number, ageMs: number, rank: number, tiles: number): boolean {
     const gap = this.paceGapMs(now);
     if (!Number.isFinite(gap)) return false;
     const last = Math.max(this.state.recent.at(-1) ?? -Infinity, this.pacedAt);
-    if (now - last < gap || ageMs < gap * Math.max(1, tiles) * (1 + rank)) return false;
+    const turn = Math.min(gap * Math.max(1, tiles) * (1 + rank), QUOTA_TURN_MAX_MS);
+    if (now - last < gap || ageMs < turn) return false;
     this.pacedAt = now;
     return true;
   }

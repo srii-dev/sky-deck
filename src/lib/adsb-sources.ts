@@ -123,15 +123,22 @@ export function setFeedBudgetPerMinute(perMinute: number) {
  * limits (quota-guard.ts); a request that would go over is not sent (it fails like a 429 without reaching the
  * provider, and does not put adsb.lol on a cool-down). The allowance is also spread out: a tile that has a copy
  * up to QUOTA_STALE_MAX_MS old is refreshed only when QuotaGuard.takeRefresh allows it, busiest tiles first, and is
- * answered from that copy in between; a tile with no such copy is always tried. Without a key there is nothing to
- * count or pace (adsb.lol answers 429 on its own from Cloudflare's shared addresses).
+ * answered from that copy (with its real age) in between, however old it gets inside that limit; only a tile with
+ * no such copy is always tried. Without a key there is nothing to count or pace (adsb.lol answers 429 on its own
+ * from Cloudflare's shared addresses).
  */
 let quota: QuotaGuard | null = null;
 const getQuota = () => (quota ??= new QuotaGuard(ADSBLOL_FREE_LIMITS));
 const ADSBLOL_API = "https://api.adsb.lol/";
 const keyedAdsbLol = (url: string) => Object.keys(adsbLolHeaders(url)).length > 0;
-/** How old a copy may be and still be served instead of a refresh the key's allowance cannot spare. */
-export const QUOTA_STALE_MAX_MS = 10 * 60_000;
+/**
+ * How old a copy may be and still be served instead of a refresh the key's allowance cannot spare. Older ones count
+ * as no copy (a view coming back after an hour is fetched like a new one). Kept above QUOTA_TURN_MAX_MS, so a tile
+ * watched all along gets a paced slot before its copy runs out.
+ * shortcut: a view with more tiles than paced slots in this time (about 27 at 132 s) has its last tiles fetched
+ * unpaced once an hour; a fair oldest-first queue across tiles would be the upgrade if that shows in the counts.
+ */
+export const QUOTA_STALE_MAX_MS = 60 * 60_000;
 const quotaError = () =>
   Object.assign(new Error("adsb.lol key quota used up"), { status: 429, quota: true });
 const isQuotaError = (err: unknown) => (err as { quota?: boolean }).quota === true;
@@ -486,7 +493,13 @@ export async function loadFeedCached(
       getBudget().noteUpstream(clock(), !hit || getBudget().mustRefresh(age));
       const v = await loadFeedCircle(lat, lon, radiusNm, deps);
       if (!v.error) {
-        prune(feedCache, FEED_TTL_MS, 200, clock());
+        // With a key, copies are kept as long as they may be served, or a full cache would drop them all.
+        prune(
+          feedCache,
+          keyedAdsbLol(ADSBLOL_API) ? QUOTA_STALE_MAX_MS : FEED_TTL_MS,
+          200,
+          clock(),
+        );
         feedCache.set(key, { at: clock(), value: v });
       }
       return v;
