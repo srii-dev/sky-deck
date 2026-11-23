@@ -55,7 +55,7 @@ Nothing else about an account is stored yet. The same two lists are also kept in
 - Aircraft, weather, airport and route data are requested by our server, not the browser.
 - The status page (`/status`) makes our server ask adsb.lol, airplanes.live, the Aviation Weather Center, the FAA and Supabase whether they answer, at most once a minute for all visitors together. No visitor data is sent.
 - Feedback goes to the project's public GitHub issues page, under GitHub's terms; nothing is sent from the app itself.
-- AI providers (Cloudflare Workers AI, then Gemini when a key is set) receive only what a feature sends them: today the ACARS panel sends message text and its flight, registration, label and route. Nothing is stored by SkyDeck.
+- AI providers (Cloudflare Workers AI, then Gemini when a key is set) receive only what a feature sends them: the ACARS panel sends message text and its flight, registration, label and route, and the airport panel's Explain with AI button sends the page's rule-based brief text with the airport's name and code. Nothing is stored by SkyDeck.
 
 ## Not done yet
 

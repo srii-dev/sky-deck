@@ -5,6 +5,7 @@ import { ExternalLink, Star, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
+import { AirportAiBrief } from "@/components/skydeck/AirportAiBrief";
 import { getAirportAtis, getAirportBrief } from "@/lib/airport.functions";
 import { faaChartsUrl } from "@/lib/airport-charts";
 import { airportSummary } from "@/lib/airport-summary";
@@ -211,6 +212,7 @@ export function AirportPanel({
               <p className="text-xs text-muted-foreground">
                 Written by fixed rules from the data below, not by AI.
               </p>
+              <AirportAiBrief icao={airport.icao} name={airport.name} brief={summary.join(" ")} />
             </section>
 
             <section aria-label="FAA status" className="space-y-1">
