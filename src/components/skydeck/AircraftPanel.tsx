@@ -42,6 +42,8 @@ import { RouteTerrain } from "./RouteTerrain";
 import type { TrailPoint } from "./map-config";
 import { AcarsMessages } from "./AcarsMessages";
 import { FlightFacts } from "./FlightFacts";
+import { FlightAiBrief } from "./FlightAiBrief";
+import { flightFactSummary } from "@/lib/flight-ai";
 import { TrailExport } from "./TrailExport";
 import { cn } from "@/lib/utils";
 
@@ -241,6 +243,10 @@ export function AircraftPanel(props: Props) {
       </div>
 
       <FlightFacts aircraft={a} route={r} units={props.units} />
+      <FlightAiBrief
+        hex={a.hex}
+        facts={flightFactSummary(a, r, props.units, Date.now(), props.lastSeenSec)}
+      />
 
       <div className="grid grid-cols-2 gap-2">
         <Cell label="Altitude">{a.onGround ? "Ground" : fmtAltitude(a.altFt, props.units)}</Cell>
