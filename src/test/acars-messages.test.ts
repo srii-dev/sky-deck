@@ -83,6 +83,7 @@ describe("normalizeAirframesMessage", () => {
       sourceType: "acars",
       departing: "KAAA",
       destination: "KBBB",
+      icao: null,
       text: "TEST MESSAGE ONE",
     });
   });

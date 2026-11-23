@@ -19,6 +19,8 @@ export interface AcarsMessage {
   sourceType: string | null;
   departing: string | null;
   destination: string | null;
+  /** ICAO 24-bit address of the airframe, lowercase, when Airframes knows it. */
+  icao?: string | null;
   /** Cleaned, plain-text message body (may be empty). */
   text: string;
 }
@@ -84,6 +86,11 @@ function parseTime(v: unknown): number | null {
   return null;
 }
 
+function airframeIcao(v: unknown): string | null {
+  const icao = typeof v === "object" && v !== null ? (v as { icao?: unknown }).icao : null;
+  return typeof icao === "string" && /^[0-9a-fA-F]{6}$/.test(icao) ? icao.toLowerCase() : null;
+}
+
 /** Normalise one API message. Returns null when it has no usable numeric id. */
 export function normalizeAirframesMessage(raw: unknown): AcarsMessage | null {
   if (typeof raw !== "object" || raw === null) return null;
@@ -102,6 +109,7 @@ export function normalizeAirframesMessage(raw: unknown): AcarsMessage | null {
     sourceType: str(m["sourceType"]),
     departing: str(m["departingAirport"]),
     destination: str(m["destinationAirport"]),
+    icao: airframeIcao(m["airframe"]),
     text: sanitizeText(m["text"]),
   };
 }

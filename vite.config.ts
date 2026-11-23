@@ -53,7 +53,15 @@ export default defineConfig(({ command, mode }) => {
         server: { entry: "server" },
       }),
       // Only the production build is a Worker; the dev server does not need Nitro.
-      ...(command === "build" ? [nitro({ defaultPreset: "cloudflare-module" })] : []),
+      ...(command === "build"
+        ? [
+            nitro({
+              defaultPreset: "cloudflare-module",
+              // Workers AI binding for the ACARS descriptions (src/lib/ai.server.ts reads it as AI).
+              cloudflare: { wrangler: { ai: { binding: "AI" } } },
+            }),
+          ]
+        : []),
       react(),
     ],
     build: {

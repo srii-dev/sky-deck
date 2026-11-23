@@ -39,7 +39,9 @@ bunx wrangler secret put FEED_BUDGET_PER_MIN --name skydeck   # optional
 bunx wrangler secret put ADSBLOL_API_KEY --name skydeck  # adsb.lol key; without it the live feed is refused (HTTP 429)
 ```
 
-`SUPABASE_URL` and `SUPABASE_ANON_KEY` are public by design (they reach every browser). `SUPABASE_SERVICE_ROLE_KEY` and `GEMINI_API_KEY` are real secrets and are not needed yet; never put them in a `VITE_` variable. Without the Supabase pair the site works but sign-in is off.
+`SUPABASE_URL` and `SUPABASE_ANON_KEY` are public by design (they reach every browser). `SUPABASE_SERVICE_ROLE_KEY` and `GEMINI_API_KEY` are real secrets; never put them in a `VITE_` variable. Without the Supabase pair the site works but sign-in is off.
+
+AI (ACARS panel descriptions): the build adds a Workers AI binding named `AI` to the Worker, so nothing needs setting up for it. `GEMINI_API_KEY` is optional and only used when Workers AI fails or its daily budget is used (`bunx wrangler secret put GEMINI_API_KEY --name skydeck`). Set `AI_ENABLED` to `off` to switch all AI off.
 
 ## After a deploy
 
