@@ -1,6 +1,7 @@
 import { DATA_BUSY_MESSAGE, type Aircraft, type FeedResponse } from "./aircraft";
 import { isMilitaryFlag, parseYear } from "./aircraft-details";
 import { classifyAircraft } from "./aircraft-kind";
+import { ADSBLOL_FREE_LIMITS, QuotaGuard, type QuotaState } from "./quota-guard";
 import { budgetFromEnv, RefreshBudget } from "./refresh-budget";
 import { adsbLolHeaders } from "./server-config.server";
 import { upstreamUrl } from "./upstream-override";
@@ -114,7 +115,33 @@ export function setFeedBudgetPerMinute(perMinute: number) {
   budget = new RefreshBudget({ perWindow: perMinute });
 }
 
+/*
+ * adsb.lol key quota. With a key configured, every request to api.adsb.lol is counted against the key's published
+ * limits (quota-guard.ts); a request that would go over is not sent (it fails like a 429 without reaching the
+ * provider), and while the quota is used up the feed is answered from older copies. Without a key there is nothing
+ * to count (adsb.lol answers 429 on its own from Cloudflare's shared addresses).
+ */
+let quota: QuotaGuard | null = null;
+const getQuota = () => (quota ??= new QuotaGuard(ADSBLOL_FREE_LIMITS));
+const ADSBLOL_API = "https://api.adsb.lol/";
+const keyedAdsbLol = (url: string) => Object.keys(adsbLolHeaders(url)).length > 0;
+/** How old a copy may be and still be shown while the adsb.lol quota is used up. */
+export const QUOTA_STALE_MAX_MS = 10 * 60_000;
+
+/** True when a key is configured and the next adsb.lol request would go over a limit. */
+function quotaBlocked(now: number): boolean {
+  return keyedAdsbLol(ADSBLOL_API) && !getQuota().canSend(now);
+}
+/** The request counts, to be kept by the FeedHub object across restarts. */
+export function quotaSnapshot(): QuotaState {
+  return getQuota().snapshot();
+}
+export function restoreQuota(state: QuotaState) {
+  quota = new QuotaGuard(ADSBLOL_FREE_LIMITS, state);
+}
+
 export function resetAdsbSourceState() {
+  quota = null;
   budget = null;
   sourceBackoff.clear();
   feedCache.clear();
@@ -169,6 +196,13 @@ async function takeSlot(
 
 export async function getJson(url: string, timeoutMs = 6000, deps?: SourceDeps): Promise<unknown> {
   const fetchImpl = deps?.fetchImpl ?? fetch;
+  if (
+    url.startsWith(ADSBLOL_API) &&
+    keyedAdsbLol(url) &&
+    !getQuota().take((deps?.now ?? Date.now)())
+  ) {
+    throw Object.assign(new Error("adsb.lol key quota used up"), { status: 429 });
+  }
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
@@ -418,6 +452,11 @@ export async function loadFeedCached(
     return withAge(hit.value, age);
   }
   if (hit && age <= STALE_MAX_MS && providerQueueTooLong(clock(), deps)) {
+    feedStats.shed++;
+    return withAge(hit.value, age);
+  }
+  // The key's quota is used up: a refresh could not be sent, so show the copy we have for a while.
+  if (hit && age <= QUOTA_STALE_MAX_MS && quotaBlocked(clock())) {
     feedStats.shed++;
     return withAge(hit.value, age);
   }
