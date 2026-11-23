@@ -42,10 +42,15 @@ import { ACARS_DISCLOSURE, ACARS_NOTICE } from "./AcarsMessages";
 
 const MAX_KEPT = 300;
 /** One AI batch at most this often: stays under the server's 12 a minute per visitor. */
-const BATCH_GAP_MS = 6000;
+const BATCH_GAP_MS = 8000;
+/** After a busy answer the gap doubles up to this, and resets after the next answer. */
+const MAX_BUSY_GAP_MS = 120_000;
 
+/** `retry`: the AI was busy, so the message is asked for again in a later batch. */
 type Brief =
-  { state: "pending" } | { state: "done"; text: string } | { state: "failed"; error: string };
+  | { state: "pending" }
+  | { state: "done"; text: string }
+  | { state: "failed"; error: string; retry?: boolean };
 
 const ALERT_RANK: Record<AcarsAlert, number> = {
   emergency: 0,
@@ -160,7 +165,9 @@ function MarkdownFile({ source, name }: { source: string; name: string }) {
 }
 
 type Detail =
-  { state: "loading" } | { state: "done"; text: string } | { state: "failed"; error: string };
+  | { state: "loading" }
+  | { state: "done"; text: string }
+  | { state: "failed"; error: string; busy?: boolean };
 
 /** The opened message, floating over the map (not modal: the map stays visible and usable). */
 function MessageCard({
@@ -179,6 +186,7 @@ function MessageCard({
   onShowOnMap: (() => void) | null;
 }) {
   const [detail, setDetail] = useState<Detail>({ state: "loading" });
+  const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     let live = true;
     if (!m.text) {
@@ -186,16 +194,22 @@ function MessageCard({
       return;
     }
     setDetail({ state: "loading" });
-    explainAcars({ data: aiInput(m) }).then(
+    explainAcars({ data: { ...aiInput(m), alert } }).then(
       (r) =>
         live &&
-        setDetail(r.ok ? { state: "done", text: r.value } : { state: "failed", error: r.error }),
+        setDetail(
+          r.ok
+            ? { state: "done", text: r.value }
+            : { state: "failed", error: r.error, busy: r.busy === true },
+        ),
       () => live && setDetail({ state: "failed", error: "AI description unavailable." }),
     );
     return () => {
       live = false;
     };
-  }, [m]);
+    // `alert` follows the live squawk; a change there should not ask the AI again.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [m, attempt]);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", onKey);
@@ -255,6 +269,15 @@ function MessageCard({
           </p>
           {detail.state === "loading" ? (
             <p className="animate-pulse text-sm italic text-white/50">Writing the full story…</p>
+          ) : detail.state === "failed" && detail.busy ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-sm text-white/60">
+                The AI is busy with other messages right now. Try again in a minute.
+              </p>
+              <Button variant="panel" size="sm" onClick={() => setAttempt((n) => n + 1)}>
+                Try again
+              </Button>
+            </div>
           ) : detail.state === "failed" ? (
             <p className="text-sm text-white/60">{detail.error}</p>
           ) : (
@@ -310,6 +333,9 @@ export function AcarsFeedPanel({
   const [now, setNow] = useState(() => Date.now());
   const briefsRef = useRef(briefs);
   briefsRef.current = briefs;
+  // Batch pacing survives the effect restarting on every feed update: no batch before `nextBatchAt`.
+  const nextBatchAt = useRef(0);
+  const batchGap = useRef(BATCH_GAP_MS);
 
   const live = useMemo(() => {
     const m = new Map<string, Aircraft>();
@@ -362,12 +388,16 @@ export function AcarsFeedPanel({
       // The feed brings ~100 messages every few seconds, more than the AI can keep up with: describe the ones
       // worth reading first (emergency, caution, weather), then the newest.
       const todo = messages
-        .filter((m) => m.text && !briefsRef.current[m.id])
+        .filter((m) => {
+          const b = briefsRef.current[m.id];
+          return m.text && (!b || (b.state === "failed" && b.retry));
+        })
         .map((m, i) => ({ m, rank: ALERT_RANK[alertOfRef.current(m)], i }))
         .sort((a, b) => a.rank - b.rank || a.i - b.i)
         .slice(0, MAX_BATCH)
         .map((x) => x.m);
       if (!todo.length) return;
+      nextBatchAt.current = Date.now() + batchGap.current;
       setBriefs((b) => {
         const next = { ...b };
         for (const m of todo) next[m.id] = { state: "pending" };
@@ -379,19 +409,27 @@ export function AcarsFeedPanel({
       } catch {
         result = null;
       }
+      const busy = !!result && !result.ok && !!result.busy;
+      // Busy: wait longer each time (8 s, 16 s, ... 2 min) instead of giving those messages up.
+      batchGap.current = busy ? Math.min(batchGap.current * 2, MAX_BUSY_GAP_MS) : BATCH_GAP_MS;
+      nextBatchAt.current = Date.now() + batchGap.current;
       setBriefs((b) => {
         const next = { ...b };
         for (const m of todo) {
           const text = result?.ok ? result.value[m.id] : undefined;
           next[m.id] = text
             ? { state: "done", text }
-            : { state: "failed", error: result && !result.ok ? result.error : "No description" };
+            : {
+                state: "failed",
+                error: result && !result.ok ? result.error : "No description",
+                retry: busy,
+              };
         }
         return next;
       });
-      if (!stop) timer = setTimeout(step, BATCH_GAP_MS);
+      if (!stop) timer = setTimeout(step, batchGap.current);
     };
-    timer = setTimeout(step, 300);
+    timer = setTimeout(step, Math.max(300, nextBatchAt.current - Date.now()));
     return () => {
       stop = true;
       if (timer) clearTimeout(timer);
@@ -437,7 +475,9 @@ export function AcarsFeedPanel({
             {status.error && <p className="px-4 pb-2 text-xs text-destructive">{status.error}</p>}
             {aiError?.state === "failed" && (
               <p className="px-4 pb-2 text-[11px] text-muted-foreground">
-                AI headlines: {aiError.error} Showing the raw text instead.
+                {aiError.retry
+                  ? "AI headlines: the AI is busy, trying again shortly. Showing the raw text meanwhile."
+                  : "AI headlines: " + aiError.error + " Showing the raw text instead."}
               </p>
             )}
             {!messages.length && !status.error && (

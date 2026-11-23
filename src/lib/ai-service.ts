@@ -5,14 +5,16 @@
  * Rules built in:
  *  - Fallback order: providers are tried in the order given (Gemini first, then Cloudflare Workers AI).
  *  - A daily budget per provider: a provider that used its budget is skipped until the next UTC day.
+ *  - A per-minute limit per provider, and a pause after the provider itself reports a limit (until its daily reset,
+ *    or a minute for a rate limit). When no provider can take a call now, it fails at once with reason "busy".
  *  - A kill switch: when `enabled()` is false nothing is generated and nothing is spent.
  *  - A cache: the same task and prompt is answered from the cache without asking a provider or spending budget.
  *  - Every answer says which provider wrote it and carries the label "AI-generated" for display.
  *  - On demand only: there is no background generation here.
  * The caller decides what may be sent. ACARS message text may be sent to Workers AI and Gemini for descriptions
  * (decision 2026-11-22, replacing the 2026-11-07 hold).
- * Budgets and cache are kept in memory of one server instance behind small interfaces, so a shared store
- * (Supabase table or Cloudflare KV, Phase 18f) can replace them without changing callers.
+ * Budgets, pacing and cache are kept in memory of one instance. On Cloudflare that instance is the global AiHub
+ * Durable Object (src/server/ai-hub.ts), so they are shared by every visitor (see src/lib/ai.server.ts).
  */
 
 export type AiProviderName = "gemini" | "workers-ai";
@@ -31,6 +33,8 @@ export interface AiRequest {
 export interface AiProvider {
   name: AiProviderName;
   generate(prompt: string, signal?: AbortSignal): Promise<string>;
+  /** When to try again after the provider said its daily allowance is used up. Default: the next 00:00 UTC. */
+  dailyResetAt?(now: number): number;
 }
 
 export interface AiResult {
@@ -43,7 +47,9 @@ export interface AiResult {
   generatedAt: number;
 }
 
-export type AiFailureReason = "disabled" | "invalid-request" | "budget" | "all-failed";
+export type AiFailureReason = "disabled" | "invalid-request" | "budget" | "busy" | "all-failed";
+
+export const AI_BUSY_MESSAGE = "AI is busy, try again in a minute.";
 
 export class AiUnavailableError extends Error {
   readonly reason: AiFailureReason;
@@ -118,6 +124,24 @@ export function utcDay(ms: number): string {
   return new Date(ms).toISOString().slice(0, 10);
 }
 
+/** The next 00:00 UTC after `ms`. */
+export function nextUtcMidnight(ms: number): number {
+  const d = new Date(ms);
+  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1);
+}
+
+/**
+ * What a provider error means for pacing: its daily allowance is used up (Workers AI error 4006, a Gemini per-day
+ * quota), it is rate limited for now (HTTP 429, Workers AI 3040 capacity), or anything else.
+ */
+export function providerErrorKind(e: unknown): "daily" | "rate" | "other" {
+  const text = e instanceof Error ? e.message : String(e);
+  if (/\b4006\b|daily free allocation|per ?day/i.test(text)) return "daily";
+  if (/\b429\b|\b3040\b|rate.?limit|too many requests|resource.?exhausted|capacity/i.test(text))
+    return "rate";
+  return "other";
+}
+
 /** A short stable key for a task and prompt (FNV-1a, 32 bit, plus the length). Not a security measure. */
 export function cacheKey(task: string, prompt: string): string {
   let h = 0x811c9dc5;
@@ -134,6 +158,8 @@ export interface AiServiceOptions {
   providers: readonly AiProvider[];
   /** Calls allowed per provider per UTC day. A provider without an entry is not used. */
   dailyBudget: Partial<Record<AiProviderName, number>>;
+  /** Calls allowed per provider in any 60 s. A provider without an entry has no per-minute limit. */
+  perMinute?: Partial<Record<AiProviderName, number>>;
   /** The kill switch. */
   enabled: () => boolean;
   budgets?: AiBudgetStore;
@@ -148,6 +174,10 @@ export function createAiService(opts: AiServiceOptions) {
   const budgets = opts.budgets ?? createMemoryBudgetStore();
   const cache = opts.cache ?? createMemoryAiCache(6 * 60 * 60 * 1000);
   const timeoutMs = opts.timeoutMs ?? 15_000;
+  /** Start times of the calls in the last minute, per provider. */
+  const recent = new Map<AiProviderName, number[]>();
+  /** A provider that reported a limit is skipped until `until`; `daily` says which kind of limit. */
+  const paused = new Map<AiProviderName, { until: number; daily: boolean }>();
 
   async function generate(req: AiRequest): Promise<AiResult> {
     if (!opts.enabled()) throw new AiUnavailableError("disabled", "AI features are switched off.");
@@ -164,39 +194,65 @@ export function createAiService(opts: AiServiceOptions) {
     }
 
     const day = utcDay(t);
-    let skippedForBudget = 0;
-    let tried = 0;
+    let busy = 0;
+    let failed = 0;
     for (const provider of opts.providers) {
-      const budget = opts.dailyBudget[provider.name] ?? 0;
-      if (budgets.used(provider.name, day) >= budget) {
-        skippedForBudget += 1;
+      const name = provider.name;
+      const budget = opts.dailyBudget[name] ?? 0;
+      if (budgets.used(name, day) >= budget) continue;
+      const pause = paused.get(name);
+      if (pause && pause.until > t) {
+        if (!pause.daily) busy += 1;
         continue;
       }
-      tried += 1;
+      const times = (recent.get(name) ?? []).filter((at) => t - at < 60_000);
+      recent.set(name, times);
+      const perMinute = opts.perMinute?.[name];
+      if (perMinute !== undefined && times.length >= perMinute) {
+        // Answer at once instead of waiting for a free slot.
+        busy += 1;
+        continue;
+      }
       // Count the attempt before it is made: a failing provider must not be hammered either.
-      budgets.add(provider.name, day, 1);
+      times.push(t);
+      budgets.add(name, day, 1);
       const ctrl = new AbortController();
       const timer = setTimeout(() => ctrl.abort(), timeoutMs);
       try {
         const raw = await provider.generate(prompt, ctrl.signal);
         const text = raw.trim().slice(0, limit);
-        if (!text) continue;
+        if (!text) {
+          failed += 1;
+          continue;
+        }
         const generatedAt = now();
-        cache.set(key, { text, provider: provider.name, generatedAt }, generatedAt);
-        return { text, provider: provider.name, cached: false, label: AI_LABEL, generatedAt };
-      } catch {
-        // Try the next provider. The error text is not kept: it could contain the prompt or a key.
+        cache.set(key, { text, provider: name, generatedAt }, generatedAt);
+        return { text, provider: name, cached: false, label: AI_LABEL, generatedAt };
+      } catch (e) {
+        // Try the next provider. The error text is only classified, never kept: it could contain the prompt.
+        const kind = providerErrorKind(e);
+        if (kind === "daily") {
+          const at = now();
+          paused.set(name, {
+            until: provider.dailyResetAt?.(at) ?? nextUtcMidnight(at),
+            daily: true,
+          });
+        } else if (kind === "rate") {
+          paused.set(name, { until: now() + 60_000, daily: false });
+          busy += 1;
+        } else {
+          failed += 1;
+        }
       } finally {
         clearTimeout(timer);
       }
     }
-    if (tried === 0 && skippedForBudget > 0) {
-      throw new AiUnavailableError(
-        "budget",
-        "The daily AI limit has been reached. Try again tomorrow.",
-      );
-    }
-    throw new AiUnavailableError("all-failed", "The AI providers did not answer.");
+    if (busy > 0) throw new AiUnavailableError("busy", AI_BUSY_MESSAGE);
+    if (failed > 0) throw new AiUnavailableError("all-failed", "The AI providers did not answer.");
+    throw new AiUnavailableError(
+      "budget",
+      "The daily AI limit has been reached. Try again tomorrow.",
+    );
   }
 
   return { generate };
@@ -229,9 +285,16 @@ export function createGeminiProvider(opts: GeminiOptions): AiProvider {
       };
       if (signal) init.signal = signal;
       const res = await f(url, init);
+      if (res.status === 429) {
+        // The quota id in the error body says whether the per-minute or the per-day limit was hit.
+        const body = await res.text().catch(() => "");
+        throw new Error("Gemini HTTP 429" + (/PerDay/i.test(body) ? " per day" : ""));
+      }
       if (!res.ok) throw new Error("Gemini HTTP " + res.status);
       return extractGeminiText(await res.json());
     },
+    // Gemini's daily quota resets at midnight Pacific time, not UTC: check again every hour.
+    dailyResetAt: (now) => now + 60 * 60 * 1000,
   };
 }
 

@@ -74,7 +74,10 @@ const POSITION_LABELS = new Set([
   "QT",
 ]);
 
-export function classifyAcars(m: AcarsMessage, liveSquawk?: string | null): AcarsAlert {
+export function classifyAcars(
+  m: Pick<AcarsMessage, "text" | "label">,
+  liveSquawk?: string | null,
+): AcarsAlert {
   if (liveSquawk === "7700" || liveSquawk === "7600" || liveSquawk === "7500") return "emergency";
   const t = m.text.toUpperCase();
   if (EMERGENCY.test(t)) return "emergency";
