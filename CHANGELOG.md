@@ -64,6 +64,7 @@ All notable changes to SkyDeck. The format follows [Keep a Changelog](https://ke
 
 ### Changed
 
+- The live feed cache, provider pacing and refresh budget are shared by every server instance: on Cloudflare the feed loads inside one `FeedHub` Durable Object (18f, 19h).
 - Zoomed out (below zoom 8), overlapping aircraft are thinned on a screen grid instead of all being drawn or hidden by icon collision; selected and emergency aircraft always stay (#75, #76). Terrain tiles load at half the request count (#74).
 - Lovable removed (Phase 15a): the build uses a plain `vite.config.ts` instead of `@lovable.dev/vite-tanstack-config`, `lightningcss` is a direct dependency, and the Lovable error hook, project folder and notes are gone. The production build is unchanged (same files, same size, same Worker settings).
 - The dark theme's destructive red is a little darker, so white text on it reaches 4.5:1 (it was 3.7:1).
