@@ -2,8 +2,9 @@ import { createServerFn } from "@tanstack/react-start";
 import { setResponseHeader } from "@tanstack/react-start/server";
 import { z } from "zod";
 import { type FeedResponse, type FlightRoute, type RouteAirport } from "./aircraft";
-import { getJson, loadFeedCached, searchAircraftSources, snapFeedCircle } from "./adsb-sources";
+import { getJson, searchAircraftSources, snapFeedCircle } from "./adsb-sources";
 import { prune, type CacheEntry } from "./request-control";
+import { loadFeedShared } from "./feed-hub.server";
 
 /*
  * Server-side proxy for free community ADS-B sources.
@@ -12,7 +13,8 @@ import { prune, type CacheEntry } from "./request-control";
  * - Secondary: airplanes.live (same format; may refuse unapproved callers)
  * (OpenSky Network is intentionally not used: its terms require a written license for live API use.)
  * Feed responses are cached in-memory for ~5 s per rounded viewport, and identical in-flight
- * requests are shared (both in adsb-sources.ts, loadFeedCached).
+ * requests are shared (both in adsb-sources.ts, loadFeedCached). On Cloudflare that loader runs inside one
+ * FeedHub Durable Object (src/server/feed-hub.ts), so the cache and pacing are shared by every instance.
  */
 
 const ROUTE_TTL_MS = 60 * 60 * 1000;
@@ -30,7 +32,8 @@ export const getAircraftFeed = createServerFn({ method: "GET" })
   .validator((d: unknown) => feedInput.parse(d))
   .handler(async ({ data }): Promise<FeedResponse> => {
     const { lat, lon, radiusNm } = snapFeedCircle(data.lat, data.lon, data.radiusNm);
-    return loadFeedCached(lat, lon, radiusNm);
+    // Through the shared FeedHub Durable Object when deployed, so all visitors share one cache and budget.
+    return loadFeedShared(lat, lon, radiusNm);
   });
 
 const searchInput = z.object({ q: z.string().trim().min(2).max(12) });
