@@ -28,6 +28,7 @@ import {
 } from "@/lib/glide-ring";
 import { currentAirportList, isLargeLoaded, loadLargeAirports } from "@/lib/airport-list";
 import { serverFlags } from "@/lib/flags";
+import { declutter } from "@/lib/declutter";
 import { rulerSummary } from "@/lib/measure";
 import type { UnitSystem } from "@/lib/units";
 import {
@@ -107,9 +108,9 @@ const FT_TO_M = 0.3048;
 const KT_TO_MS = 0.514444;
 const M_PER_DEG = 111320;
 const FRAME_MS = 90;
-/** Below this zoom, planes that would overlap are hidden, keeping the most important ones (declutter). */
+/** Below this zoom, planes that sit on top of each other are thinned out (declutter). */
 const DECLUTTER_BELOW_ZOOM = 8;
-/** Draw order when every plane is shown: higher on top, so the selected plane and emergencies stay visible. */
+/** Draw order: higher on top, so the selected plane and emergencies stay visible. */
 const SORT_ON_TOP: ExpressionSpecification = [
   "case",
   ["get", "sel"],
@@ -118,30 +119,13 @@ const SORT_ON_TOP: ExpressionSpecification = [
   900,
   ["get", "alt"],
 ];
-/** Placement order when overlaps are hidden: lower is placed first and wins. Selected, emergencies, then airborne. */
-const SORT_FIRST_WINS: ExpressionSpecification = [
-  "case",
-  ["get", "sel"],
-  -3,
-  ["get", "emg"],
-  -2,
-  [">", ["get", "alt"], 0],
-  -1,
-  0,
-];
-
-/** Hides overlapping planes when zoomed out; shows every plane when zoomed in. */
-function applyDeclutter(map: MLMap) {
-  if (!map.getLayer("sd-aircraft")) return;
-  const declutter = map.getZoom() < DECLUTTER_BELOW_ZOOM;
-  if (map.getLayoutProperty("sd-aircraft", "icon-allow-overlap") === !declutter) return;
-  map.setLayoutProperty("sd-aircraft", "icon-allow-overlap", !declutter);
-  map.setLayoutProperty("sd-aircraft", "icon-ignore-placement", !declutter);
-  map.setLayoutProperty(
-    "sd-aircraft",
-    "symbol-sort-key",
-    declutter ? SORT_FIRST_WINS : SORT_ON_TOP,
-  );
+/**
+ * Declutter cell in screen pixels: under half the drawn icon (64 px sprite times the icon-size at this zoom), so
+ * icons may touch a little and the screen stays full instead of losing every plane whose box touches another.
+ */
+function declutterCellPx(zoom: number): number {
+  const t = Math.min(1, Math.max(0, (zoom - 3) / 5));
+  return 64 * (0.32 + t * (0.55 - 0.32)) * 0.45;
 }
 
 /*
@@ -1008,11 +992,8 @@ export default function FlightMap(props: FlightMapProps) {
     map.on("style.load", () => {
       styleReadyRef.current = false;
       installOverlays();
-      applyDeclutter(map);
       scheduleDeferredScene();
     });
-
-    map.on("zoomend", () => applyDeclutter(map));
 
     const emitViewport = () => {
       const c = map.getCenter();
@@ -1120,6 +1101,8 @@ export default function FlightMap(props: FlightMapProps) {
     let lastSelectedEmit = 0;
     // An empty source stays empty: skipping the update saves a full map repaint every frame when nothing is shown.
     let drewNothing = false;
+    // Planes kept by the last declutter pass; they win ties next frame so nothing flickers.
+    let shownRef = new Set<string>();
     const tick = (ts: number) => {
       raf = requestAnimationFrame(tick);
       if (ts - last < FRAME_MS || !styleReadyRef.current) return;
@@ -1195,7 +1178,25 @@ export default function FlightMap(props: FlightMapProps) {
           geometry: { type: "Point", coordinates: [lon, lat] },
         });
       }
-      if (features.length || !drewNothing) src.setData({ type: "FeatureCollection", features });
+      let drawn = features;
+      if (map.getZoom() < DECLUTTER_BELOW_ZOOM && features.length > 1) {
+        const items = features.map((f) => {
+          const p = f.properties as { hex: string; sel: boolean; emg: boolean; alt: number };
+          const px = map.project(f.geometry.coordinates as [number, number]);
+          return {
+            key: p.hex,
+            x: px.x,
+            y: px.y,
+            priority: p.sel ? 3 : p.emg ? 2 : p.alt > 0 ? 1 : 0,
+          };
+        });
+        shownRef = declutter(items, declutterCellPx(map.getZoom()), shownRef);
+        const keep = shownRef;
+        drawn = features.filter((f) => keep.has((f.properties as { hex: string }).hex));
+      } else if (shownRef.size) {
+        shownRef = new Set();
+      }
+      if (drawn.length || !drewNothing) src.setData({ type: "FeatureCollection", features: drawn });
       drewNothing = features.length === 0;
       if (selPos && propsRef.current.follow && !map.isMoving()) {
         map.setCenter([selPos[1], selPos[0]]);
