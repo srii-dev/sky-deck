@@ -38,7 +38,8 @@ Lint has no errors and a few known warnings; do not add new ones. Format only th
 ## Branches and pull requests
 
 - Work is planned in `dev-plan.md`. Each phase is built in two halves; each half is one branch named `ide/phase-<number>-half-<1 or 2>` (for example `ide/phase-4-half-1`), cut from `origin/dev`.
-- Pull requests target `dev`, not `main`. The owner merges.
+- `dev` is for working and `main` is production. Pull requests target `dev`, never `main`; they are merged with a merge commit once all four checks are green. The owner merges (or tells the assistant to).
+- To put changes live, promote `dev` to `main` and deploy from `main` (see "Promote and deploy" below). Nothing is deployed from `dev` or from a feature branch.
 - Small commits, one concern each. Stage files by name. Never rewrite pushed history (no force-push, rebase or amend of pushed commits).
 - Push once when the half is finished and tested.
 
@@ -65,7 +66,11 @@ Unfinished features ship behind a feature flag (`src/lib/flags.ts`, `useFlag` in
 
 - Versioning: `0.x` until the first public release, then Semantic Versioning. The first release is tagged `v0.1.0` at the soft launch (plan item 17f).
 - `CHANGELOG.md`: add a line under "Unreleased" in the pull request that makes the change (Added, Changed, Removed, Fixed). On release, rename "Unreleased" to the version and date and start a new "Unreleased".
-- To release: all four checks green on `dev`, the release checklist in `dev-plan.md` (17e) done, merge `dev` into `main` by pull request, tag the merge commit, and create a GitHub release whose notes are the changelog section.
+- To release: all four checks green on `dev`, the release checklist in `dev-plan.md` (17e) done, promote `dev` to `main` (see "Promote and deploy"), tag that commit, and create a GitHub release whose notes are the changelog section.
+
+## Promote and deploy
+
+`main` only ever moves forward to a `dev` commit whose checks are green (a fast-forward: `git push origin origin/dev:refs/heads/main`, no force). Then check out `main`, run `bun run build` and `bun run deploy`, and run the live tests against the site (`E2E_BASE_URL=<address> npx playwright test`) and the uptime check. If the live site breaks, roll back with `bunx wrangler rollback --name skydeck` (see `DEPLOY.md`) and fix on `dev`. Deploys are by hand until Cloudflare is connected to the repository.
 
 ## Dependencies
 

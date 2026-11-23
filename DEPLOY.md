@@ -20,7 +20,10 @@ E2E_BASE_URL=http://127.0.0.1:4174 bun run test:e2e
 
 ## Deploy
 
+Deploy only from `main` (production), after `dev` has been promoted to it (`CONTRIBUTING.md`, "Promote and deploy"). `dev` is the working branch and is never deployed.
+
 ```sh
+git checkout main && git pull   # production code
 bun run build
 bun run deploy              # worker name: skydeck, public address https://skydeck.<your-subdomain>.workers.dev
 ```
