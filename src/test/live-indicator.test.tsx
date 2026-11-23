@@ -26,6 +26,12 @@ describe("LiveIndicator delay text", () => {
     expect(screen.queryByText(/behind/)).toBeNull();
   });
 
+  it("counts the age of a server copy, so old data is not called live", () => {
+    render(<LiveIndicator {...base} fetchedAt={Date.now()} dataAgeMs={90_000} delaySec={8} />);
+    expect(screen.getByText("Delayed")).toBeTruthy();
+    expect(screen.getByText("90s ago")).toBeTruthy();
+  });
+
   it("does not claim to be live during a replay", () => {
     render(<LiveIndicator {...base} delaySec={8} replay />);
     expect(screen.getByText("Replay")).toBeTruthy();

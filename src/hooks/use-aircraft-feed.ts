@@ -35,6 +35,8 @@ interface FeedState {
   aircraft: Aircraft[];
   source: string | null;
   fetchedAt: number | null;
+  /** How old the freshest tile's data was at `fetchedAt` (the server may answer from an older copy). */
+  dataAgeMs: number;
   error: string | null;
   backup: boolean;
   areasMissing: boolean;
@@ -42,6 +44,8 @@ interface FeedState {
 }
 
 type CacheEntry = { at: number; res: FeedResponse };
+/** Age of a cached result's data: time in this cache plus how old the server's copy already was. */
+const dataAge = (entry: CacheEntry, now: number) => now - entry.at + (entry.res.ageMs ?? 0);
 
 /** Results reused from cache are aged so dead-reckoning stays correct. */
 function aged(entry: CacheEntry, now: number): Aircraft[] {
@@ -78,6 +82,7 @@ async function refreshCoverage(
   let failed = 0;
   let cached = 0;
   let fallbackBusy = false;
+  let freshest = Infinity;
 
   const todo: Circle[] = [];
   plan.circles.forEach((c, index) => {
@@ -85,6 +90,7 @@ async function refreshCoverage(
     const serveCache = () => {
       if (!hit) return;
       if (hit.res.busy) fallbackBusy = true;
+      freshest = Math.min(freshest, dataAge(hit, now));
       lists.push({ aircraft: aged(hit, now), source: hit.res.source, fresh: false });
       sources.add(hit.res.source);
       cached++;
@@ -117,6 +123,7 @@ async function refreshCoverage(
       }
       if (res && !res.error) {
         if (res.busy) fallbackBusy = true;
+        freshest = Math.min(freshest, res.ageMs ?? 0);
         cache.set(c.key, { at: Date.now(), res });
         lists.push({ aircraft: res.aircraft, source: res.source, fresh: true });
         sources.add(res.source);
@@ -128,6 +135,7 @@ async function refreshCoverage(
         }
         const old = cache.get(c.key);
         if (old && Date.now() - old.at < CIRCLE_STALE_OK_MS) {
+          freshest = Math.min(freshest, dataAge(old, Date.now()));
           lists.push({ aircraft: aged(old, Date.now()), source: old.res.source, fresh: false });
         } else if (res?.aircraft.length) {
           lists.push({ aircraft: res.aircraft, source: res.source, fresh: false });
@@ -169,6 +177,7 @@ async function refreshCoverage(
     merged,
     source,
     fetchedAt: failed === plan.circles.length ? null : Date.now(),
+    dataAgeMs: Number.isFinite(freshest) ? freshest : 0,
     error: notices.error,
     backup: notices.backup,
     areasMissing: notices.areasMissing,
@@ -190,6 +199,7 @@ export function useAircraftFeed(
     aircraft: [],
     source: null,
     fetchedAt: null,
+    dataAgeMs: 0,
     error: null,
     backup: false,
     areasMissing: false,
@@ -269,6 +279,7 @@ export function useAircraftFeed(
                 : aircraft,
             source: r.source ?? prev.source,
             fetchedAt: r.fetchedAt ?? prev.fetchedAt,
+            dataAgeMs: r.fetchedAt == null ? prev.dataAgeMs : r.dataAgeMs,
             error: r.error,
             backup: r.backup,
             areasMissing: r.areasMissing,
@@ -370,6 +381,7 @@ export function useAircraftFeed(
     aircraft,
     trail,
     fetchedAt: state.fetchedAt,
+    dataAgeMs: state.dataAgeMs,
     source: state.source,
     error: state.error,
     backup: state.backup,

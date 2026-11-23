@@ -43,6 +43,12 @@ export const ADSBLOL_FREE_LIMITS: QuotaLimits = {
   perMonth: 25_500,
 };
 
+/**
+ * Requests kept back from refreshes of tiles that already have a copy, in every window: enough for one new view
+ * (MAX_CIRCLES in coverage.ts) to get all its tiles.
+ */
+export const NEW_TILE_RESERVE = 6;
+
 const dayKey = (now: number) => new Date(now).toISOString().slice(0, 10);
 const monthKey = (now: number) => new Date(now).toISOString().slice(0, 7);
 /** The UTC date of the Monday that starts the week. */
@@ -63,9 +69,21 @@ export function freshQuotaState(): QuotaState {
   };
 }
 
+/** When the UTC day, week (next Monday) and month that contain `now` end. */
+function windowEnds(now: number): [day: number, week: number, month: number] {
+  const d = new Date(now);
+  const y = d.getUTCFullYear();
+  const m = d.getUTCMonth();
+  const date = d.getUTCDate();
+  const toMonday = (8 - d.getUTCDay()) % 7 || 7;
+  return [Date.UTC(y, m, date + 1), Date.UTC(y, m, date + toMonday), Date.UTC(y, m + 1, 1)];
+}
+
 export class QuotaGuard {
   private state: QuotaState;
   private readonly longest: number;
+  /** When the last paced refresh was allowed (in memory only: losing it on a restart costs one early refresh). */
+  private pacedAt = -Infinity;
 
   constructor(
     private readonly limits: QuotaLimits,
@@ -109,6 +127,46 @@ export class QuotaGuard {
     s.day.count++;
     s.week.count++;
     s.month.count++;
+    return true;
+  }
+
+  /**
+   * Even spending: the gap between two refreshes of tiles that already have a copy, so that what is left in each
+   * window (less NEW_TILE_RESERVE) lasts until the window ends. The tightest window sets it; Infinity when any
+   * window is down to its reserve. Requests for tiles with no copy are not paced, but they count, so they push the
+   * next refresh back.
+   */
+  paceGapMs(now: number): number {
+    this.roll(now);
+    const s = this.state;
+    const gaps = this.limits.sliding.map((w) => ({
+      left: w.max - s.recent.filter((t) => t > now - w.ms).length,
+      ms: w.ms,
+    }));
+    const [day, week, month] = windowEnds(now);
+    gaps.push(
+      { left: this.limits.perDay - s.day.count, ms: day - now },
+      { left: this.limits.perWeek - s.week.count, ms: week - now },
+      { left: this.limits.perMonth - s.month.count, ms: month - now },
+    );
+    return Math.max(
+      ...gaps.map((g) =>
+        g.left > NEW_TILE_RESERVE ? g.ms / (g.left - NEW_TILE_RESERVE) : Infinity,
+      ),
+    );
+  }
+
+  /**
+   * Whether a tile whose copy is `ageMs` old may be refreshed now; if so the paced slot is taken. At most one
+   * refresh per pace gap. The `tiles` being watched take turns: a tile waits until its copy is `tiles` gaps old,
+   * the busiest (`rank` 0, from RefreshBudget.demandRank) no longer, the quietest (`rank` 1) twice as long.
+   */
+  takeRefresh(now: number, ageMs: number, rank: number, tiles: number): boolean {
+    const gap = this.paceGapMs(now);
+    if (!Number.isFinite(gap)) return false;
+    const last = Math.max(this.state.recent.at(-1) ?? -Infinity, this.pacedAt);
+    if (now - last < gap || ageMs < gap * Math.max(1, tiles) * (1 + rank)) return false;
+    this.pacedAt = now;
     return true;
   }
 

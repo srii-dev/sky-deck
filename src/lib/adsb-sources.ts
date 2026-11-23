@@ -82,6 +82,8 @@ export interface FeedStats {
   staleOnError: number;
   /** Answered from an older cache entry to stay inside the refresh budget (Phase 19i). */
   budgetShed: number;
+  /** Answered from an older cache entry to spread the adsb.lol key's allowance (only with a key). */
+  quotaPaced: number;
 }
 const freshStats = (): FeedStats => ({
   hits: 0,
@@ -91,6 +93,7 @@ const freshStats = (): FeedStats => ({
   upstream: 0,
   staleOnError: 0,
   budgetShed: 0,
+  quotaPaced: 0,
 });
 let feedStats = freshStats();
 /** Counters for this server instance only (for load tests and logs). */
@@ -118,20 +121,21 @@ export function setFeedBudgetPerMinute(perMinute: number) {
 /*
  * adsb.lol key quota. With a key configured, every request to api.adsb.lol is counted against the key's published
  * limits (quota-guard.ts); a request that would go over is not sent (it fails like a 429 without reaching the
- * provider), and while the quota is used up the feed is answered from older copies. Without a key there is nothing
- * to count (adsb.lol answers 429 on its own from Cloudflare's shared addresses).
+ * provider, and does not put adsb.lol on a cool-down). The allowance is also spread out: a tile that has a copy
+ * up to QUOTA_STALE_MAX_MS old is refreshed only when QuotaGuard.takeRefresh allows it, busiest tiles first, and is
+ * answered from that copy in between; a tile with no such copy is always tried. Without a key there is nothing to
+ * count or pace (adsb.lol answers 429 on its own from Cloudflare's shared addresses).
  */
 let quota: QuotaGuard | null = null;
 const getQuota = () => (quota ??= new QuotaGuard(ADSBLOL_FREE_LIMITS));
 const ADSBLOL_API = "https://api.adsb.lol/";
 const keyedAdsbLol = (url: string) => Object.keys(adsbLolHeaders(url)).length > 0;
-/** How old a copy may be and still be shown while the adsb.lol quota is used up. */
+/** How old a copy may be and still be served instead of a refresh the key's allowance cannot spare. */
 export const QUOTA_STALE_MAX_MS = 10 * 60_000;
+const quotaError = () =>
+  Object.assign(new Error("adsb.lol key quota used up"), { status: 429, quota: true });
+const isQuotaError = (err: unknown) => (err as { quota?: boolean }).quota === true;
 
-/** True when a key is configured and the next adsb.lol request would go over a limit. */
-function quotaBlocked(now: number): boolean {
-  return keyedAdsbLol(ADSBLOL_API) && !getQuota().canSend(now);
-}
 /** The request counts, to be kept by the FeedHub object across restarts. */
 export function quotaSnapshot(): QuotaState {
   return getQuota().snapshot();
@@ -201,7 +205,7 @@ export async function getJson(url: string, timeoutMs = 6000, deps?: SourceDeps):
     keyedAdsbLol(url) &&
     !getQuota().take((deps?.now ?? Date.now)())
   ) {
-    throw Object.assign(new Error("adsb.lol key quota used up"), { status: 429 });
+    throw quotaError();
   }
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), timeoutMs);
@@ -369,7 +373,8 @@ export async function loadFeedCircle(
     } catch (err) {
       const status = (err as { status?: number }).status;
       busy = true;
-      strike(name, status === 429, clock());
+      // Our own quota stop is not the provider refusing: a cool-down would outlast it and block new tiles.
+      if (!isQuotaError(err)) strike(name, status === 429, clock());
       console.warn(`[adsb] ${name} failed:`, err instanceof Error ? err.message : err);
     }
   }
@@ -455,9 +460,19 @@ export async function loadFeedCached(
     feedStats.shed++;
     return withAge(hit.value, age);
   }
-  // The key's quota is used up: a refresh could not be sent, so show the copy we have for a while.
-  if (hit && age <= QUOTA_STALE_MAX_MS && quotaBlocked(clock())) {
-    feedStats.shed++;
+  // With a key, refreshes are spread over the key's allowance (and stop at its reserve); the copy fills the gaps.
+  if (
+    hit &&
+    age <= QUOTA_STALE_MAX_MS &&
+    keyedAdsbLol(ADSBLOL_API) &&
+    !getQuota().takeRefresh(
+      clock(),
+      age,
+      getBudget().demandRank(key, clock()),
+      getBudget().activeTiles(clock()),
+    )
+  ) {
+    feedStats.quotaPaced++;
     return withAge(hit.value, age);
   }
 
@@ -559,7 +574,7 @@ export async function searchAircraftSources(q: string, deps?: SourceDeps): Promi
       } catch (err) {
         const status = (err as { status?: number }).status;
         if (status === 404) continue;
-        strike(name, status === 429, clock());
+        if (!isQuotaError(err)) strike(name, status === 429, clock());
         busy = true;
         sourceFailed = true;
         console.warn("[adsb] search failed:", err instanceof Error ? err.message : err);
