@@ -4,6 +4,8 @@ import { cn } from "@/lib/utils";
 
 interface Props {
   fetchedAt: number | null;
+  /** How old the data already was at `fetchedAt`, ms (the server answers from older copies to save quota). */
+  dataAgeMs?: number | undefined;
   error: string | null;
   isFetching: boolean;
   shown: number;
@@ -17,6 +19,7 @@ interface Props {
 
 export function LiveIndicator({
   fetchedAt,
+  dataAgeMs = 0,
   error,
   isFetching,
   shown,
@@ -32,7 +35,8 @@ export function LiveIndicator({
     return () => clearInterval(id);
   }, []);
 
-  const age = fetchedAt && now ? Math.max(0, Math.round((now - fetchedAt) / 1000)) : null;
+  const age =
+    fetchedAt && now ? Math.max(0, Math.round((now - fetchedAt + dataAgeMs) / 1000)) : null;
   const stale = age == null || age > 25 || !!error;
   const label = replay ? "Replay" : fetchedAt == null ? "Loading" : stale ? "Delayed" : "Live";
   const behind = formatBehind(delaySec, !!replay);

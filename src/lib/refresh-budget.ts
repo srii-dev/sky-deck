@@ -89,6 +89,14 @@ export class RefreshBudget {
     return this.upstream.length;
   }
 
+  /** How many tiles someone asked for in the current window. */
+  activeTiles(now: number): number {
+    const cutoff = now - this.windowMs;
+    let n = 0;
+    for (const v of this.demand.values()) if (v.length && v[v.length - 1]! >= cutoff) n++;
+    return n;
+  }
+
   /**
    * 0 for the busiest tile, 1 for the quietest: the share of other tiles that are asked for more often.
    * Tiles with equal demand share a rank.

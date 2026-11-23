@@ -857,6 +857,7 @@ function SkyDeck() {
           <span className="h-5 w-px bg-border" />
           <LiveIndicator
             fetchedAt={feed.fetchedAt}
+            dataAgeMs={feed.dataAgeMs}
             error={feed.error}
             isFetching={feed.isFetching}
             shown={visible.length}
