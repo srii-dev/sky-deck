@@ -6,6 +6,7 @@ All notable changes to SkyDeck. The format follows [Keep a Changelog](https://ke
 
 ### Added
 
+- Airport panel: an Explain with AI button that rewrites the rule-based brief in plain language (Workers AI, Gemini as fallback); on demand, labelled, nothing stored (Phase 14c, airport part).
 - Live distance on the ruler after the first point; optional `ADSBLOL_API_KEY` for the adsb.lol feed from Cloudflare (#73). New app icon and favicon from the SkyDeck logo (#74).
 - ACARS panel (toolbar): the latest messages from all aircraft, coloured by alert level with fixed rules, each with a short AI description (Workers AI, Gemini as fallback); opening one adds a longer explanation and a downloadable Markdown report. Message text passes through the server to the AI and is not stored.
 - Message inspector (Phase 3c in part): surface position (type codes 5 to 8, with an optional reference position for the position) and operational status (type code 31). Tested against the published frames of chapter 4 of "The 1090 Megahertz Riddle". Gillham altitude, aircraft status and target state are still not decoded.
