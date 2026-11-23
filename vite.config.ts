@@ -57,8 +57,11 @@ export default defineConfig(({ command, mode }) => {
         ? [
             nitro({
               defaultPreset: "cloudflare-module",
-              // Workers AI binding for the ACARS descriptions (src/lib/ai.server.ts reads it as AI).
-              cloudflare: { wrangler: { ai: { binding: "AI" } } },
+              // Workers AI binding for the ACARS descriptions (src/lib/ai.server.ts reads it as AI). CI builds
+              // without it (SKYDECK_AI_BINDING=off): wrangler dev needs a Cloudflare token for a remote binding.
+              ...(process.env["SKYDECK_AI_BINDING"] === "off"
+                ? {}
+                : { cloudflare: { wrangler: { ai: { binding: "AI" } } } }),
             }),
           ]
         : []),
