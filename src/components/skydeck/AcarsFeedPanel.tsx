@@ -214,7 +214,7 @@ function MessageCard({
     <section
       role="region"
       aria-label={"ACARS message from " + acarsTitle(m)}
-      className="pointer-events-auto fixed inset-x-3 bottom-3 z-30 flex max-h-[min(72dvh,680px)] flex-col overflow-hidden rounded-2xl border border-white/10 bg-black/55 shadow-2xl backdrop-blur-md md:inset-x-auto md:bottom-6 md:left-28 md:w-[520px]"
+      className="pointer-events-auto fixed inset-x-3 bottom-3 z-30 flex max-h-[42dvh] flex-col md:max-h-[min(72dvh,680px)] overflow-hidden rounded-2xl border border-white/10 bg-black/55 shadow-2xl backdrop-blur-md md:inset-x-auto md:bottom-6 md:left-28 md:w-[520px]"
       style={{ backgroundImage: cardGradient(alert) }}
     >
       <div className="flex items-start justify-between gap-3 px-5 pt-4">
