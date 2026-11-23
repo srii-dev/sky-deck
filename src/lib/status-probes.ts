@@ -87,9 +87,12 @@ export function buildProbes(env: Record<string, string | undefined>): Probe[] {
     {
       id: "ai",
       name: "AI",
-      usedFor: "AI briefs",
+      usedFor: "ACARS message descriptions",
       request: null,
-      skipped: { state: "unused", note: "No feature uses AI yet." },
+      skipped: {
+        state: "unused",
+        note: "Workers AI is reached through a binding, which has no public health check.",
+      },
     },
   ];
 }

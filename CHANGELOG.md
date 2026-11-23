@@ -6,6 +6,7 @@ All notable changes to SkyDeck. The format follows [Keep a Changelog](https://ke
 
 ### Added
 
+- ACARS panel (toolbar): the latest messages from all aircraft, coloured by alert level with fixed rules, each with a short AI description (Workers AI, Gemini as fallback); opening one adds a longer explanation and a downloadable Markdown report. Message text passes through the server to the AI and is not stored.
 - Message inspector (Phase 3c in part): surface position (type codes 5 to 8, with an optional reference position for the position) and operational status (type code 31). Tested against the published frames of chapter 4 of "The 1090 Megahertz Riddle". Gillham altitude, aircraft status and target state are still not decoded.
 - Report-only Content-Security-Policy and `POST /api/csp-report` (Phase 17b): browsers report anything outside the known map addresses; nothing is blocked and nothing is stored.
 - `SITE_INDEXING=off` keeps a preview out of search engines (`X-Robots-Tag` and a disallow-all `robots.txt`). Unset, nothing changes.

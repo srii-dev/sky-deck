@@ -47,6 +47,7 @@ import { serverFlags } from "@/lib/flags";
 import { usePersonalData } from "@/hooks/use-personal-data";
 import { useWatchAlerts } from "@/hooks/use-watch-alerts";
 import { WatchlistDialog } from "@/components/skydeck/WatchlistDialog";
+import { AcarsFeedPanel } from "@/components/skydeck/AcarsFeedPanel";
 import { CollectionDialog } from "@/components/skydeck/CollectionDialog";
 import { useCollection } from "@/hooks/use-collection";
 import { ReplayBar } from "@/components/skydeck/ReplayBar";
@@ -155,6 +156,7 @@ function SkyDeck() {
   const [chase, setChase] = useState(false);
   const [watchlistOpen, setWatchlistOpen] = useState(false);
   const [collectionOpen, setCollectionOpen] = useState(false);
+  const [acarsOpen, setAcarsOpen] = useState(false);
   // Clean view for a wall display (Phase 22k): hides the controls and panels, keeps the map, the credit and emergency alerts.
   const [kiosk, setKiosk] = useState(false);
   // Embedded in another page (Phase 24f): the same clean view, with a link back instead of an exit button.
@@ -1008,6 +1010,7 @@ function SkyDeck() {
           onOpenSettings={() => setSettingsOpen(true)}
           onOpenWatchlist={() => setWatchlistOpen(true)}
           onOpenCollection={() => setCollectionOpen(true)}
+          onOpenAcars={() => setAcarsOpen(true)}
           watchCount={personal.watch.length}
           replay={{
             available: replay.available,
@@ -1278,6 +1281,12 @@ function SkyDeck() {
           </a>
         </div>
       )}
+      <AcarsFeedPanel
+        open={acarsOpen}
+        onOpenChange={setAcarsOpen}
+        aircraft={allAircraft}
+        onSelectAircraft={(hex) => setSelectedHex(hex)}
+      />
       <CollectionDialog
         open={collectionOpen}
         onOpenChange={setCollectionOpen}

@@ -92,7 +92,11 @@ function noteRateLimit(headers: Headers, status: number, now: number) {
   }
 }
 
-async function load(hex: string, url: string, deps?: AirframesDeps): Promise<AcarsFetchResult> {
+async function load(
+  cacheKey: string,
+  url: string,
+  deps?: AirframesDeps,
+): Promise<AcarsFetchResult> {
   const clock = deps?.now ?? Date.now;
   const wait = reserveSlot(PACE_KEY, deps?.minGapMs ?? AIRFRAMES_MIN_GAP_MS, clock());
   if (wait > 0) await (deps?.sleep ?? defaultSleep)(wait);
@@ -137,7 +141,7 @@ async function load(hex: string, url: string, deps?: AirframesDeps): Promise<Aca
 
   const messages = normalizeAirframesMessages(json);
   const at = clock();
-  cache.set(hex, { at, messages });
+  cache.set(cacheKey, { at, messages });
   return { ok: true, messages, fetchedAt: at, cached: false };
 }
 
@@ -165,6 +169,29 @@ export async function fetchAircraftMessages(
   }
 
   return coalesce(`airframes:${key}`, () => load(key, url, deps), {
+    maxMs: (deps?.timeoutMs ?? AIRFRAMES_TIMEOUT_MS) + 5000,
+    onTimeout: () => ({ ok: false, error: "Airframes did not answer in time" }),
+  });
+}
+
+/** The newest messages from every aircraft (the all-messages panel). */
+export const LATEST_URL = `${AIRFRAMES_BASE_URL}/messages?limit=100`;
+/** The panel refreshes this often; one request per refresh stays far inside the 60 per minute budget. */
+export const LATEST_CACHE_MS = 15_000;
+const LATEST_KEY = "__latest";
+
+/** Latest messages from all aircraft, newest first. Same caching, pacing and rate-limit handling as above. */
+export async function fetchLatestMessages(deps?: AirframesDeps): Promise<AcarsFetchResult> {
+  const clock = deps?.now ?? Date.now;
+  const hit = cache.get(LATEST_KEY);
+  if (hit && clock() - hit.at < LATEST_CACHE_MS) {
+    return { ok: true, messages: hit.messages, fetchedAt: hit.at, cached: true };
+  }
+  if (clock() < blockedUntil) {
+    const left = blockedUntil - clock();
+    return { ok: false, error: limitedMessage(left), retryAfterMs: left };
+  }
+  return coalesce("airframes:latest", () => load(LATEST_KEY, LATEST_URL, deps), {
     maxMs: (deps?.timeoutMs ?? AIRFRAMES_TIMEOUT_MS) + 5000,
     onTimeout: () => ({ ok: false, error: "Airframes did not answer in time" }),
   });

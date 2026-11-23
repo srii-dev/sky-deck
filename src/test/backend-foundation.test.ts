@@ -286,7 +286,16 @@ describe("AI provider adapters (no network)", () => {
     const run = vi.fn(async () => ({ response: "from cf" }));
     const p = createWorkersAiProvider({ run });
     expect(await p.generate("q")).toBe("from cf");
-    expect(run).toHaveBeenCalledWith("@cf/google/gemma-4-26b-a4b-it", { prompt: "q" });
+    expect(run).toHaveBeenCalledWith("@cf/meta/llama-4-scout-17b-16e-instruct", {
+      messages: [{ role: "user", content: "q" }],
+      max_tokens: 1024,
+    });
+    const chat = createWorkersAiProvider({
+      run: async () => ({ choices: [{ message: { content: "chat" } }] }),
+    });
+    expect(await chat.generate("q")).toBe("chat");
+    const parsed = createWorkersAiProvider({ run: async () => ({ response: [{ id: 1 }] }) });
+    expect(await parsed.generate("q")).toBe('[{"id":1}]');
     const empty = createWorkersAiProvider({ run: async () => ({}) });
     expect(await empty.generate("q")).toBe("");
   });

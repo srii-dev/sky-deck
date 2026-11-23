@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useFlag } from "@/hooks/use-flag";
 import {
   Bookmark,
   Layers,
@@ -12,6 +13,7 @@ import {
   Settings,
   Star,
   Trash2,
+  MessageSquareText,
   Trophy,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -87,6 +89,8 @@ interface Props {
   onOpenWatchlist: () => void;
   /** Opens the collection dialog (Phase 13). */
   onOpenCollection: () => void;
+  /** Opens the all-aircraft ACARS messages panel. */
+  onOpenAcars: () => void;
   watchCount: number;
   /** Session replay (Phase 9a). */
   replay: { available: boolean; active: boolean; onStart: () => void; onStop: () => void };
@@ -134,9 +138,11 @@ export function MapTools({
   onOpenSettings,
   onOpenWatchlist,
   onOpenCollection,
+  onOpenAcars,
   watchCount,
   replay,
 }: Props) {
+  const acarsOn = useFlag("acars");
   const [views, setViews] = useState<SavedView[]>([]);
   const [name, setName] = useState("");
   const [locating, setLocating] = useState(false);
@@ -456,6 +462,18 @@ export function MapTools({
         >
           <Trophy />
         </Button>
+        {acarsOn && (
+          <Button
+            variant="panel"
+            size="icon"
+            className={btn}
+            aria-label="ACARS messages"
+            title="ACARS messages from all aircraft"
+            onClick={onOpenAcars}
+          >
+            <MessageSquareText />
+          </Button>
+        )}
         <Button
           variant="panel"
           size="icon"

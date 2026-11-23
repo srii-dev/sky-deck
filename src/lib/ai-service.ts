@@ -1,6 +1,6 @@
 /*
  * AI service wrapper (Phase 18g). One interface over several providers, used by later features (airport brief
- * in 14c, flight summaries, and so on). Nothing calls it yet.
+ * in 14c, flight summaries, and so on). Used by the ACARS descriptions (src/lib/acars-ai.functions.ts).
  *
  * Rules built in:
  *  - Fallback order: providers are tried in the order given (Gemini first, then Cloudflare Workers AI).
@@ -9,8 +9,8 @@
  *  - A cache: the same task and prompt is answered from the cache without asking a provider or spending budget.
  *  - Every answer says which provider wrote it and carries the label "AI-generated" for display.
  *  - On demand only: there is no background generation here.
- * The caller decides what may be sent. No ACARS message text goes to Gemini until its free-tier data-use terms
- * have been checked (decision 2026-11-07).
+ * The caller decides what may be sent. ACARS message text may be sent to Workers AI and Gemini for descriptions
+ * (decision 2026-11-22, replacing the 2026-11-07 hold).
  * Budgets and cache are kept in memory of one server instance behind small interfaces, so a shared store
  * (Supabase table or Cloudflare KV, Phase 18f) can replace them without changing callers.
  */
@@ -245,10 +245,14 @@ export function extractGeminiText(json: unknown): string {
 
 /** The part of a Cloudflare Workers AI binding that this adapter uses. */
 export interface WorkersAiBinding {
-  run(model: string, input: { prompt: string }): Promise<unknown>;
+  run(
+    model: string,
+    input: { messages: { role: "user"; content: string }[]; max_tokens?: number },
+  ): Promise<unknown>;
 }
 
-export const DEFAULT_WORKERS_AI_MODEL = "@cf/google/gemma-4-26b-a4b-it";
+// Answers directly (no hidden reasoning that uses up the token budget) and in about 2 s; checked 2026-11-22.
+export const DEFAULT_WORKERS_AI_MODEL = "@cf/meta/llama-4-scout-17b-16e-instruct";
 
 /** Cloudflare Workers AI through a Worker binding. It only exists once the app runs on Cloudflare (Phase 16b). */
 export function createWorkersAiProvider(
@@ -258,8 +262,25 @@ export function createWorkersAiProvider(
   return {
     name: "workers-ai",
     async generate(prompt) {
-      const out = (await binding.run(model, { prompt })) as { response?: unknown } | null;
-      return typeof out?.response === "string" ? out.response : "";
+      // Chat format: a bare prompt skips the model's chat template and returns raw completions.
+      // Model defaults are as low as 256 tokens; a batch of short descriptions needs more.
+      const out = await binding.run(model, {
+        messages: [{ role: "user", content: prompt }],
+        max_tokens: 1024,
+      });
+      return extractWorkersAiText(out);
     },
   };
+}
+
+/** Answer text from Workers AI: `response` (a string, or already-parsed JSON) or the chat `choices` shape. */
+export function extractWorkersAiText(out: unknown): string {
+  const o = out as {
+    response?: unknown;
+    choices?: { message?: { content?: unknown } }[];
+  } | null;
+  if (typeof o?.response === "string") return o.response;
+  if (o?.response != null && typeof o.response === "object") return JSON.stringify(o.response);
+  const content = o?.choices?.[0]?.message?.content;
+  return typeof content === "string" ? content : "";
 }
