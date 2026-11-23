@@ -6,6 +6,7 @@ All notable changes to SkyDeck. The format follows [Keep a Changelog](https://ke
 
 ### Added
 
+- Live distance on the ruler after the first point; optional `ADSBLOL_API_KEY` for the adsb.lol feed from Cloudflare (#73). New app icon and favicon from the SkyDeck logo (#74).
 - ACARS panel (toolbar): the latest messages from all aircraft, coloured by alert level with fixed rules, each with a short AI description (Workers AI, Gemini as fallback); opening one adds a longer explanation and a downloadable Markdown report. Message text passes through the server to the AI and is not stored.
 - Message inspector (Phase 3c in part): surface position (type codes 5 to 8, with an optional reference position for the position) and operational status (type code 31). Tested against the published frames of chapter 4 of "The 1090 Megahertz Riddle". Gillham altitude, aircraft status and target state are still not decoded.
 - Report-only Content-Security-Policy and `POST /api/csp-report` (Phase 17b): browsers report anything outside the known map addresses; nothing is blocked and nothing is stored.
@@ -63,6 +64,7 @@ All notable changes to SkyDeck. The format follows [Keep a Changelog](https://ke
 
 ### Changed
 
+- Zoomed out (below zoom 8), overlapping aircraft are thinned on a screen grid instead of all being drawn or hidden by icon collision; selected and emergency aircraft always stay (#75, #76). Terrain tiles load at half the request count (#74).
 - Lovable removed (Phase 15a): the build uses a plain `vite.config.ts` instead of `@lovable.dev/vite-tanstack-config`, `lightningcss` is a direct dependency, and the Lovable error hook, project folder and notes are gone. The production build is unchanged (same files, same size, same Worker settings).
 - The dark theme's destructive red is a little darker, so white text on it reaches 4.5:1 (it was 3.7:1).
 - `public/robots.txt` is replaced by a `/robots.txt` route that also points at the sitemap and keeps crawlers off `/api/`.
@@ -80,6 +82,7 @@ All notable changes to SkyDeck. The format follows [Keep a Changelog](https://ke
 
 ### Fixed
 
+- Location said "blocked" when the browser allowed it but Windows had location off for the browser; airspace areas stayed on the map after zooming out past the load limit (#73).
 - Parked or holding aircraft were shown as "Last seen" and dimmed after 5 s; Follow mode no longer leaves the data area behind; a failed route lookup is retried after a minute instead of cached for an hour; FAA arrival delays were labelled as departures; a bad ACARS timestamp no longer breaks the message card; toolbar, legend, banner and panel no longer overlap at 1024x768 or on phones; the search box is announced as a combobox (#70).
 - Closing the Settings, Watchlist, Collection, Alert rules, Account, Credits or Shortcuts dialog gives keyboard focus back to the button that opened it (it fell to the page before).
 

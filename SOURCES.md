@@ -24,6 +24,8 @@ Moved out of `dev-plan.md` on 2026-11-21. These are research results from 2026-1
 
 **Decided 2026-11-07 (AI): two providers, Gemini first and Cloudflare Workers AI as the fallback.** The server hides both behind one small "AI provider" interface: try Gemini first, and when Gemini returns its rate-limit or daily-cap error (or the server's own counter says the cap is reached), switch to Workers AI for the rest of that period. Each provider has its own budget counter, so the free pools add up. Sri will supply a Gemini API key. It is kept only as a server-side secret (a Cloudflare secret in production, an uncommitted local file in development): never pasted into chat, issues or pull requests, and never committed. Gemini's free limits must be read from Google's own pages before building (sources disagree). Free-tier prompts may be used by the provider, so no message text goes to Gemini until that is checked. If it is not acceptable, Workers AI becomes the only provider for message text. The cache is shared, so the provider that produced a summary is stored with it.
 
+**Superseded 2026-11-22:** Workers AI is now first and Gemini the fallback, and the ACARS panel describes messages automatically (short headlines in batches, prioritised by alert level), not only on a button press. Results are cached per server instance, not in the database. The current rules are in `AGENTS.md` and `ARCHITECTURE.md`; the list below is the original plan.
+
 How AI would be used so free quotas are enough:
 
 - **On demand only** (a button), never automatic for every message or flight.

@@ -4,7 +4,7 @@ A live 3D flight tracker for the web. See aircraft move in real time on a terrai
 
 SkyDeck is an independent project. It is inspired by the general category of flight-tracker apps and is not affiliated with, endorsed by, or a copy of any commercial app.
 
-> **Status:** early work in progress. The live map, search, filters, trails and aircraft categories work, and so do the glide-range ring with reachable airports, an ADS-B message inspector and on-demand ACARS messages. What is planned is in [Roadmap](#roadmap).
+> **Status:** early work in progress. The live map, search, filters, trails and aircraft categories work, and so do the glide-range ring with reachable airports, an ADS-B message inspector and ACARS messages (per aircraft, and an all-aircraft panel with AI headlines). A preview runs at https://skydeck.sky-deck.workers.dev. What is planned is in [Roadmap](#roadmap).
 
 ## Features
 
@@ -98,7 +98,7 @@ Free community ADS-B sources
 ```
 
 - **The browser never calls ADS-B providers directly.** All requests go through server functions, which avoids CORS problems and keeps provider changes in one place.
-- **The one exception is ACARS messages** (`src/lib/airframes-client.ts`): the browser calls the public Airframes API directly, on demand and only for the selected aircraft. That way each visitor has their own request budget. Only the ACARS panel's AI descriptions send message text through our server, to Workers AI or Gemini; nothing is stored. Message text is cleaned and shown as plain text only.
+- **The one exception is ACARS messages** (`src/lib/airframes-client.ts`): the browser calls the public Airframes API directly: for the selected aircraft on a button press, and for all aircraft while the ACARS panel is open. That way each visitor has their own request budget. Only the ACARS panel's AI descriptions send message text through our server, to Workers AI or Gemini; nothing is stored. Message text is cleaned and shown as plain text only.
 - **Pacing and sharing** (`src/lib/request-control.ts`, `PROVIDER_MIN_GAP_MS` in `src/lib/adsb-sources.ts`): requests to each ADS-B provider are spaced out, and callers asking for the same area at the same time share one upstream request. A cached tile is aged before it is sent, and when a provider's queue is long a cached tile up to 30 s old is served instead of waiting. All of this works per server instance only.
 - **Coverage** (`src/lib/coverage.ts`): each source caps a query at 250 nm. The map asks for fixed tiles, so everyone looking at the same area asks for the same tiles and shares the server cache: zoomed-in views use 100 nm or 200 nm tiles, mid-size views one circle with a snapped centre and radius, and views over 250 nm up to six circles of about 247 nm on a fixed grid.
 - **Feed** (`src/hooks/use-aircraft-feed.ts`): fetches circles a few at a time, merges them, keeps the freshest position per ICAO hex, and schedules the next refresh only after the previous one finishes. If every provider fails, the last good aircraft stay on screen for up to 2 minutes (the status chip shows their age), then the list clears.

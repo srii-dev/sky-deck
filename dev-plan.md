@@ -186,19 +186,19 @@ Reuses the OurAirports data from Phase 2. Sources are in the table above.
 
 ## Phase 6: Pilot messages (ACARS)
 
-Today: an on-demand card in the aircraft panel (6a, done). Until the legal review and the Airframes answer are in, the guardrails stay: on demand, plain text, attributed, nothing stored, no real message text in the repo, tests or docs.
+Today: an on-demand card in the aircraft panel (6a) and, since 2026-11-22, the ACARS panel for all aircraft with AI headlines (6b, 6f). Until the legal review and the Airframes answer are in, the guardrails stay: browser-direct, plain text, attributed, nothing stored, no real message text in the repo, tests or docs. Message text may pass through the server to the AI providers (decision 2026-11-22, AGENTS.md).
 
 | Phase | Feature | Notes |
 | --- | --- | --- |
 | 6a | ACARS card in the panel | Done. |
-| 6b | **Not built:** a page of recent messages for every aircraft needs the Airframes answer (0c) and the legal review (0d) first, and more requests than the per-aircraft card. Browse page | Recent Airframes messages, filter by label and text, same on-demand guardrails. |
+| 6b | **Done 2026-11-22 (PR #77), as a panel, not a page:** the latest 100 messages from all aircraft every ~16 s while the panel is open, up to 300 kept, All / Interesting / Breaking filters. The Airframes answer (0c) and the legal review (0d) are still open. Browse page | Recent Airframes messages, filter by label and text, same on-demand guardrails. |
 | 6c | **Round 5 check:** `airframesio/acars-message-documentation` has no licence and says its documentation is still pending, with only about ten label descriptions, so nothing was copied; permission or a licence from its maintainers is needed first. **Partly done in Phase 6:** each message has an Explain this message section that lists the standard aviation abbreviations found in it as whole capital words (about 30, for example ETA, RWY, PAX), tagged "Explained by SkyDeck rules, not by AI". Label codes are NOT explained: no verified list of label meanings was found (the sources checked, the decoder repository and libacars, have no table in what was read), so none was invented. The documentation repository `airframesio/acars-message-documentation` is the next place to look once its licence is confirmed. Plain-English decoding by rules | A dictionary of message labels and common abbreviations, tagged "explained by SkyDeck rules". No AI. |
 | 6d | **Done in Phase 6 except the report button:** the original text is labelled Original received message (monospaced, as received, with a Copy button), next to an Explain this message section; metadata the data did not carry is shown as unavailable, and empty or cut messages are marked partial. Not built: the report a wrong summary button. Seen only in component tests with invented text, not on a live message. | Expandable "Original received message" (monospaced, exactly as received, copyable) next to the explanation. Metadata fields shown separately and marked "unavailable" when missing. Partial or undecodable messages marked as such. A "report a wrong summary" button once Phase 18 exists. |
 | 6e | **Not built:** needs a VHF receiver and a decoder output format check. Own receiver | Viewer for the output of a decoder Sri runs (`acarsdec` or `dumpvdl2`). Needs a VHF receiver. |
-| 6f | **Not built:** needs a configured AI key (see 14c) and the legal review. AI summaries | Uses the free AI plan in "Backend and AI options" (on demand, cached, daily cap, labelled "AI-generated", original always available). Needs Phase 18g and the ACARS legal review. |
+| 6f | **Done 2026-11-22 (PR #77):** one-line AI headlines for every message in batches of 8 (emergency, caution and weather first), and on opening a message a longer story plus a downloadable Markdown report. Workers AI (Llama 4 Scout) first, Gemini fallback, rate limited per visitor, cached per instance, nothing stored. Not cached in a database, and no daily cap visible to users yet. The legal review is still open. AI summaries | Uses the free AI plan in "Backend and AI options" (on demand, cached, daily cap, labelled "AI-generated", original always available). Needs Phase 18g and the ACARS legal review. |
 | 6g | **Not built:** needs stored messages or web push (10f). Message notifications | Notification levels (All, Interesting, Breaking) for watched aircraft. Depends on 5b. |
 | 6h | **Not built:** needs stored messages; waits for the Airframes answer and the legal review. Message history and flight-day search | Needs stored messages. A backend now exists, but storing and republishing messages still needs the Airframes answer and the legal review. |
-| 6i | **Not built:** the category fields of the Airframes API were not checked. Source-provided message categories | Decision on 2026-11-07: SkyDeck does not invent its own "drama" or "interesting" feed. If the API supplies a category or flag (for example diversion, medical, maintenance), SkyDeck shows it as supplied, with the original message and the legal notes. |
+| 6i | **Changed 2026-11-22:** Sri asked for alert colours, so SkyDeck now sorts messages itself by fixed text rules (`src/lib/acars-alert.ts`: emergency, caution, weather/ATC, position, routine; red also for a live 7500/7600/7700 squawk). The Airframes category fields are still unchecked. Source-provided message categories | Original decision on 2026-11-07 (replaced): SkyDeck does not invent its own "drama" or "interesting" feed. If the API supplies a category or flag (for example diversion, medical, maintenance), SkyDeck shows it as supplied, with the original message and the legal notes. |
 
 ## Phase 7: Aviation weather layers
 
@@ -369,9 +369,9 @@ Everything not listed here is built and merged into `dev`. **Phase 17 (final che
 
 | Item | What is needed |
 | --- | --- |
-| 15b brand | Settle the name and domain (Decision 7); then logo, icons, palette note. |
+| 15b brand | Logo and app icons done (2026-11-22, PR #74). Still open: the domain (Decision 7) and a palette note. |
 | 15a Lovable | Code is done (2026-11-16). The owner disconnects the project in Lovable and removes the Lovable GitHub app from the repository. |
-| 16b Cloudflare | A Cloudflare account and project to deploy to. Unlocks 18f, 19h, 21b, 21d, 10f and the real checks in 17. |
+| 16b Cloudflare | **Done:** deployed by hand to https://skydeck.sky-deck.workers.dev (latest 2026-11-22). Open: `ADSBLOL_API_KEY` (key requested from adsb.lol), `SITE_INDEXING`, Supabase Auth Site URL. Unlocks 18f, 19h, 21b, 21d, 10f and the real checks in 17. |
 | 0a, 0b, 0c, 0d, 0f | Esri imagery terms (keep, key or drop), airplanes.live access, the Airframes answer, the ACARS legal review, credits wording matched to the terms. |
 | 23g contact | A private contact address for takedowns and complaints. |
 | 15e landing page | Decide the landing design and how `/map` redirects shared links. |
@@ -389,9 +389,9 @@ Everything not listed here is built and merged into `dev`. **Phase 17 (final che
 - 6c: label meanings, once `airframesio/acars-message-documentation` has a confirmed licence.
 - 13d: Planespotters photos, after reading its terms.
 
-**C. After deployment (needs A first).** 18f shared cache and scheduled jobs, 19h shared store, 21b previews, 21d uptime checker and quota alarms, 21f backup rehearsal, 10f and 6g web push, 15g with `SITE_URL` set, 15f share images (needs designed images), 15h design QA at 1280, 746 and 375 px in both themes with keyboard and screen reader.
+**C. Now possible (the site is deployed).** 18f shared cache and scheduled jobs, 19h shared store, 21b previews, 21d uptime checker and quota alarms, 21f backup rehearsal, 10f and 6g web push, 15g with `SITE_URL` set, 15f share images (needs designed images), 15h design QA at 1280, 746 and 375 px in both themes with keyboard and screen reader.
 
-**D. No source or not feasible for now.** 7d lightning, 7f winds aloft, 8c daily TFRs, 8e filed routes, 9b 30-day replay, 9c incident history, 11b, 11c, 11d, 14c and 6f (AI key), 6b, 6e, 6g, 6h (Airframes and legal), 16g language, 23e moderation, and the post-release ideas in Phase 24.
+**D. No source or not feasible for now.** 7d lightning, 7f winds aloft, 8c daily TFRs, 8e filed routes, 9b 30-day replay, 9c incident history, 11b, 11c, 11d, 14c (AI now works through Workers AI, so this can move to B), 6e, 6g, 6h (Airframes and legal), 16g language, 23e moderation, and the post-release ideas in Phase 24.
 
 **E. Final stage: Phase 17.** 17a full feature pass in a visible browser on desktop, tablet and phone, 17b security review again on the live build, 17c quota and failure drills, 17d accessibility and performance audit on the live build, 17e release checklist (`RELEASE.md`) closed, 17f soft launch with a rollback plan. The 17 work done so far (the development-build pass and the first security review) stays in `RELEASE.md` and is repeated on the deployed build.
 
@@ -401,14 +401,14 @@ One branch per phase item, cut from `origin/dev`, a pull request into `dev`, mer
 
 ## Decisions needed
 
-Settled on 2026-11-07: Backend (Supabase + Cloudflare; MongoDB Atlas free tier later for NOTAMs only), AI (Gemini first, Workers AI as fallback; Sri supplies the Gemini key), NOTAMs through FAA SWIM (confirmed), TSA lanes (Regular, PreCheck, Touchless ID, CLEAR+).
+Settled on 2026-11-07: Backend (Supabase + Cloudflare; MongoDB Atlas free tier later for NOTAMs only), AI (changed 2026-11-22: Workers AI first, Gemini as fallback; the Gemini key is optional), NOTAMs through FAA SWIM (confirmed), TSA lanes (Regular, PreCheck, Touchless ID, CLEAR+).
 
 1. Esri, airplanes.live and Airframes (Phase 0).
 2. Whether Phase 2f (descent path) is still wanted and what it means.
 3. ACARS legal review timing, and whether 6f and 6h wait for it (recommended).
-4. Approval to edit AGENTS.md for the new rules.
+4. ~~Approval to edit AGENTS.md for the new rules.~~ Done (ACARS AI rule, 2026-11-22).
 5. Where the SWIM consumer runs for free (18f), and reading the SWIM Service Access Agreement for non-commercial use.
-6. Gemini free limits and terms, read from Google's own pages, before any message text is sent to it.
+6. Gemini free limits and terms, read from Google's own pages, before a Gemini key is added (Gemini only receives ACARS text when Workers AI fails).
 7. Project name: "SkyDeck" is still a placeholder. Check that the name, a domain and social handles are free and not confusingly close to an existing product before the logo is drawn (15b).
 8. Landing page approach (see 15e): build in this repo (recommended), or design elsewhere first.
 9. Monitoring and error-reporting tools, and whether to use analytics at all (21c to 21e).
@@ -418,7 +418,7 @@ Settled on 2026-11-07: Backend (Supabase + Cloudflare; MongoDB Atlas free tier l
 **Answers from Sri (2026-11-10):**
 
 - Playwright (16f, 21k): approved as a dev dependency. Each browser download is still named (file, source, size) and asked about first.
-- Cloudflare (16b): Sri has an account and says it is connected. Not verified: no Cloudflare tools were visible in the assistant's session, and nothing is deployed. Deployment still needs Sri's go-ahead.
+- Cloudflare (16b): Sri has an account and says it is connected. Deployed since 2026-11-10; each deploy still needs Sri's go-ahead.
 - Name (15b, Decision 7): keep "SkyDeck". Not verified: no check of name clashes, domain or social handles was done. The domain will be bought after the final product is finished.
 - Contact (23g): a private address will be created once there is a domain. Until then the legal pages keep the GitHub issues page.
 
