@@ -1,7 +1,11 @@
 import { createServerFn } from "@tanstack/react-start";
-import { setResponseHeader } from "@tanstack/react-start/server";
+import { getRequestHeader, setResponseHeader } from "@tanstack/react-start/server";
 import { z } from "zod";
 import { loadAirspace, type AirspaceResult } from "./airspace-sources";
+import { createKeyedLimiter, visitorKey } from "./rate-limit";
+
+// Per Worker instance (shortcut: move to a Durable Object when abuse appears).
+const limiter = createKeyedLimiter({ max: 30, windowMs: 60_000 });
 
 /*
  * Server proxy for the airspace map layers (Phase 8d): the browser asks us, we ask the FAA once per rounded
@@ -19,6 +23,10 @@ const input = z.object({
 export const getAirspace = createServerFn({ method: "GET" })
   .validator((d: unknown) => input.parse(d))
   .handler(async ({ data }): Promise<AirspaceResult | null> => {
+    if (!limiter.allow(visitorKey(getRequestHeader), Date.now()).ok) {
+      setResponseHeader("Cache-Control", "no-store");
+      return null;
+    }
     setResponseHeader("Cache-Control", "public, max-age=3600");
     const { layer, ...box } = data;
     return loadAirspace(layer, box);

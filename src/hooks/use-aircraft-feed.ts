@@ -311,6 +311,22 @@ export function useAircraftFeed(
     };
   }, []);
 
+  // The check above only runs when a poll finishes, and during an outage polls back off to a minute, so the last
+  // good aircraft would stay up to a minute past their limit. A once-a-second check clears them on time.
+  useEffect(() => {
+    const timer = setInterval(() => {
+      if (document.hidden) return;
+      setState((prev) =>
+        prev.aircraft.length &&
+        prev.fetchedAt != null &&
+        !lastGoodUsable(Date.now() - prev.fetchedAt)
+          ? { ...prev, aircraft: [] }
+          : prev,
+      );
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
   // A new viewport refreshes right away (unless we're backing off a busy provider).
   const vpKey = viewport
     ? planCoverage(viewport)

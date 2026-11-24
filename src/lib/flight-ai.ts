@@ -14,6 +14,7 @@ import { airlineName } from "./airlines";
 import { flightFacts } from "./flight-facts";
 import { fmtRange } from "./glide-ring";
 import { formatLastSeen } from "./live-status";
+import { fenceSafe } from "./prompt-fence";
 import {
   compassPoint,
   fmtAltitude,
@@ -103,7 +104,7 @@ export function flightBriefPrompt(facts: string): string {
     "going, its phase, height and speed, anything unusual such as an emergency code). Do not invent numbers, " +
     "places or facts that are not in the text, and say when something is unknown (for example no route on " +
     "file). No markdown, no bullet points.\n<<<\n" +
-    facts +
+    fenceSafe(facts) +
     "\n>>>"
   );
 }

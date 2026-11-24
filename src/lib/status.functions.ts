@@ -3,11 +3,12 @@ import { createServerFn } from "@tanstack/react-start";
 import type { StatusReport } from "./status-probes";
 
 /*
- * Whether the outside services answer (Phase 23d). The probes are asked at most once a minute per server instance
- * and the answer is shared by everyone, so a busy status page cannot hammer the providers. Nothing here is secret:
+ * Whether the outside services answer (Phase 23d). The probes are asked at most once in five minutes per server instance
+ * and the answer is shared by everyone, so a busy status page cannot hammer the providers or spend the adsb.lol key
+ * (the keyed probe is outside the quota guard). Nothing here is secret:
  * only names, states and timings leave the server (the anon key is used to ask, never returned).
  */
-const CACHE_MS = 60_000;
+const CACHE_MS = 5 * 60_000;
 let cached: { at: number; report: StatusReport } | null = null;
 let inflight: Promise<StatusReport> | null = null;
 

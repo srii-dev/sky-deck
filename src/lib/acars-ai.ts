@@ -4,6 +4,7 @@
  * is shown as plain text only.
  */
 import { cacheKey, type AiCache, type AiProviderName } from "./ai-service";
+import { fenceSafe } from "./prompt-fence";
 
 export interface AcarsAiInput {
   id: number;
@@ -27,6 +28,7 @@ export function detailMaxChars(notable: boolean): number {
 }
 
 function describeOne(m: AcarsAiInput, n: number): string {
+  // The metadata is as untrusted as the text, so it sits inside the fence with it.
   const head = [
     m.flight ? "flight " + m.flight : null,
     m.tail ? "aircraft " + m.tail : null,
@@ -36,7 +38,15 @@ function describeOne(m: AcarsAiInput, n: number): string {
   ]
     .filter(Boolean)
     .join(", ");
-  return "[" + n + "] " + (head || "no metadata") + "\n<<<\n" + (m.text || "(no text)") + "\n>>>";
+  return (
+    "[" +
+    n +
+    "]\n<<<\n" +
+    fenceSafe(head || "no metadata") +
+    "\n" +
+    fenceSafe(m.text || "(no text)") +
+    "\n>>>"
+  );
 }
 
 const RULES =

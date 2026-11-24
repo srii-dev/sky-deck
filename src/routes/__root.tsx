@@ -150,6 +150,12 @@ function RootShell({ children }: { children: ReactNode }) {
         <HeadContent />
       </head>
       <body>
+        <noscript>
+          <p style={{ padding: "1rem", font: "16px system-ui, sans-serif" }}>
+            SkyDeck needs JavaScript to draw the live map. Read <a href="/about">About</a> or{" "}
+            <a href="/help">Help</a> to see what it does.
+          </p>
+        </noscript>
         {children}
         <Scripts />
       </body>
