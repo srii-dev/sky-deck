@@ -222,7 +222,10 @@ export function WatchlistDialog(p: Props) {
           ) : (
             <>
               These lists are kept in this browser.{" "}
-              <button className="underline" onClick={p.onOpenAccount}>
+              <button
+                className="-my-1 inline-block min-h-6 px-1 underline"
+                onClick={p.onOpenAccount}
+              >
                 Sign in
               </button>{" "}
               to keep them on every device.

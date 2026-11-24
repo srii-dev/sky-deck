@@ -15,8 +15,10 @@ export function buildAcarsReport(
   alert: AcarsAlert,
   brief: string | null,
   detail: string | null,
+  /** Sections whose AI text is still being written: "Writing…" instead of "Not available." */
+  pending: { brief?: boolean; detail?: boolean } = {},
 ): string {
-  const s = summarizeMessage(m);
+  const s = summarizeMessage(m, detail != null);
   const when = s.fields.find((f) => f.label === "Received")?.value ?? "time unknown";
   const lines = [
     "# ACARS report: " + acarsTitle(m),
@@ -25,11 +27,11 @@ export function buildAcarsReport(
     "",
     "## Summary (AI-generated)",
     "",
-    brief ?? "Not available.",
+    brief ?? (pending.brief ? "Writing..." : "Not available."),
     "",
     "## Explanation (AI-generated)",
     "",
-    detail ?? "Not available.",
+    detail ?? (pending.detail ? "Writing..." : "Not available."),
     "",
     "## Message details",
     "",

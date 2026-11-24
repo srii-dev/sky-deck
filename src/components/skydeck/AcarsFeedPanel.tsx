@@ -13,8 +13,8 @@ import {
   ALERT_LABELS,
   cardGradient,
   classifyAcars,
-  passesFilter,
   rowGradient,
+  visibleMessages,
   type AcarsAlert,
   type AcarsFilter,
 } from "@/lib/acars-alert";
@@ -105,9 +105,9 @@ function AlertTag({ alert }: { alert: AcarsAlert }) {
 }
 
 function BriefText({ brief, m }: { brief: Brief | undefined; m: AcarsMessage }) {
-  if (!m.text) return <p className="text-xs italic text-white/50">No message text.</p>;
+  if (!m.text) return <p className="text-xs italic text-white/70">No message text.</p>;
   if (brief?.state === "pending") {
-    return <p className="animate-pulse text-xs italic text-white/50">Describing…</p>;
+    return <p className="animate-pulse text-xs italic text-white/70">Describing…</p>;
   }
   // Not described (yet, or the AI failed): the raw text, so every row says something.
   if (!brief || brief.state === "failed") {
@@ -120,12 +120,12 @@ function BriefText({ brief, m }: { brief: Brief | undefined; m: AcarsMessage }) 
 function MarkdownFile({ source, name }: { source: string; name: string }) {
   let inCode = false;
   return (
-    <div className="overflow-hidden rounded-lg border border-white/10 bg-black/45">
-      <div className="flex items-center justify-between border-b border-white/10 px-3 py-1.5 text-[11px] text-white/60">
+    <div className="overflow-hidden rounded-lg border border-white/10 bg-black/60">
+      <div className="flex items-center justify-between border-b border-white/10 px-3 py-1.5 text-[11px] text-white/70">
         <span className="font-mono">{name}</span>
         <button
           type="button"
-          className="inline-flex items-center gap-1 text-primary hover:underline"
+          className="inline-flex items-center gap-1 text-amber-300 hover:underline"
           onClick={() => {
             const url = URL.createObjectURL(new Blob([source], { type: "text/markdown" }));
             const a = document.createElement("a");
@@ -143,11 +143,11 @@ function MarkdownFile({ source, name }: { source: string; name: string }) {
           const fence = line.startsWith("```");
           if (fence) inCode = !inCode;
           const cls = fence
-            ? "text-white/40"
+            ? "text-white/70"
             : inCode
               ? "text-emerald-300"
               : line.startsWith("# ")
-                ? "font-bold text-primary"
+                ? "font-bold text-amber-300"
                 : line.startsWith("## ")
                   ? "font-semibold text-sky-300"
                   : line.startsWith("> ")
@@ -210,6 +210,9 @@ function MessageCard({
     // `alert` follows the live squawk; a change there should not ask the AI again.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [m, attempt]);
+  // Opened from the list by keyboard, focus would otherwise drop to the page body when the list closes.
+  const cardRef = useRef<HTMLElement>(null);
+  useEffect(() => cardRef.current?.focus(), []);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", onKey);
@@ -221,14 +224,20 @@ function MessageCard({
     alert,
     brief?.state === "done" ? brief.text : null,
     detail.state === "done" ? detail.text : null,
+    {
+      brief: brief?.state === "pending" || (!brief && !!m.text),
+      detail: detail.state === "loading",
+    },
   );
   const fileName = "acars-" + acarsTitle(m).replace(/[^A-Za-z0-9-]/g, "") + "-" + m.id + ".md";
 
   return (
     <section
+      ref={cardRef}
+      tabIndex={-1}
       role="region"
       aria-label={"ACARS message from " + acarsTitle(m)}
-      className="pointer-events-auto fixed inset-x-3 bottom-3 z-30 flex max-h-[42dvh] flex-col md:max-h-[min(72dvh,680px)] overflow-hidden rounded-2xl border border-white/10 bg-black/55 shadow-2xl backdrop-blur-md md:inset-x-auto md:bottom-6 md:left-28 md:w-[520px]"
+      className="force-dark pointer-events-auto fixed inset-x-3 bottom-3 z-30 flex outline-none max-h-[42dvh] flex-col md:max-h-[min(72dvh,680px)] overflow-hidden rounded-2xl border border-white/10 bg-black/90 text-white shadow-2xl backdrop-blur-md md:inset-x-auto md:bottom-6 md:left-28 md:w-[520px]"
       style={{ backgroundImage: cardGradient(alert) }}
     >
       <div className="flex items-start justify-between gap-3 px-5 pt-4">
@@ -237,7 +246,7 @@ function MessageCard({
           <h2 className="truncate font-mono text-2xl font-semibold tracking-tight text-white">
             {acarsTitle(m)}
           </h2>
-          {subtitle(m) && <p className="text-xs text-white/60">{subtitle(m)}</p>}
+          {subtitle(m) && <p className="text-xs text-white/70">{subtitle(m)}</p>}
         </div>
         <div className="flex shrink-0 items-center gap-1">
           <Button
@@ -264,14 +273,14 @@ function MessageCard({
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 pb-5 pt-2">
         <BriefText brief={brief} m={m} />
         <div>
-          <p className="mb-1 text-[10px] uppercase tracking-wider text-white/50">
+          <p className="mb-1 text-[10px] uppercase tracking-wider text-white/70">
             What happened · {AI_LABEL}
           </p>
           {detail.state === "loading" ? (
-            <p className="animate-pulse text-sm italic text-white/50">Writing the full story…</p>
+            <p className="animate-pulse text-sm italic text-white/70">Writing the full story…</p>
           ) : detail.state === "failed" && detail.busy ? (
             <div className="flex flex-wrap items-center gap-2">
-              <p className="text-sm text-white/60">
+              <p className="text-sm text-white/70">
                 The AI is busy with other messages right now. Try again in a minute.
               </p>
               <Button variant="panel" size="sm" onClick={() => setAttempt((n) => n + 1)}>
@@ -279,7 +288,7 @@ function MessageCard({
               </Button>
             </div>
           ) : detail.state === "failed" ? (
-            <p className="text-sm text-white/60">{detail.error}</p>
+            <p className="text-sm text-white/70">{detail.error}</p>
           ) : (
             <p className="whitespace-pre-line text-sm leading-relaxed text-white/90">
               {detail.text}
@@ -288,7 +297,7 @@ function MessageCard({
         </div>
         {m.text && (
           <div>
-            <p className="mb-1 text-[10px] uppercase tracking-wider text-white/50">
+            <p className="mb-1 text-[10px] uppercase tracking-wider text-white/70">
               The crew&apos;s exact words
             </p>
             {/* Plain text only: React escapes it, and it is never inserted as HTML. */}
@@ -303,7 +312,7 @@ function MessageCard({
           </Button>
         )}
         <MarkdownFile source={report} name={fileName} />
-        <p className="text-[10px] text-white/45">
+        <p className="text-[10px] text-white/70">
           {AIRFRAMES_ATTRIBUTION}. AI text can be wrong; the colour comes from fixed rules.
         </p>
       </div>
@@ -447,15 +456,36 @@ export function AcarsFeedPanel({
     };
   }, [open, messages]);
 
-  const shown = messages.filter((m) => passesFilter(alertOf(m), filter));
+  const { shown, duplicates, empty } = visibleMessages(messages, alertOf, filter);
+  // Focus: into the opened card, back to the toolbar button when it closes, to the first row on Back to list.
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const toList = useRef(false);
+  const openedRef = useRef(opened);
+  openedRef.current = opened;
+  const closeCard = () => {
+    setOpened(null);
+    requestAnimationFrame(() =>
+      document.querySelector<HTMLElement>('button[aria-label="ACARS messages"]')?.focus(),
+    );
+  };
   const aiError = Object.values(briefs).find((b) => b.state === "failed");
 
   return (
     <>
       <Sheet open={open} onOpenChange={onOpenChange}>
         <SheetContent
+          ref={sheetRef}
           side="right"
-          className="flex w-full flex-col gap-3 overflow-hidden p-0 sm:max-w-md"
+          // A fixed dark surface: the rows use white text and dark-tuned alert gradients, also in the light theme.
+          className="force-dark flex w-full flex-col gap-3 overflow-hidden p-0 text-foreground sm:max-w-md"
+          onOpenAutoFocus={(e) => {
+            if (!toList.current) return;
+            toList.current = false;
+            e.preventDefault();
+            sheetRef.current?.querySelector<HTMLElement>("ul button")?.focus();
+          }}
+          // Radix would hand focus back to the toolbar button and take it from the card that is opening.
+          onCloseAutoFocus={(e) => openedRef.current && e.preventDefault()}
         >
           <SheetHeader className="px-4 pt-4">
             <SheetTitle>ACARS messages</SheetTitle>
@@ -520,7 +550,7 @@ export function AcarsFeedPanel({
                         </span>
                         <span className="flex shrink-0 items-baseline gap-2">
                           <AlertTag alert={alert} />
-                          <span className="text-[10px] text-white/45">{timeAgo(m.time, now)}</span>
+                          <span className="text-[10px] text-white/70">{timeAgo(m.time, now)}</span>
                         </span>
                       </div>
                       <div className="mt-0.5">
@@ -532,6 +562,11 @@ export function AcarsFeedPanel({
               })}
             </ul>
             <div className="mt-2 space-y-1 border-t border-border/50 px-4 py-3 text-[10px] text-muted-foreground">
+              {(duplicates > 0 || empty > 0) && (
+                <p>
+                  Left out of the list: {duplicates} repeated, {empty} without text.
+                </p>
+              )}
               <p>{ACARS_NOTICE}</p>
               <p>{ACARS_DISCLOSURE}</p>
               <p>
@@ -559,8 +594,9 @@ export function AcarsFeedPanel({
           m={opened}
           alert={alertOf(opened)}
           brief={briefs[opened.id]}
-          onClose={() => setOpened(null)}
+          onClose={closeCard}
           onBackToList={() => {
+            toList.current = true;
             setOpened(null);
             onOpenChange(true);
           }}
