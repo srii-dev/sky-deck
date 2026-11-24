@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, ChevronDown, ChevronUp, Crosshair, Plane, Star, Video, X } from "lucide-react";
 
@@ -148,6 +148,12 @@ export function AircraftPanel(props: Props) {
   });
 
   const nearestLabel = formatNearestReachable(reachable, props.units);
+  // Escape closes the panel only while focus is inside it (portalled dialogs and the map are not).
+  const closeOnEscape = (e: KeyboardEvent<HTMLElement>) => {
+    if (e.key === "Escape" && !e.defaultPrevented && e.currentTarget.contains(e.target as Node)) {
+      props.onClose();
+    }
+  };
 
   const header = (isMobile: boolean) => (
     <div className="flex items-start gap-3">
@@ -461,6 +467,7 @@ export function AircraftPanel(props: Props) {
     <>
       <section
         aria-label="Aircraft details"
+        onKeyDown={closeOnEscape}
         className="glass-panel pointer-events-auto fixed inset-x-0 bottom-0 z-40 flex flex-col rounded-t-xl pb-[env(safe-area-inset-bottom)] md:hidden"
         style={{ maxHeight: "min(70vh, calc(100dvh - var(--hud-h, 76px) - 8px))" }}
       >
@@ -507,6 +514,7 @@ export function AircraftPanel(props: Props) {
       </section>
       <aside
         aria-label="Aircraft details"
+        onKeyDown={closeOnEscape}
         className="glass-panel scanline pointer-events-auto absolute bottom-4 right-14 z-30 hidden w-[360px] flex-col overflow-hidden rounded-lg md:flex"
         style={{ top: "calc(var(--hud-h, 76px) + 8px)" }}
       >

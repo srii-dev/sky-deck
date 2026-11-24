@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ExternalLink, Star, X } from "lucide-react";
 
@@ -90,6 +90,14 @@ export function AirportPanel({
   const chartsUrl = useMemo(() => faaChartsUrl(icao), [icao]);
   const b = brief.data;
   const traffic = useMemo(() => airportTraffic(aircraft, airport), [aircraft, airport]);
+  // There is no feed-loaded flag here: an empty list means "not loaded yet" for the first seconds, after
+  // that the sky really is empty and the brief may say so.
+  const [graceOver, setGraceOver] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setGraceOver(true), 8000);
+    return () => clearTimeout(t);
+  }, []);
+  const trafficReady = aircraft.length > 0 || graceOver;
   const metar = b?.metar ?? null;
   const info = b?.info ?? null;
   const runways = useMemo(() => info?.runways ?? [], [info]);
@@ -138,6 +146,11 @@ export function AirportPanel({
   return (
     <aside
       aria-label="Airport details"
+      onKeyDown={(e) => {
+        // Only while focus is inside the panel (portalled dialogs and the map are not).
+        if (e.key === "Escape" && !e.defaultPrevented && e.currentTarget.contains(e.target as Node))
+          onClose();
+      }}
       className={cn(
         "glass-panel pointer-events-auto fixed inset-x-0 bottom-0 z-40 flex flex-col overflow-hidden rounded-t-xl pb-[env(safe-area-inset-bottom)]",
         "md:absolute md:inset-x-auto md:bottom-4 md:right-14 md:z-30 md:w-[360px] md:rounded-lg md:pb-0",
@@ -146,7 +159,7 @@ export function AirportPanel({
     >
       <div className="flex items-start gap-3 border-b border-border/60 p-4">
         <div className="min-w-0 flex-1">
-          <div className="data-value truncate text-lg">{airport.name}</div>
+          <h2 className="data-value truncate text-lg">{airport.name}</h2>
           <div className="mt-0.5 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
             {airport.iata && <Badge variant="outline">{airport.iata}</Badge>}
             <Badge variant="outline">{airport.icao}</Badge>
@@ -212,7 +225,12 @@ export function AirportPanel({
               <p className="text-xs text-muted-foreground">
                 Written by fixed rules from the data below, not by AI.
               </p>
-              <AirportAiBrief icao={airport.icao} name={airport.name} brief={summary.join(" ")} />
+              <AirportAiBrief
+                icao={airport.icao}
+                name={airport.name}
+                brief={summary.join(" ")}
+                ready={trafficReady}
+              />
             </section>
 
             <section aria-label="FAA status" className="space-y-1">

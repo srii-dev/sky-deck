@@ -84,7 +84,8 @@ export interface MessageSummary {
 
 const orNull = (v: string | null | undefined): string | null => (v && v.trim() ? v : null);
 
-export function summarizeMessage(m: AcarsMessage): MessageSummary {
+/** `aiExplained`: an AI explanation is shown next to it, so the "no explanation" note would contradict it. */
+export function summarizeMessage(m: AcarsMessage, aiExplained = false): MessageSummary {
   const route = m.departing && m.destination ? m.departing + " to " + m.destination : null;
   const fields: MessageField[] = [
     {
@@ -109,7 +110,7 @@ export function summarizeMessage(m: AcarsMessage): MessageSummary {
   if (empty) notes.push("This message has no text.");
   if (cut) notes.push("The text was cut at " + MAX_TEXT_CHARS + " characters.");
   const abbreviations = findAbbreviations(m.text);
-  if (!empty && abbreviations.length === 0) {
+  if (!empty && abbreviations.length === 0 && !aiExplained) {
     notes.push(
       "No explanation available: nothing in this text matches the abbreviations SkyDeck knows.",
     );

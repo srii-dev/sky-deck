@@ -26,8 +26,8 @@ const STATE_LABEL: Record<ProbeState, string> = {
 const STATE_CLASS: Record<ProbeState, string> = {
   ok: "bg-success/15 text-success border-success/40",
   slow: "bg-warning/15 text-warning border-warning/40",
-  blocked: "bg-destructive/15 text-destructive border-destructive/40",
-  down: "bg-destructive/15 text-destructive border-destructive/40",
+  blocked: "bg-destructive/15 text-red-300 [.light_&]:text-destructive border-destructive/40",
+  down: "bg-destructive/15 text-red-300 [.light_&]:text-destructive border-destructive/40",
   "not-configured": "bg-muted text-muted-foreground border-border",
   unused: "bg-muted text-muted-foreground border-border",
 };

@@ -181,6 +181,8 @@
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
+/* `.force-dark`: a surface that stays dark in the light theme too (the ACARS list and card, white text on colour). */
+.force-dark,
 :root {
   --radius: 0.5rem;
   --background: oklch(0.15 0.018 240);
@@ -242,6 +244,10 @@
   --sidebar-ring: oklch(0.82 0.16 75);
 }
 
+.force-dark {
+  color-scheme: dark;
+}
+
 /*
  * Light theme (Phase 15c): the same variables, set for a bright page. Picked with the `light` class on <html>
  * (see src/lib/theme.ts). The text and background pairs are checked by src/test/theme-contrast.test.ts.
@@ -253,7 +259,7 @@
   --card-foreground: oklch(0.2 0.02 240);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.2 0.02 240);
-  --primary: oklch(0.5 0.13 60);
+  --primary: oklch(0.43 0.12 60);
   --primary-foreground: oklch(0.99 0.005 80);
   --secondary: oklch(0.94 0.01 235);
   --secondary-foreground: oklch(0.2 0.02 240);
@@ -405,7 +411,7 @@
   filter: invert(0.9) sepia(0.2) hue-rotate(160deg);
 }
 .maplibregl-ctrl-attrib {
-  background: color-mix(in oklab, var(--background) 70%, transparent) !important;
+  background: color-mix(in oklab, var(--background) 92%, transparent) !important;
   color: var(--muted-foreground) !important;
   font-family: var(--font-mono);
   font-size: 10px;

@@ -16,7 +16,7 @@ import { returnFocus } from "@/lib/return-focus";
 
 /*
  * Account dialog (Phase 18d): sign in, create an account, sign out, delete the account.
- * Nothing in SkyDeck needs an account yet; this is the foundation for saved data (Phase 5g and later).
+ * Nothing in SkyDeck needs an account; signing in syncs the watchlist and recent flights.
  * What is stored: the email address and a password hash at Supabase, plus an empty profile row. Nothing else.
  */
 
@@ -100,8 +100,8 @@ export function AccountDialog({ open, onOpenChange, auth, syncNote }: Props) {
         <DialogHeader>
           <DialogTitle>Account</DialogTitle>
           <DialogDescription>
-            An account is optional. SkyDeck works fully without one; accounts will be used to save
-            things across devices later.
+            An account is optional. SkyDeck works fully without one; signing in saves your watchlist
+            and recently viewed flights across devices.
           </DialogDescription>
         </DialogHeader>
 
