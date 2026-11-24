@@ -44,7 +44,7 @@ bunx wrangler secret put ADSBLOL_API_KEY --name skydeck  # adsb.lol key; without
 
 `SUPABASE_URL` and `SUPABASE_ANON_KEY` are public by design (they reach every browser). `SUPABASE_SERVICE_ROLE_KEY` and `GEMINI_API_KEY` are real secrets; never put them in a `VITE_` variable. Without the Supabase pair the site works but sign-in is off.
 
-adsb.lol key quota: the free key allows 300 requests an hour and 1,000 a day, far fewer than continuous polling needs. The app counts its requests (kept at about 85% of each limit) and, when the quota is used up, shows saved copies up to 10 minutes old instead of sending requests that would be refused; repeated 429s can get a free key revoked. A paid key needs its own numbers in `ADSBLOL_FREE_LIMITS` (`src/lib/quota-guard.ts`).
+adsb.lol key quota: the free key allows 300 requests an hour and 1,000 a day, far fewer than continuous polling needs. The app counts its requests (kept at about 85% of each limit) and, when the quota is used up, shows saved copies up to an hour old instead of sending requests that would be refused; repeated 429s can get a free key revoked. A paid key needs its own numbers in `ADSBLOL_FREE_LIMITS` (`src/lib/quota-guard.ts`).
 
 AI sharing: the build adds a second Durable Object, `AiHub` (binding `AI_HUB`, migration tag `v2`, `new_sqlite_classes`), next to `FeedHub` (tag `v1`). Deployed migration tags must never be edited; add a new tag for any further change. The first deploy applies `v2` automatically. `AiHub` reads `AI`, `GEMINI_API_KEY` and `AI_ENABLED` from its own environment.
 
