@@ -356,6 +356,8 @@ export default function FlightMap(props: FlightMapProps) {
   const propsRef = useRef(props);
   propsRef.current = props;
   const styleReadyRef = useRef(false);
+  // True once the deferred scene (buildings, terrain) is installed for the current style.
+  const sceneReadyRef = useRef(false);
   const firstStyleRef = useRef(true);
 
   // ---------- overlay installation (re-run after every style change) ----------
@@ -659,6 +661,7 @@ export default function FlightMap(props: FlightMapProps) {
         before,
       );
     }
+    sceneReadyRef.current = true;
     applyTerrain();
     addKindImages(map);
     updateGlideRing();
@@ -697,7 +700,7 @@ export default function FlightMap(props: FlightMapProps) {
 
   const applyTerrain = () => {
     const map = mapRef.current;
-    if (!map || !styleReadyRef.current) return;
+    if (!map || !sceneReadyRef.current) return;
     const on = propsRef.current.terrain;
     if (on) {
       addTerrainSources(map);
@@ -995,6 +998,7 @@ export default function FlightMap(props: FlightMapProps) {
 
     map.on("style.load", () => {
       styleReadyRef.current = false;
+      sceneReadyRef.current = false;
       installOverlays();
       scheduleDeferredScene();
     });
@@ -1395,16 +1399,35 @@ export default function FlightMap(props: FlightMapProps) {
       return;
     }
     styleReadyRef.current = false;
+    sceneReadyRef.current = false;
     map.setStyle(styleFor(props.basemap), { diff: false });
   }, [props.basemap]);
 
   // With the side panel open the map's centre moves to the middle of the part that is still visible, so a
   // selected aircraft (and Follow, which uses the centre) is not hidden under the panel.
   useEffect(() => {
-    const map = mapRef.current;
-    if (!map) return;
-    const pad = cameraPadding(!!props.selectedHex);
-    if (map.getPadding().right !== pad.right) map.easeTo({ padding: pad, duration: 300 });
+    const apply = (toAircraft: boolean) => {
+      const map = mapRef.current;
+      if (!map) return;
+      const hex = propsRef.current.selectedHex;
+      const pad = cameraPadding(!!hex);
+      if (map.getPadding().right === pad.right) return;
+      const ac = toAircraft ? propsRef.current.aircraft.find((a) => a.hex === hex) : undefined;
+      // Changing the padding alone moves every map point; ease to the aircraft, or else to the point that is
+      // already at the new visible centre, so the view stays put.
+      const c = map.getContainer();
+      const center: [number, number] = ac
+        ? [ac.lon, ac.lat]
+        : (() => {
+            const ll = map.unproject([(c.clientWidth - pad.right) / 2, c.clientHeight / 2]);
+            return [ll.lng, ll.lat];
+          })();
+      map.easeTo({ padding: pad, center, duration: 300 });
+    };
+    apply(true);
+    const onResize = () => apply(false);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
   }, [props.selectedHex]);
 
   useEffect(() => {

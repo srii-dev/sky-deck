@@ -50,7 +50,7 @@ export function LiveIndicator({
         </span>
       </span>
       {/* Fixed-width slots (tabular numerals) so the chip does not resize and push the search box around. */}
-      <span className="data-value inline-block min-w-[7ch] whitespace-nowrap text-[11px] tabular-nums text-muted-foreground">
+      <span className="data-value inline-block min-w-[9ch] whitespace-nowrap text-[11px] tabular-nums text-muted-foreground">
         {age == null ? "—" : isFetching && age > 6 ? "updating…" : `${age}s ago`}
       </span>
       {behind && fetchedAt != null && (
