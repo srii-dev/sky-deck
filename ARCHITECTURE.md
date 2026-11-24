@@ -18,7 +18,7 @@ Server function getAircraftFeed            src/lib/adsb.functions.ts
 Providers: adsb.lol, then airplanes.live   paced, backed off, shared in flight (src/lib/request-control.ts)
 ```
 
-- adsb.lol refuses keyless requests from Cloudflare's shared addresses (HTTP 429); the optional server secret `ADSBLOL_API_KEY` is sent as `x-api-key`.
+- adsb.lol refuses keyless requests from Cloudflare's shared addresses (HTTP 429); the optional server secret `ADSBLOL_API_KEY` is sent as `x-api-key`. With a key, every request to adsb.lol is counted against the free key's published limits (`src/lib/quota-guard.ts`: about 85% of 20 per 30 s, 120 per minute, 300 per hour, 1,000 per day, 5,000 per week, 30,000 per month) and a request that would go over is not sent. Refreshes of tiles that already have a copy are paced by `QuotaGuard.takeRefresh`: what is left in each window, less a reserve of 6 for tiles with no copy, is spread evenly until the window ends, and copies up to an hour old are served with their real age in between. The counter lives in the `FeedHub` object and is saved to its storage; requests made outside it (routes, search) are counted per instance only.
 
 - The browser never calls ADS-B providers directly. Server functions do, so provider changes stay in one place and CORS is not an issue.
 - Views are covered by fixed tiles (fine, medium, a snapped single circle, or the wide 350 nm lattice) so visitors looking at the same area ask for the same tiles and share the server cache.
@@ -49,6 +49,11 @@ Status 2026-11-09: a Supabase project exists; email sign-in works end to end in 
 - Hosting, caching and AI: Cloudflare (Workers deployment, shared cache planned). AI: Workers AI first (binding `AI`, Llama 4 Scout), Gemini as the fallback when `GEMINI_API_KEY` is set (decision 2026-11-22).
 - FAA NOTAMs: a small always-on service reads the FAA SWIM feed and stores NOTAMs in MongoDB Atlas (free tier). The app reads them through that service or a cache.
 - Secrets: server-side environment variables only, read through `src/lib/server-config.server.ts`. `.env.example` lists names, never values. A variable that starts with `VITE_` is sent to every browser and must never hold a secret.
+
+## AI (decision 2026-11-23)
+
+- `src/server/ai-hub.ts` (class `AiHub`, binding `AI_HUB`, one object named `global`) runs the AI service. `getAiService()` in `src/lib/ai.server.ts` routes `generate` and the ACARS headline batches through it and falls back to local work when the binding is missing, the call fails or no provider is set up. Results cross the object as a result union and are rethrown as `AiUnavailableError`. Only pacing counters (calls per provider and day, pauses) are saved to its storage; ACARS text, headlines and AI answers stay in memory.
+- Callers: `explainAcars` and `describeAcarsBatch` (`src/lib/acars-ai.functions.ts`), `explainAirport` (`src/lib/airport-ai.functions.ts`), `explainFlight` (`src/lib/flight-ai.functions.ts`; prompt and fact summary in `src/lib/flight-ai.ts`, UI `FlightAiBrief.tsx` after Flight facts). All are rate limited per visitor and send `no-store`.
 
 ## Operations
 

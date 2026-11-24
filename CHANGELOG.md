@@ -6,6 +6,7 @@ All notable changes to SkyDeck. The format follows [Keep a Changelog](https://ke
 
 ### Added
 
+- Aircraft panel: an Explain with AI button under Flight facts that describes in 2 to 4 plain sentences what the selected flight is doing right now, from the panel's own facts (Workers AI, Gemini as fallback). On demand, labelled AI-generated, nothing stored (Phase 14c, per-flight part, #84).
 - Airport panel: an Explain with AI button that rewrites the rule-based brief in plain language (Workers AI, Gemini as fallback); on demand, labelled, nothing stored (Phase 14c, airport part).
 - Live distance on the ruler after the first point; optional `ADSBLOL_API_KEY` for the adsb.lol feed from Cloudflare (#73). New app icon and favicon from the SkyDeck logo (#74).
 - ACARS panel (toolbar): the latest messages from all aircraft, coloured by alert level with fixed rules, each with a short AI description (Workers AI, Gemini as fallback); opening one adds a longer explanation and a downloadable Markdown report. Message text passes through the server to the AI and is not stored.
@@ -65,6 +66,8 @@ All notable changes to SkyDeck. The format follows [Keep a Changelog](https://ke
 
 ### Changed
 
+- AI calls go through one global `AiHub` Durable Object, so budgets, pacing and caches are shared by every visitor. Each provider has a per-minute limit; Workers AI is skipped until 00:00 UTC once its daily allowance is gone, and Gemini's daily quota is rechecked hourly. With no provider free the answer is "AI is busy, try again in a minute." ACARS headlines are cached per message in memory and shared; they are at most 12 words, explanations 1 to 2 sentences for routine messages and up to 5 for emergency, caution and weather. The ACARS panel retries busy headlines with a growing gap, and the message card has a Try again button (#83).
+- With an adsb.lol key, refreshes of tiles that already have a copy are paced so what is left of each hourly and daily window is spread evenly, with a reserve for tiles that have no copy; copies up to an hour old are shown with their real age in between, so a wide view cannot use the day's quota in minutes (#85).
 - With an adsb.lol key, requests are counted against the key's published limits and not sent once a limit would be passed; the map then shows saved copies up to 10 minutes old (protects a free key from being revoked).
 - The live feed cache, provider pacing and refresh budget are shared by every server instance: on Cloudflare the feed loads inside one `FeedHub` Durable Object (18f, 19h).
 - Zoomed out (below zoom 8), overlapping aircraft are thinned on a screen grid instead of all being drawn or hidden by icon collision; selected and emergency aircraft always stay (#75, #76). Terrain tiles load at half the request count (#74).

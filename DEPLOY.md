@@ -46,6 +46,8 @@ bunx wrangler secret put ADSBLOL_API_KEY --name skydeck  # adsb.lol key; without
 
 adsb.lol key quota: the free key allows 300 requests an hour and 1,000 a day, far fewer than continuous polling needs. The app counts its requests (kept at about 85% of each limit) and, when the quota is used up, shows saved copies up to 10 minutes old instead of sending requests that would be refused; repeated 429s can get a free key revoked. A paid key needs its own numbers in `ADSBLOL_FREE_LIMITS` (`src/lib/quota-guard.ts`).
 
+AI sharing: the build adds a second Durable Object, `AiHub` (binding `AI_HUB`, migration tag `v2`, `new_sqlite_classes`), next to `FeedHub` (tag `v1`). Deployed migration tags must never be edited; add a new tag for any further change. The first deploy applies `v2` automatically. `AiHub` reads `AI`, `GEMINI_API_KEY` and `AI_ENABLED` from its own environment.
+
 Shared feed cache: the build adds a Durable Object, `FeedHub` (binding `FEED_HUB`, a SQLite class, the only kind on the Workers Free plan), with migration tag `v1`. The first deploy creates it; nothing needs setting up. Every feed request then also counts as one Durable Object request.
 
 AI (ACARS panel descriptions): the build adds a Workers AI binding named `AI` to the Worker, so nothing needs setting up for it. `GEMINI_API_KEY` is optional and only used when Workers AI fails or its daily budget is used (`bunx wrangler secret put GEMINI_API_KEY --name skydeck`). Set `AI_ENABLED` to `off` to switch all AI off.
