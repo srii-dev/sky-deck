@@ -9,6 +9,8 @@
 import { buildCsp } from "./csp";
 
 export const SECURITY_HEADERS: Readonly<Record<string, string>> = {
+  // One year, this exact host only: no includeSubDomains or preload, because workers.dev is a shared name.
+  "Strict-Transport-Security": "max-age=31536000",
   "X-Content-Type-Options": "nosniff",
   "Referrer-Policy": "strict-origin-when-cross-origin",
   "Permissions-Policy":
@@ -33,6 +35,40 @@ export function securityOptionsFromEnv(env: Record<string, string | undefined>):
     noindex: indexingOff(env["SITE_INDEXING"]),
     cspReportOnly: buildCsp({ supabaseUrl: env["SUPABASE_URL"] }),
   };
+}
+
+const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
+
+/**
+ * Where to send a plain-http request (a 301 to https), or null to serve it. Local hosts are never redirected, so
+ * wrangler dev, the CI worker tests and the dev server keep working over http. The scheme the visitor used comes from
+ * cf-visitor ({"scheme":"http"}), else x-forwarded-proto, else the URL itself.
+ */
+export function httpsRedirectTarget(
+  url: string,
+  get: (name: string) => string | null | undefined,
+): string | null {
+  let u: URL;
+  try {
+    u = new URL(url);
+  } catch {
+    return null;
+  }
+  if (LOCAL_HOSTS.has(u.hostname)) return null;
+  let visitorScheme: string | undefined;
+  try {
+    visitorScheme = (JSON.parse(get("cf-visitor") ?? "null") as { scheme?: string } | null)?.scheme;
+  } catch {
+    visitorScheme = undefined;
+  }
+  const scheme = (
+    visitorScheme ??
+    get("x-forwarded-proto")?.split(",")[0]?.trim() ??
+    u.protocol.replace(":", "")
+  ).toLowerCase();
+  if (scheme !== "http") return null;
+  u.protocol = "https:";
+  return u.toString();
 }
 
 /** The same response with the headers added. A header the response already has is left alone. */

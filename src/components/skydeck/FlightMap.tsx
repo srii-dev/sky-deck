@@ -6,6 +6,7 @@ import {
   ScaleControl,
   setWorkerUrl,
   type GeoJSONSource,
+  type RasterDEMSourceSpecification,
   type StyleSpecification,
 } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
@@ -14,6 +15,7 @@ import type { FeatureCollection, Feature, Point, LineString, Polygon } from "geo
 
 import { altitudeColor, EMERGENCY_COLOR, isEmergency, type Aircraft } from "@/lib/aircraft";
 import { keepUprightWithoutHeading } from "@/lib/aircraft-kind";
+import { panelPadding } from "@/lib/panel-padding";
 import {
   buildRingPolygon,
   clampGlideRatio,
@@ -78,6 +80,7 @@ const GLYPHS = "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf";
 const OFM_VECTOR = "https://tiles.openfreemap.org/planet";
 const TERRARIUM = "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png";
 const DEM_ATTRIB = "Terrain: Mapzen / AWS Terrain Tiles";
+const cameraPadding = (selected: boolean) => panelPadding(selected, window.innerWidth);
 
 const SATELLITE_STYLE: StyleSpecification = {
   version: 8,
@@ -353,6 +356,8 @@ export default function FlightMap(props: FlightMapProps) {
   const propsRef = useRef(props);
   propsRef.current = props;
   const styleReadyRef = useRef(false);
+  // True once the deferred scene (buildings, terrain) is installed for the current style.
+  const sceneReadyRef = useRef(false);
   const firstStyleRef = useRef(true);
 
   // ---------- overlay installation (re-run after every style change) ----------
@@ -634,42 +639,6 @@ export default function FlightMap(props: FlightMapProps) {
     const p = propsRef.current;
     const before = terrainBeforeId(map);
 
-    if (!map.getSource("sd-dem")) {
-      map.addSource("sd-dem", {
-        type: "raster-dem",
-        tiles: [TERRARIUM],
-        encoding: "terrarium",
-        // 256 px tiles shown at 512 px and no finer than zoom 12: about a quarter of the requests, relief looks the same.
-        tileSize: 512,
-        maxzoom: 12,
-        attribution: DEM_ATTRIB,
-      });
-    }
-    if (!map.getSource("sd-dem-hs")) {
-      map.addSource("sd-dem-hs", {
-        type: "raster-dem",
-        tiles: [TERRARIUM],
-        encoding: "terrarium",
-        // 256 px tiles shown at 512 px and no finer than zoom 12: about a quarter of the requests, relief looks the same.
-        tileSize: 512,
-        maxzoom: 12,
-      });
-    }
-    if (!map.getLayer("sd-hillshade") && p.basemap !== "satellite") {
-      map.addLayer(
-        {
-          id: "sd-hillshade",
-          type: "hillshade",
-          source: "sd-dem-hs",
-          paint: {
-            "hillshade-exaggeration": p.basemap === "dark" ? 0.35 : 0.25,
-            "hillshade-shadow-color": p.basemap === "dark" ? "#000000" : "#5a6470",
-            "hillshade-highlight-color": p.basemap === "dark" ? "#2a3a4a" : "#ffffff",
-          },
-        },
-        before,
-      );
-    }
     if (!map.getSource("openmaptiles")) {
       map.addSource("openmaptiles", { type: "vector", url: OFM_VECTOR });
     }
@@ -692,17 +661,55 @@ export default function FlightMap(props: FlightMapProps) {
         before,
       );
     }
+    sceneReadyRef.current = true;
     applyTerrain();
     addKindImages(map);
     updateGlideRing();
   };
 
+  // The elevation sources and hill shading exist only once terrain was switched on: with it off (the default)
+  // the map never requests an elevation tile.
+  const addTerrainSources = (map: MLMap) => {
+    // 256 px tiles shown at 512 px and no finer than zoom 12: about a quarter of the requests, relief looks the same.
+    const dem: RasterDEMSourceSpecification = {
+      type: "raster-dem",
+      tiles: [TERRARIUM],
+      encoding: "terrarium",
+      tileSize: 512,
+      maxzoom: 12,
+    };
+    if (!map.getSource("sd-dem")) map.addSource("sd-dem", { ...dem, attribution: DEM_ATTRIB });
+    if (!map.getSource("sd-dem-hs")) map.addSource("sd-dem-hs", dem);
+    const basemap = propsRef.current.basemap;
+    if (!map.getLayer("sd-hillshade") && basemap !== "satellite") {
+      map.addLayer(
+        {
+          id: "sd-hillshade",
+          type: "hillshade",
+          source: "sd-dem-hs",
+          paint: {
+            "hillshade-exaggeration": basemap === "dark" ? 0.35 : 0.25,
+            "hillshade-shadow-color": basemap === "dark" ? "#000000" : "#5a6470",
+            "hillshade-highlight-color": basemap === "dark" ? "#2a3a4a" : "#ffffff",
+          },
+        },
+        terrainBeforeId(map),
+      );
+    }
+  };
+
   const applyTerrain = () => {
     const map = mapRef.current;
-    if (!map || !map.getSource("sd-dem")) return;
-    if (propsRef.current.terrain)
+    if (!map || !sceneReadyRef.current) return;
+    const on = propsRef.current.terrain;
+    if (on) {
+      addTerrainSources(map);
       map.setTerrain({ source: "sd-dem", exaggeration: TERRAIN_EXAGGERATION });
-    else map.setTerrain(null);
+    } else if (map.getTerrain()) {
+      map.setTerrain(null);
+    }
+    if (map.getLayer("sd-hillshade"))
+      map.setLayoutProperty("sd-hillshade", "visibility", on ? "visible" : "none");
   };
 
   const applyRuler = (hover?: [number, number]) => {
@@ -991,6 +998,7 @@ export default function FlightMap(props: FlightMapProps) {
 
     map.on("style.load", () => {
       styleReadyRef.current = false;
+      sceneReadyRef.current = false;
       installOverlays();
       scheduleDeferredScene();
     });
@@ -1391,8 +1399,36 @@ export default function FlightMap(props: FlightMapProps) {
       return;
     }
     styleReadyRef.current = false;
+    sceneReadyRef.current = false;
     map.setStyle(styleFor(props.basemap), { diff: false });
   }, [props.basemap]);
+
+  // With the side panel open the map's centre moves to the middle of the part that is still visible, so a
+  // selected aircraft (and Follow, which uses the centre) is not hidden under the panel.
+  useEffect(() => {
+    const apply = (toAircraft: boolean) => {
+      const map = mapRef.current;
+      if (!map) return;
+      const hex = propsRef.current.selectedHex;
+      const pad = cameraPadding(!!hex);
+      if (map.getPadding().right === pad.right) return;
+      const ac = toAircraft ? propsRef.current.aircraft.find((a) => a.hex === hex) : undefined;
+      // Changing the padding alone moves every map point; ease to the aircraft, or else to the point that is
+      // already at the new visible centre, so the view stays put.
+      const c = map.getContainer();
+      const center: [number, number] = ac
+        ? [ac.lon, ac.lat]
+        : (() => {
+            const ll = map.unproject([(c.clientWidth - pad.right) / 2, c.clientHeight / 2]);
+            return [ll.lng, ll.lat];
+          })();
+      map.easeTo({ padding: pad, center, duration: 300 });
+    };
+    apply(true);
+    const onResize = () => apply(false);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [props.selectedHex]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -1401,6 +1437,7 @@ export default function FlightMap(props: FlightMapProps) {
     map.flyTo({
       center: [t.lon, t.lat],
       zoom: t.zoom ?? Math.max(map.getZoom(), 9),
+      padding: cameraPadding(!!props.selectedHex),
       speed: 1.4,
       // Not essential: a visitor who prefers reduced motion gets a jump instead of a flight (Phase 5f).
     });

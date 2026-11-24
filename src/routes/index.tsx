@@ -138,7 +138,8 @@ function SkyDeck() {
   const [airport, setAirport] = useState<Airport | null>(null);
   const [nearby, setNearby] = useState<NearbyAirport[] | null>(null);
   const [basemap, setBasemap] = useState<Basemap>("dark");
-  const [terrain, setTerrain] = useState(true);
+  // Off for first-time visitors: 3D terrain costs frames on weak GPUs and about 2.5 MB of elevation tiles. A saved choice wins.
+  const [terrain, setTerrain] = useState(false);
   const [trail3d, setTrail3d] = useState(false);
   const [radarOn, setRadarOn] = useState(false);
   const [echoTopsOn, setEchoTopsOn] = useState(false);
@@ -229,7 +230,8 @@ function SkyDeck() {
   const [selectedMotion, setSelectedMotion] = useState<{ hex: string; m: MotionState } | null>(
     null,
   );
-  const [hudH, setHudH] = useState(76);
+  // Null until measured: the first render uses the CSS default on <main>, so the controls do not jump after hydration.
+  const [hudH, setHudH] = useState<number | null>(null);
   const hudRef = useRef<HTMLDivElement>(null);
   const [isMock, setIsMock] = useState(false);
   const [mockAircraft, setMockAircraft] = useState<Aircraft[]>([]);
@@ -792,12 +794,8 @@ function SkyDeck() {
 
   return (
     <main
-      className="relative h-dvh w-full overflow-hidden bg-background"
-      style={
-        {
-          "--hud-h": `${hudH}px`,
-        } as React.CSSProperties
-      }
+      className="relative h-dvh w-full overflow-hidden bg-background [--hud-h:170px] md:[--hud-h:120px] min-[1400px]:[--hud-h:68px]"
+      style={hudH ? ({ "--hud-h": `${hudH}px` } as React.CSSProperties) : undefined}
     >
       <h1 className="sr-only">
         {APP_NAME} — {APP_TAGLINE}
@@ -1013,6 +1011,7 @@ function SkyDeck() {
           onOpenCollection={() => setCollectionOpen(true)}
           onOpenAcars={() => setAcarsOpen(true)}
           watchCount={personal.watch.length}
+          topInset={hudH ?? undefined}
           replay={{
             available: replay.available,
             active: !!replay.source,

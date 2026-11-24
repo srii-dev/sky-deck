@@ -6,6 +6,8 @@ All notable changes to SkyDeck. The format follows [Keep a Changelog](https://ke
 
 ### Added
 
+- Tooling and docs (#86 to #90): `dev` is the working branch and `main` is production, with the promote and deploy steps in CONTRIBUTING (#87); an advisory Claude review of every pull request (#88, #89); the old data-credits branch recorded as merged (#86); AGENTS.md updated for the shared AI object and the key quota pacing (#90).
+- Audit batch (Phase 17, live audit 2026-11-24): the privacy, terms, disclaimer and help pages now say what the AI features send and to whom (Cloudflare Workers AI, then Google Gemini), the terms gained an Accounts paragraph, the credits and README name the AI providers (Llama 4 Scout, Gemini), `DEPLOY.md` has one step-by-step rollback that covers the Durable Object migrations, and `RELEASE.md` was refreshed for the deployed state with the owner actions listed.
 - Aircraft panel: an Explain with AI button under Flight facts that describes in 2 to 4 plain sentences what the selected flight is doing right now, from the panel's own facts (Workers AI, Gemini as fallback). On demand, labelled AI-generated, nothing stored (Phase 14c, per-flight part, #84).
 - Airport panel: an Explain with AI button that rewrites the rule-based brief in plain language (Workers AI, Gemini as fallback); on demand, labelled, nothing stored (Phase 14c, airport part).
 - Live distance on the ruler after the first point; optional `ADSBLOL_API_KEY` for the adsb.lol feed from Cloudflare (#73). New app icon and favicon from the SkyDeck logo (#74).
@@ -35,7 +37,7 @@ All notable changes to SkyDeck. The format follows [Keep a Changelog](https://ke
 - Community pages (Phase 23a, 23b, 23c, 23d, 23f, 23g in part, 23h in part): Help and FAQ, What's new (from this changelog), a status page that asks the data providers, a press kit, issue templates behind a Feedback link, and written terms for feedback and a takedown process. A moderation page (23e) was not built.
 - Final testing notes (Phase 17): `RELEASE.md` with the release checklist, the security review, failure drills, the accessibility check, a soft-launch and rollback plan and the known issues. Security headers (`X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`) on server and static responses.
 - Platform (Phase 16a, 16c, 16d, 16e): self-hosted fonts (no request to Google), an installable web app with a small service worker and an offline page, the map library split into its own file, and About, Privacy, Terms and Disclaimer pages (drafts). Cloudflare deployment (16b), end-to-end tests (16f) and a language setting (16g) were not built.
-- Themes, header and footer, and search metadata (Phase 15c, 15d in part, 15g in part): a light theme and a Dark, Light or System choice in Settings, a header and footer on the inspector and not-found pages, `robots.txt` and `sitemap.xml`, canonical links when `SITE_URL` is set, and schema.org data on the map page. Removing Lovable (15a), the brand (15b), the landing page (15e), share images (15f) and the full design pass (15h) were not built.
+- Themes, header and footer, and search metadata (Phase 15c, 15d in part, 15g in part): a light theme and a Dark, Light or System choice in Settings, a header and footer on the inspector and not-found pages, `robots.txt` and `sitemap.xml`, canonical links when `SITE_URL` is set, and schema.org data on the map page. Removing the old editor tooling (15a), the brand (15b), the landing page (15e), share images (15f) and the full design pass (15h) were not built.
 - Flight facts (Phase 14a): a card in the aircraft panel with the phase, route length, progress along the route, time to the destination and heading against the destination. The airport brief (14b) already existed from Phase 4; AI insights (14c) were not built.
 - Collection, achievements and daily challenges (Phase 13a, 13b, 13c): aircraft types and registrations you open are remembered in this browser, 13 achievements, three daily challenges and a Collection dialog behind a trophy button. Account sync and aircraft photos (13d) were not built.
 - More aircraft silhouettes (Phase 12a): four-engine heavy, twin-engine heavy, rear-engine jet, turboprop and military jet shapes chosen from the type code, listed in the Aircraft types key. 3D aircraft models (12b) and 3D airports (12c) were not built.
@@ -71,7 +73,7 @@ All notable changes to SkyDeck. The format follows [Keep a Changelog](https://ke
 - With an adsb.lol key, requests are counted against the key's published limits and not sent once a limit would be passed; the map then shows saved copies up to an hour old (protects a free key from being revoked).
 - The live feed cache, provider pacing and refresh budget are shared by every server instance: on Cloudflare the feed loads inside one `FeedHub` Durable Object (18f, 19h).
 - Zoomed out (below zoom 8), overlapping aircraft are thinned on a screen grid instead of all being drawn or hidden by icon collision; selected and emergency aircraft always stay (#75, #76). Terrain tiles load at half the request count (#74).
-- Lovable removed (Phase 15a): the build uses a plain `vite.config.ts` instead of `@lovable.dev/vite-tanstack-config`, `lightningcss` is a direct dependency, and the Lovable error hook, project folder and notes are gone. The production build is unchanged (same files, same size, same Worker settings).
+- Old editor tooling removed (Phase 15a): the build uses a plain `vite.config.ts`, `lightningcss` is a direct dependency, and an old error hook, project folder and notes are gone. The production build is unchanged (same files, same size, same Worker settings).
 - The dark theme's destructive red is a little darker, so white text on it reaches 4.5:1 (it was 3.7:1).
 - `public/robots.txt` is replaced by a `/robots.txt` route that also points at the sitemap and keeps crawlers off `/api/`.
 - Zoomed-in views request fixed shared tiles; cached tiles are aged, and a busy provider is answered from a tile up to 30 s old (#17).
@@ -87,6 +89,8 @@ All notable changes to SkyDeck. The format follows [Keep a Changelog](https://ke
 - 28 unused UI components from the original scaffold and the 24 packages only they used (#71).
 
 ### Fixed
+
+- The project's address in the footer, the README clone line and the issue template config is now `https://github.com/srii-dev/sky-deck` (the old account name only worked through a redirect).
 
 - Location said "blocked" when the browser allowed it but Windows had location off for the browser; airspace areas stayed on the map after zooming out past the load limit (#73).
 - Parked or holding aircraft were shown as "Last seen" and dimmed after 5 s; Follow mode no longer leaves the data area behind; a failed route lookup is retried after a minute instead of cached for an hour; FAA arrival delays were labelled as departures; a bad ACARS timestamp no longer breaks the message card; toolbar, legend, banner and panel no longer overlap at 1024x768 or on phones; the search box is announced as a combobox (#70).

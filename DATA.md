@@ -45,6 +45,8 @@ Nothing else about an account is stored yet. The same two lists are also kept in
 ## On the server
 
 - Aircraft, weather and airport answers are cached in memory of the running server for seconds to hours and are not written to disk.
+- The global `FeedHub` object keeps feed answers in memory and saves only the adsb.lol request counters (for the key quota) to its storage. Saved copies up to an hour old (`QUOTA_STALE_MAX_MS`) are served while the quota is used up.
+- The global `AiHub` object keeps ACARS text, headlines and AI answers in memory for a few hours, shared between visitors, and saves only pacing counters (calls per provider and day, provider pauses). Message text and AI output are never stored or logged.
 - Browser error reports are written as one line each to the hosting platform's log (`[client-error]`): message, stack, page path and a boundary name. No address, account or flight data is added by the app.
 - The visitor's network address is used only as an in-memory key for rate limiting and is not logged or stored by the app (the hosting platform and Supabase keep their own request logs under their own terms).
 
@@ -55,9 +57,9 @@ Nothing else about an account is stored yet. The same two lists are also kept in
 - Aircraft, weather, airport and route data are requested by our server, not the browser.
 - The status page (`/status`) makes our server ask adsb.lol, airplanes.live, the Aviation Weather Center, the FAA and Supabase whether they answer, at most once a minute for all visitors together. No visitor data is sent.
 - Feedback goes to the project's public GitHub issues page, under GitHub's terms; nothing is sent from the app itself.
-- AI providers (Cloudflare Workers AI, then Gemini when a key is set) receive only what a feature sends them: the ACARS panel sends message text and its flight, registration, label and route, the aircraft panel's Explain with AI button sends a plain-text summary of the selected flight's public live-feed and route facts (callsign, airline, registration, type, altitude, speed, track, squawk, route, progress; no ACARS text and no personal data), and the airport panel's Explain with AI button sends the page's rule-based brief text with the airport's name and code. Nothing is stored by SkyDeck.
+- AI providers (Cloudflare Workers AI, then Gemini when a key is set) receive only what a feature sends them: the ACARS panel sends message text and its flight, registration, label and route, the aircraft panel's Explain with AI button sends a plain-text summary of the selected flight's public live-feed and route facts (callsign, airline, registration, type, altitude, speed, track, squawk, route, progress; no ACARS text and no personal data), and the airport panel's Explain with AI button sends the page's rule-based brief text with the airport's name and code. Nothing is stored by SkyDeck. ACARS messages can contain operational details and AI text can be wrong; the privacy, terms, disclaimer and help pages say so (since 2026-11-24).
 
 ## Not done yet
 
-- A public privacy page and a data-export file for account data (the local export covers browser data only).
+- A data-export file for account data (the local export covers browser data only). The public privacy page exists (`/privacy`).
 - Retention rules for data that later features will store (watchlists, wait reports); each must be added here before it ships.

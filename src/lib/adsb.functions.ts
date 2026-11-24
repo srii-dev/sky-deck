@@ -1,9 +1,16 @@
 import { createServerFn } from "@tanstack/react-start";
-import { setResponseHeader } from "@tanstack/react-start/server";
+import { getRequestHeader, setResponseHeader } from "@tanstack/react-start/server";
 import { z } from "zod";
-import { type FeedResponse, type FlightRoute, type RouteAirport } from "./aircraft";
-import { getJson, searchAircraftSources, snapFeedCircle } from "./adsb-sources";
+import {
+  DATA_BUSY_MESSAGE,
+  type FeedResponse,
+  type FlightRoute,
+  type RouteAirport,
+} from "./aircraft";
+import { getJson, searchAircraftSources, snapFeedCircle, type SearchResult } from "./adsb-sources";
+import { createKeyedLimiter, visitorKey } from "./rate-limit";
 import { prune, type CacheEntry } from "./request-control";
+import { createSearchCache } from "./search-cache";
 import { loadFeedShared } from "./feed-hub.server";
 
 /*
@@ -28,9 +35,28 @@ const feedInput = z.object({
   radiusNm: z.number().min(1).max(250),
 });
 
+// Per-visitor limits so one client cannot spend the shared adsb.lol key quota. The counters are per Worker
+// instance (shortcut: move them into a Durable Object when abuse appears). Normal use is one poll every ~7 s
+// with up to 6 tiles, each tile its own call (about 50 a minute); the rest is headroom for panning and zooming,
+// which refresh at once, and a second tab.
+const feedLimiter = createKeyedLimiter({ max: 240, windowMs: 60_000 });
+// Following a selected aircraft outside the feed searches its hex every poll (cached 5 s), so this is not 12.
+const searchLimiter = createKeyedLimiter({ max: 30, windowMs: 60_000 });
+const searchCache = createSearchCache<SearchResult>();
+
 export const getAircraftFeed = createServerFn({ method: "GET" })
   .validator((d: unknown) => feedInput.parse(d))
   .handler(async ({ data }): Promise<FeedResponse> => {
+    if (!feedLimiter.allow(visitorKey(getRequestHeader), Date.now()).ok) {
+      setResponseHeader("Cache-Control", "no-store");
+      return {
+        aircraft: [],
+        source: "none",
+        fetchedAt: Date.now(),
+        busy: true,
+        error: DATA_BUSY_MESSAGE,
+      };
+    }
     const { lat, lon, radiusNm } = snapFeedCircle(data.lat, data.lon, data.radiusNm);
     // Through the shared FeedHub Durable Object when deployed, so all visitors share one cache and budget.
     return loadFeedShared(lat, lon, radiusNm);
@@ -42,7 +68,16 @@ export const searchAircraft = createServerFn({ method: "GET" })
   .validator((d: unknown) => searchInput.parse(d))
   .handler(async ({ data }) => {
     const q = data.q.toUpperCase().replace(/[^A-Z0-9-]/g, "");
-    return searchAircraftSources(q);
+    const now = Date.now();
+    const hit = searchCache.get(q, now);
+    if (hit) return hit;
+    if (!searchLimiter.allow(visitorKey(getRequestHeader), now).ok) {
+      setResponseHeader("Cache-Control", "no-store");
+      return { aircraft: [], error: "Too many searches. Wait a moment.", busy: true };
+    }
+    const result = await searchAircraftSources(q);
+    searchCache.set(q, result, Date.now());
+    return result;
   });
 
 const routeInput = z.object({ callsign: z.string().trim().min(3).max(10) });

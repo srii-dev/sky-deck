@@ -31,10 +31,19 @@ export function rowGradient(a: AcarsAlert): string {
   return `linear-gradient(90deg, rgba(${c},${s}), rgba(${c},0) 70%)`;
 }
 
+/** Strength of the card gradient at the bottom edge. Capped so white/70 text keeps 4.5:1 (acars-alert test). */
+export const CARD_GRADIENT_STRENGTH: Record<AcarsAlert, number> = {
+  emergency: 0.5,
+  warning: 0.34,
+  weather: 0.34,
+  position: 0.3,
+  routine: 0.22,
+};
+
 /** The floating message card: the alert colour rises from the bottom. */
 export function cardGradient(a: AcarsAlert): string {
   const c = ALERT_RGB[a];
-  const s = a === "routine" ? 0.22 : a === "position" ? 0.32 : 0.55;
+  const s = CARD_GRADIENT_STRENGTH[a];
   return `linear-gradient(to top, rgba(${c},${s}), rgba(${c},${s / 3}) 40%, rgba(${c},0) 80%)`;
 }
 
@@ -44,6 +53,37 @@ export function passesFilter(a: AcarsAlert, f: AcarsFilter): boolean {
   if (f === "breaking") return a === "emergency";
   if (f === "interesting") return a === "emergency" || a === "warning" || a === "weather";
   return true;
+}
+
+/**
+ * The rows of the list: exact duplicates (same flight or registration, label and text) folded into the first,
+ * which is the newest because the list is newest first. Rows without text stay out unless they are emergencies
+ * or cautions. `duplicates` and `empty` count what was left out, whatever the filter.
+ */
+export function visibleMessages<T extends Pick<AcarsMessage, "flight" | "tail" | "label" | "text">>(
+  messages: readonly T[],
+  alertOf: (m: T) => AcarsAlert,
+  filter: AcarsFilter,
+): { shown: T[]; duplicates: number; empty: number } {
+  const seen = new Set<string>();
+  const shown: T[] = [];
+  let duplicates = 0;
+  let empty = 0;
+  for (const m of messages) {
+    const key = [m.flight ?? m.tail ?? "", m.label ?? "", m.text].join("\u0000");
+    if (seen.has(key)) {
+      duplicates += 1;
+      continue;
+    }
+    seen.add(key);
+    const a = alertOf(m);
+    if (!m.text.trim() && a !== "emergency" && a !== "warning") {
+      empty += 1;
+      continue;
+    }
+    if (passesFilter(a, filter)) shown.push(m);
+  }
+  return { shown, duplicates, empty };
 }
 
 const EMERGENCY =

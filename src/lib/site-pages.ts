@@ -17,7 +17,7 @@ export interface TextPage {
   sections: LegalSection[];
 }
 
-const UPDATED = "2026-11-10";
+const UPDATED = "2026-11-24";
 
 /** Where visitors report a problem or send an idea: the project's GitHub issues, which has its own spam protection. */
 export const FEEDBACK_URL = REPO_URL + "/issues/new/choose";
@@ -37,6 +37,12 @@ export const HELP_PAGE: TextPage = {
         "Each aircraft is an icon that points the way it is heading. The colour shows its altitude, from warm (low) to cool (high); the key at the bottom left shows the scale. The shape shows the kind of aircraft: light aircraft, turboprop, rear-engine jet, narrowbody, twin-engine or four-engine heavy, business jet, military jet, helicopter, glider, balloon, drone and ground vehicle. The Aircraft types key lists them.",
         `Click an aircraft to open its panel: route, altitude, speed, vertical rate, registration, type, a Flight facts card with the phase of flight and time to the destination, charts, a trail you can download${serverFlags().acars ? ", and optional ACARS messages" : ""}. The trail builds up from live positions while you watch.`,
         "Blue and coloured outlines are airspace areas. Grey blobs on the ground are where aircraft are parked or taxiing close together.",
+      ],
+    },
+    {
+      heading: "AI descriptions",
+      paragraphs: [
+        "The Explain with AI buttons, on the aircraft panel (under Flight facts) and the airport panel, ask an AI to put what the page already shows into two to four plain sentences. They run only when you press them, are labelled AI-generated, and can be wrong. The Privacy page says what is sent and to whom.",
       ],
     },
     {

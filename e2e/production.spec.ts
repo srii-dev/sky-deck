@@ -80,7 +80,7 @@ test("the service worker takes over and keeps the offline page ready", async ({ 
   // Going offline is not driven here: Playwright's offline switch does not reach the service worker, so a real offline
   // visit stays a manual check (RELEASE.md). What can be proven is that the offline page is stored for that day.
   const stored = await page.evaluate(async () => {
-    const res = await caches.match("/offline.html");
+    const res = await caches.match("/offline");
     return res ? (await res.text()).includes("You are offline") : false;
   });
   expect(stored).toBe(true);
