@@ -34,13 +34,14 @@ jobs:
         with:
           fetch-depth: 1
 
+      # Advisory: a failing review (expired token, plan limit) must not turn the pull request red.
       - if: steps.gate.outputs.run == 'true'
+        continue-on-error: true
         uses: anthropics/claude-code-action@eb56b6666facdbd501035f4a0269d8caee2e7a8b # v1.0.289
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           # The workflow's own token posts the comments, so the Claude GitHub App does not have to be installed.
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          show_full_output: true
           prompt: |
             REPO: ${{ github.repository }}
             PR NUMBER: ${{ github.event.pull_request.number }}
