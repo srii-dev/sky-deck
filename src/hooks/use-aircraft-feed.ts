@@ -313,9 +313,10 @@ export function useAircraftFeed(
 
   // The check above only runs when a poll finishes, and during an outage polls back off to a minute, so the last
   // good aircraft would stay up to a minute past their limit. A once-a-second check clears them on time.
+  // Only while polls fail: a healthy feed that was paused (hidden tab) must keep its aircraft until the next poll.
   useEffect(() => {
     const timer = setInterval(() => {
-      if (document.hidden) return;
+      if (document.hidden || failuresRef.current === 0) return;
       setState((prev) =>
         prev.aircraft.length &&
         prev.fetchedAt != null &&

@@ -5,7 +5,7 @@ import { loadAirspace, type AirspaceResult } from "./airspace-sources";
 import { createKeyedLimiter, visitorKey } from "./rate-limit";
 
 // Per Worker instance (shortcut: move to a Durable Object when abuse appears).
-const limiter = createKeyedLimiter({ max: 30, windowMs: 60_000 });
+const limiter = createKeyedLimiter({ max: 60, windowMs: 60_000 });
 
 /*
  * Server proxy for the airspace map layers (Phase 8d): the browser asks us, we ask the FAA once per rounded

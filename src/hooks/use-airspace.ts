@@ -31,7 +31,11 @@ type Box = NonNullable<ReturnType<typeof normalizeAirspaceBox>>;
 function useLayerQuery(layer: "class" | "special", on: boolean, box: Box | null) {
   return useQuery({
     queryKey: ["airspace", layer, box],
-    queryFn: () => getAirspace({ data: { layer, ...box! } }),
+    queryFn: async () => {
+      const r = await getAirspace({ data: { layer, ...box! } });
+      if (!r) throw new Error("busy"); // rate-limited: fail so it is not cached as "no areas" for an hour
+      return r;
+    },
     enabled: on && !!box,
     staleTime: 60 * 60 * 1000,
     placeholderData: keepPreviousData,
