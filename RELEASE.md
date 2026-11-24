@@ -46,8 +46,7 @@ Checked on 2026-11-09 and again on the live site on 2026-11-24 (audit):
 - **Input validation**: every server function validates its input with a schema (feed, search, route, airport, ATIS, airspace, weather, AI, client error report). No open proxy and no XSS sink were found.
 - **Database**: row-level security is on for all tables; every policy is limited to the signed-in user's own rows. The accepted advisor warning is `delete_my_account()`: signed-in users call it on purpose, it only deletes the caller's own row, has a fixed search path and is not callable by anonymous visitors.
 - **Dependencies**: `bun audit` reports one moderate advisory (minimatch) in development tooling (eslint), not in the shipped app. CI fails on high or critical advisories.
-- **Headers**: `X-Content-Type-Options`, `Referrer-Policy` and `Permissions-Policy` on every response. The audit batch adds HSTS and an https redirect, and rate limits on the feed and search server functions.
-- **Report-only Content-Security-Policy** on HTML pages (`src/lib/csp.ts`); reports are logged as `[csp-report]` (read them with `wrangler tail`).
+- **Headers**: `X-Content-Type-Options`, `Referrer-Policy` and `Permissions-Policy` on every response.- **Report-only Content-Security-Policy** on HTML pages (`src/lib/csp.ts`); reports are logged as `[csp-report]` (read them with `wrangler tail`).
 - **Not done**: an enforcing Content-Security-Policy (inline scripts need nonces first), `frame-ancestors` (embedding is a feature), Cross-Origin-Opener-Policy, load testing and a penetration test.
 
 ## 3. Quota and failure drills (17c)
@@ -66,15 +65,14 @@ Drilled on 2026-11-24 against the deployed build and its local runtime; all beha
 | JavaScript off                              | A message instead of a blank page                                                       |
 | Supabase not configured or down             | Sign-in is off or fails with a message; the map and local data still work               |
 | Error in a component                        | The error boundary page, and a `[client-error]` log line                                |
-| No connection at all                        | The offline page (fixed in the audit batch)                                             |
+| No connection at all                        | The offline page (to be re-checked on the deployed build)                               |
 
 ## 4. Accessibility and performance (17d)
 
 Checked in the development build only:
 
 - Every page has one `h1`, a `main` landmark and a language; no duplicate ids; every form field and switch has a name; no images without alt text; no horizontal scroll at 375 px on the text pages and the inspector.
-- Contrast of the text and background colours in both themes is checked by a test. The audit batch fixes the ACARS panel in the light theme.
-
+- Contrast of the text and background colours in both themes is checked by a test.
 Not done: a screen reader pass, a keyboard-only pass of every dialog, Lighthouse or similar on the deployed build, real load-time numbers.
 
 ## 5. Soft launch and rollback (17f)

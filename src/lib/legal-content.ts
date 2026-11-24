@@ -103,7 +103,16 @@ export const LEGAL_PAGES: readonly LegalPage[] = [
       {
         heading: "AI descriptions",
         paragraphs: [
-          `Some features write short plain-language text with AI, only when you ask${serverFlags().acars ? " or while the ACARS panel is open" : ""}.${serverFlags().acars ? "The ACARS panel and the ACARS card send the message text with its flight, registration, label and route. " : ""}The Explain with AI buttons send the airport page's brief with the airport's name and code, or the selected flight's public facts (callsign, airline, registration, type, altitude, speed, track, squawk, route, progress). They go through our server to Cloudflare Workers AI and, only when Workers AI cannot answer, to Google Gemini.`,
+          [
+            `Some features write short plain-language text with AI, only when you ask${serverFlags().acars ? " or while the ACARS panel is open" : ""}.`,
+            serverFlags().acars
+              ? "The ACARS panel and the ACARS card send the message text with its flight, registration, label and route."
+              : "",
+            "The Explain with AI buttons send the airport page's brief with the airport's name and code, or the selected flight's public facts (callsign, airline, registration, type, altitude, speed, track, squawk, route, progress).",
+            "They go through our server to Cloudflare Workers AI and, only when Workers AI cannot answer, to Google Gemini.",
+          ]
+            .filter(Boolean)
+            .join(" "),
           "SkyDeck stores none of it: the text and the answers are kept in memory for a few hours and shared between visitors, and only counters (calls per provider and day) are saved. Messages can contain operational details, so do not rely on them being private. AI text is labelled, can be wrong, and is not advice. The providers handle the text under their own terms.",
         ],
       },
