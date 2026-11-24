@@ -461,7 +461,7 @@ export function AircraftPanel(props: Props) {
     <>
       <section
         aria-label="Aircraft details"
-        className="glass-panel pointer-events-auto fixed inset-x-0 bottom-0 z-40 flex flex-col rounded-t-xl pb-[env(safe-area-inset-bottom)] md:hidden"
+        className="pointer-events-auto fixed inset-x-0 bottom-0 z-40 flex flex-col rounded-t-xl border border-panel-border bg-card pb-[env(safe-area-inset-bottom)] shadow-[var(--shadow-panel)] md:hidden"
         style={{ maxHeight: "min(70vh, calc(100dvh - var(--hud-h, 76px) - 8px))" }}
       >
         {/* The handle is a 40 px tall touch target; a swipe up or down opens or closes the details. */}
