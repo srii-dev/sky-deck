@@ -60,7 +60,9 @@ export function passesFilter(a: AcarsAlert, f: AcarsFilter): boolean {
  * which is the newest because the list is newest first. Rows without text stay out unless they are emergencies
  * or cautions. `duplicates` and `empty` count what was left out, whatever the filter.
  */
-export function visibleMessages<T extends Pick<AcarsMessage, "flight" | "tail" | "label" | "text">>(
+export function visibleMessages<
+  T extends Pick<AcarsMessage, "flight" | "tail" | "icao" | "label" | "text">,
+>(
   messages: readonly T[],
   alertOf: (m: T) => AcarsAlert,
   filter: AcarsFilter,
@@ -70,12 +72,14 @@ export function visibleMessages<T extends Pick<AcarsMessage, "flight" | "tail" |
   let duplicates = 0;
   let empty = 0;
   for (const m of messages) {
-    const key = [m.flight ?? m.tail ?? "", m.label ?? "", m.text].join("\u0000");
-    if (seen.has(key)) {
+    // Only messages from an identified sender fold together: two unidentified ones may be different aircraft.
+    const who = m.flight ?? m.tail ?? m.icao ?? null;
+    const key = who === null ? null : [who, m.label ?? "", m.text].join("\u0000");
+    if (key !== null && seen.has(key)) {
       duplicates += 1;
       continue;
     }
-    seen.add(key);
+    if (key !== null) seen.add(key);
     const a = alertOf(m);
     if (!m.text.trim() && a !== "emergency" && a !== "warning") {
       empty += 1;

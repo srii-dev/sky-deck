@@ -40,6 +40,19 @@ describe("visibleMessages", () => {
     expect(r.duplicates).toBe(1);
   });
 
+  it("does not fold messages from unidentified senders, but folds ones with the same aircraft address", () => {
+    const anon = { flight: null, tail: null, icao: null };
+    const r = visibleMessages([msg({ id: 3, ...anon }), msg({ id: 2, ...anon })], alertOf, "all");
+    expect(r.shown).toHaveLength(2);
+    const byIcao = { flight: null, tail: null, icao: "abc123" };
+    const s = visibleMessages(
+      [msg({ id: 5, ...byIcao }), msg({ id: 4, ...byIcao })],
+      alertOf,
+      "all",
+    );
+    expect(s.shown).toHaveLength(1);
+  });
+
   it("keeps rows that differ in flight or label", () => {
     const r = visibleMessages(
       [msg({ id: 3 }), msg({ id: 2, flight: "TST999" }), msg({ id: 1, label: "5Z" })],
