@@ -68,6 +68,10 @@ Unfinished features ship behind a feature flag (`src/lib/flags.ts`, `useFlag` in
 - `CHANGELOG.md`: add a line under "Unreleased" in the pull request that makes the change (Added, Changed, Removed, Fixed). On release, rename "Unreleased" to the version and date and start a new "Unreleased".
 - To release: all four checks green on `dev`, the release checklist in `dev-plan.md` (17e) done, promote `dev` to `main` (see "Promote and deploy"), tag that commit, and create a GitHub release whose notes are the changelog section.
 
+## Claude review
+
+`.github/workflows/claude-review.yml` has Claude review every pull request from this repository and comment on it (inline comments plus a short summary); it can read code and write comments, not change files. It needs the repository secret `CLAUDE_CODE_OAUTH_TOKEN` (made on the owner's computer with `claude setup-token` and stored with `gh secret set CLAUDE_CODE_OAUTH_TOKEN`); without the secret the job skips itself. Reviews use the owner's Claude plan allowance. Comments are posted with the workflow's own GitHub token, so the Claude GitHub App does not have to be installed (it is only needed for `@claude` comments, which this workflow does not use).
+
 ## Promote and deploy
 
 `main` only ever moves forward to a `dev` commit whose checks are green (a fast-forward: `git push origin origin/dev:refs/heads/main`, no force). Then check out `main`, run `bun run build` and `bun run deploy`, and run the live tests against the site (`E2E_BASE_URL=<address> npx playwright test`) and the uptime check. If the live site breaks, roll back with `bunx wrangler rollback --name skydeck` (see `DEPLOY.md`) and fix on `dev`. Deploys are by hand until Cloudflare is connected to the repository.
