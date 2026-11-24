@@ -1,7 +1,7 @@
 /*
  * Status page probes (Phase 23d): one small request to each outside service the app relies on, with a time limit, so
  * the page can say which are answering. The probes are plain data and the fetch is passed in, so tests need no network.
- * They are run at most once a minute per server (see status.functions.ts), never once per visitor.
+ * They are run at most once in five minutes per server (see status.functions.ts), never once per visitor.
  */
 
 export type ProbeState = "ok" | "slow" | "blocked" | "down" | "not-configured" | "unused";

@@ -11,6 +11,7 @@ type Listener = (e: Record<string, unknown>) => void;
 function load() {
   const listeners: Record<string, Listener> = {};
   const store = new Map<string, Response>();
+  const deleted: string[] = [];
   const caches = {
     open: async () => ({
       addAll: async (urls: string[]) => urls.forEach((u) => store.set(u, new Response("x"))),
@@ -18,8 +19,11 @@ function load() {
     }),
     match: async (r: Request | string) =>
       store.get(typeof r === "string" ? r : new URL(r.url).pathname),
-    keys: async () => ["old-cache", "skydeck-shell-v1"],
-    delete: async () => true,
+    keys: async () => ["old-cache", "skydeck-shell-v1", "skydeck-shell-v2"],
+    delete: async (k: string) => {
+      deleted.push(k);
+      return true;
+    },
   };
   const self = {
     location: { origin: "https://app.test" },
@@ -47,6 +51,7 @@ function load() {
   return {
     handle,
     store,
+    deleted,
     setOffline: (v: boolean) => (netFails = v),
     net: () => netCalls,
     listeners,
@@ -90,7 +95,9 @@ describe("service worker", () => {
     sw.setOffline(true);
     const offline = await sw.handle("https://app.test/inspector", { mode: "navigate" });
     expect(await offline!.text()).toBe("x");
-    expect(sw.store.has("/offline.html")).toBe(true);
+    // The final address, not /offline.html (which the host redirects, and a redirect cannot answer a page load).
+    expect(sw.store.has("/offline")).toBe(true);
+    expect(sw.store.has("/offline.html")).toBe(false);
   });
 
   it("removes old caches when it activates", async () => {
@@ -106,6 +113,7 @@ describe("service worker", () => {
       }),
     );
     expect(done).toBe(true);
+    expect(sw.deleted.sort()).toEqual(["old-cache", "skydeck-shell-v1"]);
   });
 });
 
@@ -130,7 +138,9 @@ describe("web app files", () => {
     const m = /const PRECACHE = (\[[^\]]*\])/.exec(source);
     const list = JSON.parse(m![1]!.replace(/,\s*\]/, "]")) as string[];
     for (const f of list) {
-      expect(() => readFileSync(resolve(process.cwd(), "public" + f))).not.toThrow();
+      // The host serves public/offline.html at /offline.
+      const file = f === "/offline" ? "/offline.html" : f;
+      expect(() => readFileSync(resolve(process.cwd(), "public" + file))).not.toThrow();
     }
   });
 });

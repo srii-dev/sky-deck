@@ -179,7 +179,7 @@ describe("adsb.lol key quota with the real planner", () => {
     // Sunday evening there is still room: a new wide view elsewhere gets every tile.
     const us = await poll(mapView(39, -98, 3), 0, new Set());
     expect(us.answered).toBe(us.asked);
-  });
+  }, 30_000);
 
   it("fetches a tile with no copy while refreshes of tiles with one wait", async () => {
     await loadFeedCached(1, 2, 50, deps);

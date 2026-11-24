@@ -4,9 +4,12 @@
  * It never stores or answers live data: aircraft, weather, airport and sign-in requests always go to the network.
  * Change CACHE when this file or the offline page changes, so old copies are removed.
  */
-const CACHE = "skydeck-shell-v1";
+const CACHE = "skydeck-shell-v2";
+// The host redirects /offline.html to /offline (307), and a stored redirect cannot answer a page load, so the
+// final address is the one kept. The file itself is public/offline.html.
+const OFFLINE = "/offline";
 const PRECACHE = [
-  "/offline.html",
+  "/offline",
   "/manifest.webmanifest",
   "/icons/icon-192.png",
   "/icons/icon-512.png",
@@ -57,7 +60,7 @@ self.addEventListener("fetch", (event) => {
 
   // Pages: always try the network first; only when it fails show the offline page.
   if (req.mode === "navigate") {
-    event.respondWith(fetch(req).catch(() => caches.match("/offline.html")));
+    event.respondWith(fetch(req).catch(() => caches.match(OFFLINE)));
   }
   // Everything else (server functions, the API, data) is left alone and goes straight to the network.
 });

@@ -2,7 +2,11 @@ import "./lib/error-capture";
 
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
-import { securityOptionsFromEnv, withSecurityHeaders } from "./lib/security-headers";
+import {
+  httpsRedirectTarget,
+  securityOptionsFromEnv,
+  withSecurityHeaders,
+} from "./lib/security-headers";
 
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
@@ -47,6 +51,8 @@ function isH3SwallowedErrorBody(body: string): boolean {
 
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
+    const httpsUrl = httpsRedirectTarget(request.url, (n) => request.headers.get(n));
+    if (httpsUrl) return withSecurityHeaders(Response.redirect(httpsUrl, 301));
     try {
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);

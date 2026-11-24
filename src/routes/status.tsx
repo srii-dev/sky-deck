@@ -51,8 +51,8 @@ function StatusPage() {
       <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-4 p-4 pb-10">
         <h1 className="font-display text-2xl font-bold tracking-wide">Status</h1>
         <p className="text-sm text-muted-foreground">
-          One small request to each outside service, asked at most once a minute. A service that is
-          down here may still work for you, and the other way round.
+          One small request to each outside service, asked at most once every five minutes. A
+          service that is down here may still work for you, and the other way round.
         </p>
         {q.isLoading && <p className="text-sm text-muted-foreground">Checking…</p>}
         {q.isError && (
