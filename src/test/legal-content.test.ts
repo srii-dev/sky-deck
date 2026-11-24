@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { CONTACT_URL, LEGAL_PAGES, legalPage } from "@/lib/legal-content";
 import { SITEMAP_PATHS } from "@/lib/site-meta";
+import { HELP_PAGE } from "@/lib/site-pages";
 import { CREDITS } from "@/lib/credits";
 
 const text = (path: string) =>
@@ -53,6 +54,17 @@ describe("legal pages", () => {
     }
     // The fonts are self-hosted now, so the page must not say Google serves them.
     expect(t).toMatch(/fonts are served by this site/);
+  });
+
+  it("tells visitors about AI on the privacy, terms, disclaimer and help pages", () => {
+    const t = text("/privacy");
+    for (const word of ["Cloudflare Workers AI", "Google Gemini", "Explain with AI", "counters"]) {
+      expect(t).toContain(word);
+    }
+    expect(text("/terms")).toMatch(/written by AI/);
+    expect(text("/terms")).toMatch(/Delete my account/);
+    expect(text("/disclaimer")).toMatch(/AI text can be wrong/);
+    expect(HELP_PAGE.sections.map((s) => s.heading)).toContain("AI descriptions");
   });
 
   it("says plainly that the app is not for safety use", () => {

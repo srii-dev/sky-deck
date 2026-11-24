@@ -70,6 +70,18 @@ describe("text that follows the flags", () => {
     expect(t.privacy).toContain("ACARS messages from Airframes");
   });
 
+  it("keeps a space after every full stop in the AI section, with ACARS on or off", async () => {
+    for (const flags of ["", "-acars"]) {
+      vi.stubEnv("VITE_FLAGS", flags);
+      vi.resetModules();
+      const legal = await import("@/lib/legal-content");
+      const section = legal
+        .legalPage("/privacy")!
+        .sections.find((s) => s.heading === "AI descriptions")!;
+      expect(section.paragraphs.join(" ")).not.toMatch(/[.!?][A-Z]/);
+    }
+  });
+
   it("leaves out the credit and every sentence about a feature that is switched off", async () => {
     vi.stubEnv("VITE_FLAGS", "-acars -satellite");
     const t = await load();

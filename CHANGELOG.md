@@ -6,6 +6,8 @@ All notable changes to SkyDeck. The format follows [Keep a Changelog](https://ke
 
 ### Added
 
+- Tooling and docs (#86 to #90): `dev` is the working branch and `main` is production, with the promote and deploy steps in CONTRIBUTING (#87); an advisory Claude review of every pull request (#88, #89); the old data-credits branch recorded as merged (#86); AGENTS.md updated for the shared AI object and the key quota pacing (#90).
+- Audit batch (Phase 17, live audit 2026-11-24): the privacy, terms, disclaimer and help pages now say what the AI features send and to whom (Cloudflare Workers AI, then Google Gemini), the terms gained an Accounts paragraph, the credits and README name the AI providers (Llama 4 Scout, Gemini), `DEPLOY.md` has one step-by-step rollback that covers the Durable Object migrations, and `RELEASE.md` was refreshed for the deployed state with the owner actions listed.
 - Aircraft panel: an Explain with AI button under Flight facts that describes in 2 to 4 plain sentences what the selected flight is doing right now, from the panel's own facts (Workers AI, Gemini as fallback). On demand, labelled AI-generated, nothing stored (Phase 14c, per-flight part, #84).
 - Airport panel: an Explain with AI button that rewrites the rule-based brief in plain language (Workers AI, Gemini as fallback); on demand, labelled, nothing stored (Phase 14c, airport part).
 - Live distance on the ruler after the first point; optional `ADSBLOL_API_KEY` for the adsb.lol feed from Cloudflare (#73). New app icon and favicon from the SkyDeck logo (#74).
@@ -87,6 +89,8 @@ All notable changes to SkyDeck. The format follows [Keep a Changelog](https://ke
 - 28 unused UI components from the original scaffold and the 24 packages only they used (#71).
 
 ### Fixed
+
+- The project's address in the footer, the README clone line and the issue template config is now `https://github.com/srii-dev/sky-deck` (the old account name only worked through a redirect).
 
 - Location said "blocked" when the browser allowed it but Windows had location off for the browser; airspace areas stayed on the map after zooming out past the load limit (#73).
 - Parked or holding aircraft were shown as "Last seen" and dimmed after 5 s; Follow mode no longer leaves the data area behind; a failed route lookup is retried after a minute instead of cached for an hour; FAA arrival delays were labelled as departures; a bad ACARS timestamp no longer breaks the message card; toolbar, legend, banner and panel no longer overlap at 1024x768 or on phones; the search box is announced as a combobox (#70).

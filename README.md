@@ -46,6 +46,7 @@ SkyDeck is an independent project. It is inspired by the general category of fli
 - **ADS-B message inspector** at `/inspector` (also linked from the Filters popover): paste raw Mode S frames and see the downlink format, ICAO address, CRC check and decoded fields. It runs entirely in your browser
 - **ACARS messages** for the selected aircraft, loaded only when you press a button, from the public Airframes API (see "How it works" and the notes under Known limitations) Each message shows the original text as received (with a Copy button) and an Explain this message section: the fields the data carried (others shown as unavailable) and a short glossary of standard abbreviations, by fixed rules and not by AI. Label codes are not explained.
 - **ACARS panel** (toolbar): the latest messages from all aircraft while the panel is open. Each card shows the flight number, a colour by alert level (fixed rules: emergency, caution, weather/ATC, position, routine; red also when the aircraft squawks 7500/7600/7700) and a short AI-generated description. Opening a card adds a longer AI explanation and a Markdown report of the whole message, which can be downloaded. Message text is sent through our server to Cloudflare Workers AI (Gemini as fallback) for this; nothing is stored.
+- **Explain with AI buttons**: on the aircraft panel (under Flight facts) a 2 to 4 sentence description of what the selected flight is doing, and on the airport panel a plain-language version of the rule-based brief. Both run only when pressed, are labelled AI-generated, send only what the page already shows (Workers AI first, Gemini as fallback) and store nothing
 
 ## Tech stack
 
@@ -59,7 +60,7 @@ SkyDeck is an independent project. It is inspired by the general category of fli
 **Requirements:** a current Node.js LTS (22 recommended) and [Bun](https://bun.sh). The repo ships a `bun.lock`, so Bun gives you the exact dependency versions. npm may also work, but it ignores that lockfile.
 
 ```sh
-git clone https://github.com/srii-dev8/sky-deck.git
+git clone https://github.com/srii-dev/sky-deck.git
 cd sky-deck
 bun install
 bun run dev
@@ -137,6 +138,7 @@ SkyDeck relies on free community data. Please be gentle with it and respect each
 - **ACARS messages:** [Airframes](https://airframes.io), through its anonymous public API. Data provided by Airframes.io and its community of feeders. The API is still pre-release and its terms are still being finalized
 - **Satellite imagery:** Esri, Vantor, Earthstar Geographics, and the GIS User Community
 - **Terrain:** Mapzen / AWS Terrain Tiles
+- **AI descriptions:** [Cloudflare Workers AI](https://developers.cloudflare.com/workers-ai/) running Meta's Llama 4 Scout (Built with Llama; the Llama 4 Community License was not read in full), and [Google Gemini](https://ai.google.dev/) only as a fallback when a key is set. They receive only the text a feature sends (see `DATA.md`); AI text can be wrong
 
 Each of these has its own licence and usage terms. Check them before deploying publicly or commercially.
 

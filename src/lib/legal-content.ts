@@ -25,7 +25,7 @@ export const CONTACT_URL = REPO_URL + "/issues";
 export const CONTACT_NOTE =
   "Questions, corrections and takedown requests: open an issue on the project's GitHub page. Do not put private details in a public issue; say that you want a private reply and a way to give one will be arranged.";
 
-const UPDATED = "2026-11-09";
+const UPDATED = "2026-11-24";
 
 export const LEGAL_PAGES: readonly LegalPage[] = [
   {
@@ -101,6 +101,22 @@ export const LEGAL_PAGES: readonly LegalPage[] = [
         ],
       },
       {
+        heading: "AI descriptions",
+        paragraphs: [
+          [
+            `Some features write short plain-language text with AI, only when you ask${serverFlags().acars ? " or while the ACARS panel is open" : ""}.`,
+            serverFlags().acars
+              ? "The ACARS panel and the ACARS card send the message text with its flight, registration, label and route."
+              : "",
+            "The Explain with AI buttons send the airport page's brief with the airport's name and code, or the selected flight's public facts (callsign, airline, registration, type, altitude, speed, track, squawk, route, progress).",
+            "They go through our server to Cloudflare Workers AI and, only when Workers AI cannot answer, to Google Gemini.",
+          ]
+            .filter(Boolean)
+            .join(" "),
+          "SkyDeck stores none of it: the text and the answers are kept in memory for a few hours and shared between visitors, and only counters (calls per provider and day) are saved. Messages can contain operational details, so do not rely on them being private. AI text is labelled, can be wrong, and is not advice. The providers handle the text under their own terms.",
+        ],
+      },
+      {
         heading: "Contact",
         paragraphs: [CONTACT_NOTE],
       },
@@ -119,6 +135,18 @@ export const LEGAL_PAGES: readonly LegalPage[] = [
           "You may use " +
             APP_NAME +
             " for personal, educational and hobby purposes. Please do not overload it with automated requests, try to break or bypass its limits, or use it to harass or track a person.",
+        ],
+      },
+      {
+        heading: "Accounts",
+        paragraphs: [
+          "An account is optional. You can sign in with an email address so your watchlist and recently viewed flights follow you between devices. You are responsible for keeping your sign-in details safe, and you can delete the account and its data at any time in the account dialog (Delete my account). The Privacy page says what is stored.",
+        ],
+      },
+      {
+        heading: "AI text",
+        paragraphs: [
+          "Some descriptions are written by AI. They are for learning only, may be wrong or out of date, and are not advice. Do not rely on them for any decision.",
         ],
       },
       {
@@ -173,6 +201,14 @@ export const LEGAL_PAGES: readonly LegalPage[] = [
         heading: "Data can be wrong",
         paragraphs: [
           "Positions come from aircraft broadcasts received by volunteers. They can be late, missing, wrong or filtered, and some aircraft do not broadcast at all. Routes can be out of date. Stages, distances, arrival times, glide ranges and nearby-airport suggestions are estimates from a straight line and current speed, without winds or air traffic control. Weather and airspace are shown for context and are not official briefings.",
+        ],
+      },
+      {
+        heading: "AI text can be wrong",
+        paragraphs: [
+          "Descriptions written by AI (the Explain with AI buttons" +
+            (serverFlags().acars ? " and the ACARS panel" : "") +
+            ") can misread the facts, invent detail or be out of date. They are for education only and are not advice or an official reading of anything.",
         ],
       },
       {

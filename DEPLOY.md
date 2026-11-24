@@ -70,13 +70,18 @@ AI (ACARS panel descriptions): the build adds a Workers AI binding named `AI` to
 
 ## Roll back
 
-```sh
-bunx wrangler deployments list --name skydeck
-bunx wrangler rollback --name skydeck
-```
+This is the only rollback procedure; `RELEASE.md` points here.
 
-Database changes are separate: undo them with a new migration (see `RELEASE.md`).
+1. List the recent versions and pick the last good one: `bunx wrangler deployments list --name skydeck`. Note its version id.
+2. Roll back to it: `bunx wrangler rollback <version-id> --name skydeck` (without an id it goes to the previous version). Wrangler asks for a message; say why.
+3. Check it: `https://<address>/api/health` answers `{"status":"ok"}`, then run the live tests: `E2E_BASE_URL=https://<address> bun run test:e2e`. Open the site once on a phone or laptop.
+4. If visitors still see the bad version, the service worker cached it: change `CACHE` in `public/sw.js` and redeploy from `main` (see `RELEASE.md` section 5).
+5. Fix on `dev`, promote to `main` and deploy again. A rollback does not change the code on `main`; the next deploy replaces it.
+
+Durable Object migrations: the Worker config in `vite.config.ts` declares the migration tags `v1` (`FeedHub`) and `v2` (`AiHub`). Never edit or remove a deployed tag, and never reuse one: Cloudflare keeps the history of applied tags per Worker and a changed history is refused or can orphan the stored data. A rollback moves the Worker code back but does not undo a migration, and the objects keep their data. So an older version must still be able to run next to the `FeedHub` and `AiHub` classes (do not roll back to a version from before `v2` and expect `AiHub` to disappear). Any further change to those classes is a new tag (`v3`, ...), never an edit.
+
+Database changes are separate: undo them with a new migration (see `RELEASE.md`); never edit an applied one.
 
 ## Not covered yet
 
-Custom domain, preview deployments per pull request (21b), uptime checks and quota alarms (21d), scheduled jobs and a shared cache (18f, 19h). They need a domain or further decisions.
+Custom domain, preview deployments per pull request (21b) and quota alarms (21d). The uptime check is prepared but needs the repository variable `SITE_URL` (see above). They need a domain or further decisions.
