@@ -94,6 +94,8 @@ interface Props {
   watchCount: number;
   /** Session replay (Phase 9a). */
   replay: { available: boolean; active: boolean; onStart: () => void; onStop: () => void };
+  /** Height of the top bar in px: popovers stay below it instead of covering the brand and the LIVE chip. */
+  topInset?: number | undefined;
 }
 
 const btn = "h-10 w-10";
@@ -141,6 +143,7 @@ export function MapTools({
   onOpenAcars,
   watchCount,
   replay,
+  topInset = 120,
 }: Props) {
   const acarsOn = useFlag("acars");
   const [views, setViews] = useState<SavedView[]>([]);
@@ -219,7 +222,15 @@ export function MapTools({
   return (
     <div className="pointer-events-auto flex items-start gap-2">
       {/* In a short window (a phone on its side) the column wraps into a second column instead of running off the screen. */}
-      <div className="flex max-h-[calc(100dvh-var(--hud-h,76px)-84px)] flex-col flex-wrap content-start gap-2 md:max-h-[calc(100dvh-var(--hud-h,76px)-148px)]">
+      {/* On a phone with an aircraft selected the column is shorter and wraps, so the last button stays above the collapsed bottom sheet (about 215 px). */}
+      <div
+        className={cn(
+          "flex flex-col flex-wrap content-start gap-2 md:max-h-[calc(100dvh-var(--hud-h,76px)-148px)]",
+          layers.hasSelection
+            ? "max-h-[calc(100dvh-var(--hud-h,76px)-240px)]"
+            : "max-h-[calc(100dvh-var(--hud-h,76px)-84px)]",
+        )}
+      >
         <Button
           variant="panel"
           size="icon"
@@ -253,7 +264,12 @@ export function MapTools({
               <Layers />
             </Button>
           </PopoverTrigger>
-          <PopoverContent align="start" side="right" className="glass-panel w-64">
+          <PopoverContent
+            align="start"
+            side="right"
+            collisionPadding={{ top: topInset + 8, bottom: 8, left: 8, right: 8 }}
+            className="glass-panel max-h-(--radix-popover-content-available-height) w-64 overflow-y-auto max-md:bg-card! max-md:backdrop-blur-none"
+          >
             <div className="hud-label mb-1">Layers</div>
             <LayerRow
               label="Terrain and buildings"

@@ -49,7 +49,8 @@ export function LiveIndicator({
           {label}
         </span>
       </span>
-      <span className="data-value whitespace-nowrap text-[11px] text-muted-foreground">
+      {/* Fixed-width slots (tabular numerals) so the chip does not resize and push the search box around. */}
+      <span className="data-value inline-block min-w-[9ch] whitespace-nowrap text-[11px] tabular-nums text-muted-foreground">
         {age == null ? "—" : isFetching && age > 6 ? "updating…" : `${age}s ago`}
       </span>
       {behind && fetchedAt != null && (
@@ -60,7 +61,7 @@ export function LiveIndicator({
       {/* No count before the first response: "0 ac" is not data yet, and the extra
           width pushed the Filters button onto a second row at ~1280 px. */}
       {fetchedAt != null && (
-        <span className="data-value hidden whitespace-nowrap text-[11px] text-muted-foreground sm:inline">
+        <span className="data-value hidden min-w-[10ch] whitespace-nowrap text-[11px] tabular-nums text-muted-foreground sm:inline-block">
           {shown === total ? `${total} ac` : `${shown}/${total} ac`}
         </span>
       )}

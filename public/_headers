@@ -8,3 +8,6 @@
 
 /manifest.webmanifest
   Cache-Control: no-cache
+
+/fonts/*
+  Cache-Control: public, max-age=2592000
