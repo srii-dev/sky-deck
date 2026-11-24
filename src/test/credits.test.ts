@@ -57,6 +57,13 @@ describe("credits data", () => {
     expect(byId("faa-nas").licence).toMatch(/no licence/);
   });
 
+  it("credits the AI providers, naming the model and Llama", () => {
+    expect(byId("workers-ai").group).toBe("AI descriptions");
+    expect(byId("workers-ai").name).toMatch(/Llama 4 Scout/);
+    expect(byId("workers-ai").credit).toMatch(/Built with Llama/);
+    expect(byId("gemini").usedFor).toMatch(/only when Workers AI cannot answer/);
+  });
+
   it("credits only the sources the app actually uses (OpenSky was removed)", () => {
     const text = JSON.stringify(CREDITS).toLowerCase();
     expect(text).not.toContain("opensky");
