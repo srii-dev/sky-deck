@@ -12,23 +12,21 @@ State on 2026-11-24: the site runs on Cloudflare at https://skydeck.sky-deck.wor
 - [x] **0g Route data freshness**: wrong routes are detected and hidden (Phases 11 and 14).
 - [x] **0i Stale-cache quirk**: fixed earlier (see the changelog).
 - [x] **0j Cloudflare deployment**: live at https://skydeck.sky-deck.workers.dev (`DEPLOY.md`).
-- [x] **0k AGENTS.md and README wording**: backend rule updated; the Lovable block and note were removed (15a).
+- [x] **0k AGENTS.md and README wording**: backend rule updated; an outdated block and note were removed (15a).
 - [x] **AI**: Workers AI first, Gemini as fallback, shared `AiHub`, per-visitor rate limits; the privacy, terms, disclaimer, help and credits texts now say so (2026-11-24).
 - [x] **adsb.lol key quota**: counted and paced (`src/lib/quota-guard.ts`), saved copies up to an hour old.
 - [x] **Shared cache**: the feed runs in one global `FeedHub` Durable Object.
 - [x] **Claude pull request review**: advisory workflow on pull requests (#88, #89).
-- [x] Lovable removed from the code (15a).
 - [x] A Content-Security-Policy tried in report-only mode (section 2). Enforcing it needs nonces on the inline scripts first.
 
 ### Open, owner actions (do not decide these in code)
 
 - [ ] **Indexing (R2, R8).** Keep the site out of search engines until the legal pages are approved. Recommendation: `bunx wrangler secret put SITE_INDEXING --name skydeck` and type `off`. Delete the secret at launch.
-- [ ] **ACARS and Satellite flags (R2).** Their legal questions are open: Esri imagery terms (0a), the Airframes answer (0c) and the ACARS legal review (0d). Recommendation: wait for the answers. Only if you do not want to wait, publish without them: `VITE_FLAGS="-acars,-satellite" bun run build`, then deploy from `main`.
+- [x] **ACARS and Satellite flags (R2): decided 2026-11-24, both ship.** Sri decided to publish with ACARS and the Esri Satellite basemap on while their terms questions (0a, 0c, 0d) are still open; they stay open below and the credits and legal pages say where the data comes from. To switch either off later: `VITE_FLAGS="-acars,-satellite" bun run build` (see `DEPLOY.md`).
 - [ ] **`SITE_URL` repository variable and uptime workflow (R9).** `gh variable set SITE_URL --body https://skydeck.sky-deck.workers.dev` (or the repository Settings, Secrets and variables, Actions, Variables). The scheduled uptime workflow (`.github/workflows/uptime.yml`) needs it and runs only from `main`. Also set the Worker's `SITE_URL` secret once there is a domain (`DEPLOY.md`).
 - [ ] **Domain and brand name (15b, Decision 7)**: buy the domain after the product is finished; the name was never checked for clashes.
 - [ ] **Private contact address (23g)**: create it once there is a domain, then replace `CONTACT_NOTE` in `src/lib/legal-content.ts`.
 - [ ] **Legal pages read by the owner (16e).** The AI text on privacy, terms, disclaimer and help is new (2026-11-24); read it before indexing is allowed.
-- [ ] **Lovable**: disconnect the project in Lovable and remove the Lovable GitHub app from the repository (15a).
 - [ ] **Supabase Auth Site URL** set to the real address (dashboard, Authentication, URL configuration), and the Google sign-in decision made.
 - [ ] **0a Esri satellite imagery terms**: not read. Keep, use a keyed source, or drop Satellite.
 - [ ] **0b airplanes.live 403**: unresolved; adsb.lol is the working provider and airplanes.live the fallback.
@@ -73,7 +71,7 @@ Checked in the development build only:
 
 - Every page has one `h1`, a `main` landmark and a language; no duplicate ids; every form field and switch has a name; no images without alt text; no horizontal scroll at 375 px on the text pages and the inspector.
 - Contrast of the text and background colours in both themes is checked by a test.
-Not done: a screen reader pass, a keyboard-only pass of every dialog, Lighthouse or similar on the deployed build, real load-time numbers.
+  Not done: a screen reader pass, a keyboard-only pass of every dialog, Lighthouse or similar on the deployed build, real load-time numbers.
 
 ## 5. Soft launch and rollback (17f)
 

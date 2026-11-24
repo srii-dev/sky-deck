@@ -1,6 +1,4 @@
 // Plain Vite config for TanStack Start on Cloudflare Workers.
-// It replaces @lovable.dev/vite-tanstack-config; the settings below are the ones that package applied
-// outside Lovable's own sandbox.
 import { defineConfig, loadEnv } from "vite";
 import tailwindcss from "@tailwindcss/vite";
 import tsConfigPaths from "vite-tsconfig-paths";
