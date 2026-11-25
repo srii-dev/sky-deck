@@ -2,7 +2,7 @@ import { DATA_BUSY_MESSAGE, type Aircraft, type FeedResponse } from "./aircraft"
 import { isMilitaryFlag, parseYear } from "./aircraft-details";
 import { classifyAircraft } from "./aircraft-kind";
 import { ADSBLOL_FREE_LIMITS, QuotaGuard, type QuotaState } from "./quota-guard";
-import { budgetFromEnv, RefreshBudget } from "./refresh-budget";
+import { budgetFromEnv, RefreshBudget, STALE_HARD_MS } from "./refresh-budget";
 import { adsbLolHeaders } from "./server-config.server";
 import { upstreamUrl } from "./upstream-override";
 import {
@@ -493,10 +493,12 @@ export async function loadFeedCached(
       getBudget().noteUpstream(clock(), !hit || getBudget().mustRefresh(age));
       const v = await loadFeedCircle(lat, lon, radiusNm, deps);
       if (!v.error) {
-        // With a key, copies are kept as long as they may be served, or a full cache would drop them all.
+        // Re-added at the end, so a full cache drops the tile refreshed longest ago, not a busy early one.
+        feedCache.delete(key);
+        // Copies are kept as long as they may be served, or a full cache would drop them all.
         prune(
           feedCache,
-          keyedAdsbLol(ADSBLOL_API) ? QUOTA_STALE_MAX_MS : FEED_TTL_MS,
+          keyedAdsbLol(ADSBLOL_API) ? QUOTA_STALE_MAX_MS : STALE_HARD_MS,
           200,
           clock(),
         );

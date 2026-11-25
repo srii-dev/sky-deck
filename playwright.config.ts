@@ -20,6 +20,20 @@ const stubUrl = `http://127.0.0.1:${port + 3}`;
 // Read by the test workers, which inherit this process's environment.
 process.env["E2E_STUB_URL"] = externalBase ? "" : stubUrl;
 
+// Invented values, so that accounts and web push look set up. The push flow answers every Supabase request in the
+// browser (e2e/flows.spec.ts); .test never resolves, and these also win over a developer's own .env.
+const accountEnv = {
+  SUPABASE_URL: "https://stub.supabase.test",
+  SUPABASE_ANON_KEY: "e2e-anon",
+  SUPABASE_SERVICE_ROLE_KEY: "e2e-service",
+  VAPID_PUBLIC_KEY: "ZTJlLXB1YmxpYy1rZXk",
+  VAPID_PRIVATE_KEY: "e2e-private",
+  VAPID_SUBJECT: "mailto:e2e@example.test",
+};
+const workerVars = Object.entries(accountEnv)
+  .map(([name, value]) => `--var ${name}:${value}`)
+  .join(" ");
+
 const flows = "**/flows.spec.ts";
 // On CI the flows run only against the production build (the worker job). Against the dev server on a CI machine they are
 // flaky in ways that do not show on the production build or on a developer machine: Vite compiles lazily, so a page
@@ -84,10 +98,10 @@ export default defineConfig({
         {
           command: worker
             ? // The compatibility date is pinned because the installed workerd can be older than the date the build writes.
-              `npx wrangler dev --cwd .output --name skydeck --ip 127.0.0.1 --port ${port} --inspector-port ${port + 1} --compatibility-date 2026-11-01 --var ADSB_UPSTREAM_OVERRIDE:${stubUrl}`
+              `npx wrangler dev --cwd .output --name skydeck --ip 127.0.0.1 --port ${port} --inspector-port ${port + 1} --compatibility-date 2026-11-01 --var ADSB_UPSTREAM_OVERRIDE:${stubUrl} ${workerVars}`
             : `npx vite dev --port ${port} --strictPort`,
-          // For the dev server; the Worker gets the variable through --var above.
-          env: { ADSB_UPSTREAM_OVERRIDE: stubUrl },
+          // For the dev server; the Worker gets the variables through --var above.
+          env: { ADSB_UPSTREAM_OVERRIDE: stubUrl, ...accountEnv },
           url: `http://${worker ? "127.0.0.1" : "localhost"}:${port}/api/health`,
           // Never reuse: a server started elsewhere would lack ADSB_UPSTREAM_OVERRIDE and the flows would hit live data.
           // A busy port now fails the run instead.

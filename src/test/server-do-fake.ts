@@ -9,6 +9,7 @@ export interface FakeCtx {
   storage: {
     get<T = unknown>(key: string): Promise<T | undefined>;
     put(key: string, value: unknown): Promise<void>;
+    put(entries: Record<string, unknown>): Promise<void>;
   };
   blockConcurrencyWhile<T>(fn: () => Promise<T>): Promise<T>;
   /** What was stored, by key. */
@@ -31,10 +32,14 @@ export function fakeCtx(initial: Record<string, unknown> = {}): FakeCtx {
       async get<T>(key: string) {
         return data.has(key) ? (structuredClone(data.get(key)) as T) : undefined;
       },
-      async put(key: string, value: unknown) {
-        const copy = structuredClone(value);
-        ctx.writes.push({ key, value: copy });
-        data.set(key, copy);
+      async put(key: string | Record<string, unknown>, value?: unknown) {
+        for (const [k, v] of typeof key === "string"
+          ? [[key, value] as const]
+          : Object.entries(key)) {
+          const copy = structuredClone(v);
+          ctx.writes.push({ key: k, value: copy });
+          data.set(k, copy);
+        }
       },
     },
     blockConcurrencyWhile<T>(fn: () => Promise<T>) {

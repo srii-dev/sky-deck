@@ -26,6 +26,7 @@ export interface BudgetOptions {
 export type BudgetDecision = "refresh" | "stale";
 
 export const DEFAULT_BUDGET_PER_MINUTE = 90;
+export const STALE_HARD_MS = 60_000;
 
 export class RefreshBudget {
   private readonly perWindow: number;
@@ -41,7 +42,7 @@ export class RefreshBudget {
     this.windowMs = opts.windowMs ?? 60_000;
     this.softShare = opts.softShare ?? 0.6;
     this.staleSoftMs = opts.staleSoftMs ?? 30_000;
-    this.staleHardMs = opts.staleHardMs ?? 60_000;
+    this.staleHardMs = opts.staleHardMs ?? STALE_HARD_MS;
   }
 
   private static trim(list: number[], cutoff: number): number[] {
