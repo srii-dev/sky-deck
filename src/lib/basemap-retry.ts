@@ -7,6 +7,8 @@
 /** Waits between checks: 10 s, doubling, at most 5 minutes. */
 export const RETRY_FIRST_MS = 10_000;
 export const RETRY_MAX_MS = 5 * 60_000;
+/** A check that has not answered by then counts as failed, so a hung request cannot stall the watch. */
+export const PROBE_TIMEOUT_MS = 10_000;
 
 export function retryDelay(attempt: number): number {
   return Math.min(RETRY_MAX_MS, RETRY_FIRST_MS * 2 ** Math.max(0, attempt));
@@ -65,9 +67,20 @@ export function watchBasemap(url: string, onBack: () => void, env: RetryEnv): ()
       schedule();
       return;
     }
-    checking = new AbortController();
-    const ok = await env.probe(url, checking.signal);
-    checking = null;
+    const controller = new AbortController();
+    checking = controller;
+    const ok = await new Promise<boolean>((resolve) => {
+      const timeout = env.setTimer(() => {
+        controller.abort();
+        resolve(false);
+      }, PROBE_TIMEOUT_MS);
+      const settle = (v: boolean) => {
+        env.clearTimer(timeout);
+        resolve(v);
+      };
+      env.probe(url, controller.signal).then(settle, () => settle(false));
+    });
+    if (checking === controller) checking = null;
     if (stopped) return;
     if (ok) {
       stop();

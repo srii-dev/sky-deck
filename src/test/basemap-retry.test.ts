@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  PROBE_TIMEOUT_MS,
   retryDelay,
   RETRY_FIRST_MS,
   RETRY_MAX_MS,
@@ -121,5 +122,25 @@ describe("basemap retry", () => {
     await f.fireOnline();
     expect(f.probes).toEqual([]);
     expect(onBack).not.toHaveBeenCalled();
+  });
+
+  it("counts a check that never answers as failed and keeps trying", async () => {
+    const f = fakeEnv([]);
+    let calls = 0;
+    f.env.probe = (_url, signal) => {
+      calls += 1;
+      // The first request hangs for good; the second answers.
+      if (calls === 1) return new Promise<boolean>(() => void signal);
+      return Promise.resolve(true);
+    };
+    const onBack = vi.fn();
+    watchBasemap("https://example.test/style", onBack, f.env);
+    await f.tick(RETRY_FIRST_MS);
+    expect(calls).toBe(1);
+    await f.tick(PROBE_TIMEOUT_MS);
+    // Timed out, so the next check is scheduled and an online event is not ignored.
+    await f.fireOnline();
+    expect(calls).toBe(2);
+    expect(onBack).toHaveBeenCalledTimes(1);
   });
 });
