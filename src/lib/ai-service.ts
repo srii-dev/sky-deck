@@ -235,9 +235,16 @@ export function createAiService(opts: AiServiceOptions) {
       times.push(t);
       budgets.add(name, day, 1);
       const ctrl = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      // Raced, not only signalled: the Workers AI binding takes no signal and a hung call would never fall back.
+      const timedOut = new Promise<never>((_, reject) => {
+        timer = setTimeout(() => {
+          ctrl.abort();
+          reject(new Error("AI provider timed out"));
+        }, timeoutMs);
+      });
       try {
-        const raw = await provider.generate(prompt, ctrl.signal);
+        const raw = await Promise.race([provider.generate(prompt, ctrl.signal), timedOut]);
         const text = raw.trim().slice(0, limit);
         if (!text) {
           failed += 1;
