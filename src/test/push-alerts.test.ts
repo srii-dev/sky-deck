@@ -17,12 +17,13 @@ import {
   restoreCooldowns,
   runPushCheck,
   serializeCooldowns,
+  takeTurns,
   type PushCheckDeps,
   type PushMessage,
   type PushRuleRow,
   type PushSubscriptionRow,
 } from "@/lib/push-alerts";
-import { pushRuleRows } from "@/lib/push-client";
+import { isFullError, pushRuleRows } from "@/lib/push-client";
 import { deletePushSubscription, loadPushData } from "@/lib/push-store.server";
 import { distanceNm } from "@/lib/route-geometry";
 
@@ -137,6 +138,32 @@ describe("planning a check", () => {
     );
     expect(plan.circles).toHaveLength(MAX_PUSH_CIRCLES);
     expect(plan.skipped).toBe(5);
+  });
+});
+
+describe("sharing the caps between users", () => {
+  it("takes every user's first rule before anyone's second", () => {
+    const rows = [rule("a", "1"), rule("a", "2"), rule("a", "3"), rule("b", "1"), rule("c", "1")];
+    expect(takeTurns(rows).map((r) => r.user_id + r.rule_id)).toEqual([
+      "a1",
+      "b1",
+      "c1",
+      "a2",
+      "a3",
+    ]);
+  });
+
+  it("does not let one account with many areas use up every circle", () => {
+    const many = Array.from({ length: MAX_PUSH_CIRCLES }, (_, i) =>
+      rule("greedy", "r" + i, {
+        kinds: ["widebody"],
+        area: { lat: 10 + i, lon: 10, radiusNm: 20, label: "x" },
+      }),
+    );
+    const plan = planPushCheck([...many, rule("other", "r1")], [sub("greedy"), sub("other")]);
+    expect(plan.circles).toHaveLength(MAX_PUSH_CIRCLES);
+    expect(plan.rules.some((r) => r.userId === "other")).toBe(true);
+    expect(plan.skipped).toBe(1);
   });
 });
 
@@ -370,8 +397,43 @@ describe("web push migration", () => {
       }
       expect(sql).toMatch(new RegExp(`create table public\\.${table} \\([^;]*on delete cascade`));
     }
-    expect(sql).toContain("< 5");
-    expect(sql).toContain("< 20");
     expect(sql).not.toContain("security definer");
+  });
+});
+
+describe("web push limits migration", () => {
+  const sql = readFileSync(
+    join(process.cwd(), "supabase", "migrations", "20261125010000_web_push_limits.sql"),
+    "utf8",
+  ).toLowerCase();
+
+  it("moves the limits out of the insert policies, into triggers that also set the timestamps", () => {
+    for (const table of ["push_subscriptions", "push_rules"]) {
+      // A policy that counts rows of its own table makes Postgres refuse every insert (infinite recursion).
+      const policy = sql.match(new RegExp(`create policy "${table}_insert_own"[^;]*;`))?.[0] ?? "";
+      expect(policy).toContain("auth.uid()");
+      expect(policy).not.toContain("count(");
+      expect(sql).toMatch(new RegExp(`before insert or update on public\\.${table}`));
+    }
+    expect(sql).toContain(">= 5");
+    expect(sql).toContain(">= 20");
+    expect(sql).toContain("new.created_at := now()");
+    expect(sql).toContain("new.created_at := old.created_at");
+    expect(sql).toContain("new.updated_at := now()");
+    expect(sql).toContain("set search_path = ''");
+    expect(sql).not.toContain("security definer");
+  });
+
+  it("is read by the page as a full account only for the limit error", () => {
+    expect(
+      isFullError({ code: "23514", message: "push subscriptions are full (5 browsers)" }),
+    ).toBe(true);
+    expect(
+      isFullError({
+        code: "23514",
+        message: 'violates check constraint "push_subscriptions_endpoint_check"',
+      }),
+    ).toBe(false);
+    expect(isFullError({ code: "42501", message: "row-level security" })).toBe(false);
   });
 });
