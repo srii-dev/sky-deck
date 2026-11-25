@@ -9,6 +9,10 @@ export default defineConfig({
     globals: true,
     setupFiles: ["./src/test/setup.ts"],
     include: ["src/**/*.{test,spec}.{ts,tsx}"],
+    // Node 25+ ships a global localStorage that shadows jsdom's (undefined without --localstorage-file); Node 22 rejects the flag.
+    execArgv: process.allowedNodeEnvironmentFlags.has("--no-experimental-webstorage")
+      ? ["--no-experimental-webstorage"]
+      : [],
   },
   resolve: {
     alias: { "@": path.resolve(__dirname, "./src") },

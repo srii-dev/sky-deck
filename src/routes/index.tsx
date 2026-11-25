@@ -152,6 +152,7 @@ function SkyDeck() {
   const [airspacePickId, setAirspacePickId] = useState<string | null>(null);
   const [showTrail, setShowTrail] = useState(true);
   const [rulerActive, setRulerActive] = useState(false);
+  const [rulerBarH, setRulerBarH] = useState(0);
   const [rulerPoints, setRulerPoints] = useState<LngLat[]>([]);
   const [follow, setFollow] = useState(false);
   const [chase, setChase] = useState(false);
@@ -1078,6 +1079,7 @@ function SkyDeck() {
             summary: rulerSummary(rulerPoints, units),
             hasPoints: rulerPoints.length > 0,
             onClear: () => setRulerPoints([]),
+            onBarHeight: setRulerBarH,
             onStartAtAircraft: selected
               ? () => {
                   const p = pointAtAircraft(selected);
@@ -1100,11 +1102,15 @@ function SkyDeck() {
         )}
       </div>
 
-      {/* Emergency alert, and the feed notices (under it on phones, at the bottom from md up; see feedNotices). */}
+      {/* Emergency alert, and the feed notices (under it on phones, at the bottom from md up; see feedNotices).
+          It sits on the same row as the ruler bar beside the map tools, so it moves below the bar
+          (measured, as it wraps on a phone) while the ruler is on; otherwise it would cover the ruler's buttons. */}
       {(emergencies.length > 0 || hasFeedNotice) && (
         <div
           className={`pointer-events-none absolute inset-x-0 z-30 flex flex-col items-center gap-1.5 pl-16 pr-3 md:px-3 ${selected ? "md:pr-[428px]" : ""}`}
-          style={{ top: "calc(var(--hud-h, 76px) + 8px)" }}
+          style={{
+            top: `calc(var(--hud-h, 76px) + ${rulerActive && rulerBarH ? rulerBarH + 16 : 8}px)`,
+          }}
         >
           {emergencies.length > 0 && (
             <EmergencyBanner aircraft={emergencies} onPick={pickAircraft} />
