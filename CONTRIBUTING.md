@@ -4,7 +4,7 @@ SkyDeck is a non-commercial hobby project. These notes are for anyone (including
 
 ## Set up
 
-Requirements: Node.js 22 and [Bun](https://bun.sh).
+Requirements: Node.js 22 (what CI uses; the unit tests also run on Node 25 and 26, whose built-in `localStorage` the test setup replaces with jsdom's) and [Bun](https://bun.sh). Windows works: the development server's cold-start errors were fixed on 2026-11-25 (dev-plan 0h).
 
 ```sh
 bun install
@@ -18,7 +18,8 @@ No API keys are needed to run the app. Never commit secrets, `.env` files or rea
 - Copy `.env.example` to `.env` for local work. `.env` is ignored by git; `.env.example` holds names only.
 - Secrets are read on the server only, through `src/lib/server-config.server.ts` (`requireConfig("supabase")`). Never read `process.env` directly in a feature and never print a value.
 - A variable that starts with `VITE_` is sent to every browser. Never put a secret there.
-- Database changes are SQL files in `supabase/migrations/` (see `supabase/README.md`): row-level security on for every table, no secrets in the SQL.
+- Database changes are SQL files in `supabase/migrations/` (see `supabase/README.md`): row-level security on for every table, no secrets in the SQL. Put per-user limits in a trigger, never as a subquery on the same table inside a policy: Postgres refuses that with "infinite recursion detected in policy" (it happened twice, for the watchlist and for web push). Let the server set timestamps that ordering or limits depend on.
+- A new server setting goes into a group in `CONFIG_GROUPS` (`server-config.server.ts`), `.env.example` (name and a comment, no value) and `DEPLOY.md` (the `wrangler secret put` command). Cron jobs are Nitro plugins in `src/server/` with their cron in `vite.config.ts`; each plugin must ignore the other crons, and the Free plan allows 5 per account.
 
 ## The four checks
 
@@ -31,9 +32,9 @@ bun run lint
 bun run build
 ```
 
-The browser tests have four parts: `e2e/smoke.spec.ts` (every page loads), `e2e/screens.spec.ts` (screenshots at three widths in both themes, saved in `test-results/screens/`), `e2e/a11y.spec.ts` (names, keyboard, contrast) and `e2e/flows.spec.ts` (flows through the map). The flows never touch the live providers: Playwright starts `e2e/stub-upstream.mjs` and points the app at it with `ADSB_UPSTREAM_OVERRIDE`. To add a flow, give the stub the aircraft or answer you need, select aircraft through the search box or the N and P keys (they are drawn on a canvas), and wait for a state on the page, never for a fixed time. On CI the flows run only against the production build (the worker job); against the dev server they run on your own machine.
+The browser tests have four parts: `e2e/smoke.spec.ts` (every page loads), `e2e/screens.spec.ts` (screenshots at three widths in both themes, saved in `test-results/screens/`), `e2e/a11y.spec.ts` (names, landmarks, keyboard, contrast at rest and on hover, 24 px targets, live regions, reduced motion; shared checks in `e2e/a11y-checks.ts`) and `e2e/flows.spec.ts` (flows through the map). Two more run only when asked: `e2e/production.spec.ts` with `E2E_PRODUCTION=1` against a production build (the live site after a deploy), and `e2e/readme-images.spec.ts`, which only draws the README pictures (`node scripts/make-readme-images.mjs`). The flows never touch the live providers: Playwright starts `e2e/stub-upstream.mjs` and points the app at it with `ADSB_UPSTREAM_OVERRIDE`. To add a flow, give the stub the aircraft or answer you need, select aircraft through the search box or the N and P keys (they are drawn on a canvas), and wait for a state on the page, never for a fixed time. On CI the flows run only against the production build (the worker job); against the dev server they run on your own machine.
 
-Lint has no errors and a few known warnings; do not add new ones. Format only the files you changed (`bun x prettier --write <files>`), and do not run Prettier on `README.md`.
+Lint has no errors and no warnings (since 2026-11-25); keep it that way. Format only the files you changed (`bun x prettier --write <files>`), and do not run Prettier on `README.md`.
 
 ## Branches and pull requests
 
@@ -48,7 +49,7 @@ Lint has no errors and a few known warnings; do not add new ones. Format only th
 1. The four checks pass.
 2. Every item of the half is tried in a visible browser at 1280, about 746 and 375 px wide, including the empty and failure states (provider down, quota used up, nothing found). Keep a screenshot of each changed screen at the three widths with the report.
 3. A new or changed data source: make one real request to see its format, read its terms, and add the credit to the Credits dialog (`src/lib/credits.ts`) and the README.
-4. Update `dev-plan.md` and the README for what changed.
+4. Update `dev-plan.md`, the README and `CHANGELOG.md` for what changed, `DATA.md` if anything new is stored or sent, and `DEPLOY.md` if a setting, migration, cron or Durable Object is added.
 5. Write a short report in the pull request: commits, commands with pass counts, what tests prove, what is NOT verified, risks.
 
 Unfinished features ship behind a feature flag (`src/lib/flags.ts`, `useFlag` in `src/hooks/use-flag.ts`), so `dev` always works.
@@ -74,7 +75,7 @@ Unfinished features ship behind a feature flag (`src/lib/flags.ts`, `useFlag` in
 
 ## Promote and deploy
 
-`main` only ever moves forward to a `dev` commit whose checks are green (a fast-forward: `git push origin origin/dev:refs/heads/main`, no force). Then check out `main`, run `bun run build` and `bun run deploy`, and run the live tests against the site (`E2E_BASE_URL=<address> npx playwright test`) and the uptime check. If the live site breaks, roll back with `bunx wrangler rollback --name skydeck` (see `DEPLOY.md`) and fix on `dev`. Deploys are by hand until Cloudflare is connected to the repository.
+`main` only ever moves forward to a `dev` commit whose checks are green (a fast-forward: `git push origin origin/dev:refs/heads/main`, no force). Then check out `main`, run `bun run build` and `bun run deploy`, and run the live tests against the site (`E2E_BASE_URL=<address> E2E_PRODUCTION=1 npx playwright test`) and the uptime check. If the live site breaks, roll back with `bunx wrangler rollback --name skydeck` (see `DEPLOY.md`; Cloudflare refuses a rollback past a deploy that added a Durable Object class, such as the first one with `PushHub`) and fix on `dev`. Deploys are by hand until Cloudflare is connected to the repository.
 
 ## Dependencies
 

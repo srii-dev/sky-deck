@@ -8,7 +8,7 @@ Saved with localStorage under these keys (the list is `STORAGE_KEYS` in `src/lib
 
 ## Alert rules (this browser only)
 
-The rules a visitor creates (conditions, a name, areas as a centre and radius) are kept in this browser's localStorage under `skydeck:alert-rules`. They are not sent anywhere or saved to an account. Settings, Delete my saved data removes them.
+The rules a visitor creates (conditions, a name, areas as a centre and radius) are kept in this browser's localStorage under `skydeck:alert-rules`. They are not sent anywhere or saved to an account, unless the visitor is signed in and switches on closed-page alerts: then copies of the rules that have an area go to the account (see "With an account" below). Settings, Delete my saved data removes the browser's copy.
 
 ## Tracked flight stages (this browser only)
 
@@ -24,7 +24,7 @@ The aircraft types and registrations a visitor opens on the map (code, first tim
 
 ## Service worker (this browser only)
 
-In the built app a small service worker (`/sw.js`) keeps copies of the app's own files (scripts, styles, fonts, icons) and an offline page in the browser's cache storage, so the app starts faster. It never stores aircraft, weather, airport, sign-in or other data requests. Clearing the site's data in the browser removes it.
+In the built app a small service worker (`/sw.js`) keeps copies of the app's own files (scripts, styles, fonts, icons) and an offline page in the browser's cache storage, so the app starts faster. It never stores aircraft, weather, airport, sign-in or other data requests. It also shows closed-page alert notifications when they arrive; the push subscription itself is kept by the browser, and the browser's own settings can revoke it. Clearing the site's data in the browser removes it.
 
 ## With an account (Supabase, only if the visitor creates one)
 
@@ -40,6 +40,8 @@ In the built app a small service worker (`/sw.js`) keeps copies of the app's own
 
 Closed-page alerts (web push, Phase 10f) are optional and need an account: only when a signed-in visitor switches them on in the Alert rules dialog are this browser's push subscription and the rules that have an area saved to the account. The push service address belongs to the browser maker's push service (Google, Mozilla, Apple); the keys let our server encrypt alerts that only that browser can read, and give no access to the device.
 
+Signing in uploads the items this browser has and the account does not, up to the 50-item limit (newest first). The account's list then becomes this browser's list too, so items that did not fit are no longer kept anywhere; a notice names them.
+
 Nothing else about an account is stored yet. The same two lists are also kept in this browser's localStorage whether or not there is an account (keys `skydeck:watchlist` and `skydeck:recent-flights`); signing out keeps them there, and Settings, Delete my saved data removes them. Passwords are never visible to SkyDeck: Supabase stores a hash.
 
 ## In the page's memory only (never stored or sent)
@@ -52,7 +54,8 @@ Nothing else about an account is stored yet. The same two lists are also kept in
 - The global `FeedHub` object keeps feed answers in memory and saves only the adsb.lol request counters (for the key quota) to its storage. Saved copies up to an hour old (`QUOTA_STALE_MAX_MS`) are served while the quota is used up.
 - The global `AiHub` object keeps ACARS text, headlines and AI answers in memory for a few hours, shared between visitors, and saves only pacing counters (calls per provider and day, provider pauses). Message text and AI output are never stored or logged.
 - Browser error reports are written as one line each to the hosting platform's log (`[client-error]`): message, stack, page path and a boundary name. No address, account or flight data is added by the app.
-- The global `PushHub` object runs the closed-page alert check every two minutes. It reads the saved alert rules and browsers with the service role key, loads the rules' areas from the shared feed, and saves to its storage which aircraft matched each rule at the last check (rule and aircraft codes, ignored once older than 10 minutes) and the cooldowns (rule, aircraft code, time of the last alert, dropped after an hour). Both are needed because the object is usually unloaded between two checks. Its log line holds counts only.
+- The global `PushHub` object runs the closed-page alert check every two minutes. It reads the saved alert rules and browsers with the service role key, loads the rules' areas from the shared feed, and saves to its storage which aircraft matched each rule at the last check (rule and aircraft codes, ignored once older than 10 minutes) and the cooldowns (rule, aircraft code, time of the last alert, dropped after an hour). Both are needed because the object is usually unloaded between two checks. Its log line (`[push-check]`) holds counts only. The service role key it uses bypasses row-level security; it lives in the Worker's secrets and is used only inside this object.
+- The daily Supabase keep-alive reads one row of `profiles` as the anonymous role (row-level security returns none) and logs only the answer's status (`[keepalive]`). It reads no visitor data.
 - The visitor's network address is used only as an in-memory key for rate limiting and is not logged or stored by the app (the hosting platform and Supabase keep their own request logs under their own terms).
 
 ## Sent to third parties
