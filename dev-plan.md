@@ -361,37 +361,43 @@ Landing page: where to build it (Decision 8)
 | 17e | **Checklist re-dated 2026-11-24, not closed:** `RELEASE.md` lists every open blocker, now split into done and owner actions (indexing, `SITE_URL` variable, flags, domain, contact, Supabase Site URL); the audit added AI wording to the legal pages and credits. Release checklist: Phase 0 blockers closed, credits and README match every source's terms, old editor tooling removed (15a), monitoring and quota alarms for free tiers |
 | 17f | **Deployed, not announced:** the site is live on workers.dev; the soft-launch steps are in `RELEASE.md` and the single rollback procedure (including the Durable Object migration rules) is in `DEPLOY.md`. Soft launch to a few people, a rollback plan and a known-issues list |
 
-## Remaining work, in order (written 2026-11-10, trimmed 2026-11-21)
+## Remaining work, in order (written 2026-11-10, checked against `dev` on 2026-11-25)
 
-Everything not listed here is built and merged into `dev`. **Phase 17 (final checks and testing, then release) is the last stage:** nothing is added after it except fixes it finds.
+Everything not listed here is built and merged into `dev`. Live: version 4f6dc7dc, deployed 2026-11-25 from `main` 2e82f33 (PRs #91 and #92). **Phase 17 (final checks and testing, then release) is the last stage:** nothing is added after it except fixes it finds.
+
+Removed in the 2026-11-25 check because the code on `dev` already has them: 22i notification choices (Settings, Messages while the page is open; language waits for 16g, under D), 15d header search and sign-in (Airports and My flights links wait for pages that do not exist), 22d ruler from the selected aircraft (built in round 5; only a click in the browser is left, see 17a), the uptime checker of 21d (scheduled workflow, `SITE_URL` repository variable set) and `SITE_INDEXING=off` (set 2026-11-25; delete it at launch).
 
 **A. Waiting for Sri (decisions, accounts, approvals). Nothing below can be finished without these.**
 
 | Item | What is needed |
 | --- | --- |
 | 15b brand | Logo and app icons done (2026-11-22, PR #74). Still open: the domain (Decision 7) and a palette note. |
-| 16b Cloudflare | **Done:** deployed by hand to https://skydeck.sky-deck.workers.dev (latest 2026-11-22). Open: `ADSBLOL_API_KEY` (key requested from adsb.lol), `SITE_INDEXING`, Supabase Auth Site URL. Unlocks 18f, 19h, 21b, 21d, 10f and the real checks in 17. |
+| 16b Cloudflare | **Done:** deployed by hand (latest 2026-11-25, version 4f6dc7dc), `ADSBLOL_API_KEY` in use, `SITE_INDEXING=off` set, Supabase Auth Site URL and redirect URLs set (2026-11-25). Open: the custom domain. |
 | 0a, 0b, 0c, 0d, 0f | Esri imagery terms (keep, key or drop), airplanes.live access, the Airframes answer, the ACARS legal review, credits wording matched to the terms. |
 | 23g contact | A private contact address for takedowns and complaints. |
 | 15e landing page | Decide the landing design and how `/map` redirects shared links. |
+| 15g with a domain | Metadata, sitemap, canonical and share tags are built; only a check on the real domain is left. |
 | 12b, 3D models | OK for a 3D layer library, and model files with a checked licence. |
-| 18i, 21f | Seed data approach and how Supabase backups are made. |
+| 18i, 21f | Seed data approach and how Supabase backups are made (and a restore rehearsal). |
+| 21b previews | Preview versions per pull request need a Cloudflare API token as a GitHub secret and an OK to upload versions from CI. |
+| 21d quota alarms | Where an alarm goes (email, GitHub issue) and what quota state may be exposed; the uptime check itself runs. |
+| 13d photos | Read the Planespotters terms in a browser (automated requests are refused) and say whether thumbnails with a photographer link are allowed. |
+| 6c label meanings | Needs a licence or permission for `airframesio/acars-message-documentation` (it has none). |
+| 22n gestures | Say whether touch gestures beyond MapLibre's own are wanted at all. |
 
-**B. Can be built now, no decision needed (small).**
+**B. Can be built now, no decision needed.**
 
-- 22i: notification choices in Settings (language waits for 16g).
-- 22n: touch gestures beyond the map's own (only if wanted).
-- 15d: search box and sign-in link in the site header; Airports and My flights links once those pages exist.
-- 5f: the rest of the accessibility list (a screen reader pass needs a person).
-- 0h: reproduce and fix the cold-start errors in development.
-- 6c: label meanings, once `airframesio/acars-message-documentation` has a confirmed licence.
-- 13d: Planespotters photos, after reading its terms.
+- 0h: reproduce and fix the cold-start errors in development (in progress).
+- 15h fixes: the 375 px busy notice overlapping the map attribution and the dark disabled Replay button in the light theme (found by the screenshot matrix, PR #64; no fix found on `dev`). Check them in the screenshots first and fix whichever is still there.
+- 18f Supabase keep-alive: a Worker cron trigger that makes one small query so the free Supabase project does not pause. The nightly data refresh needs a stated scope first, and the SWIM consumer needs hosting (both under D).
+- 15f screenshots: README screenshots and banner drawn from the app (Playwright, like `scripts/make-share-image.mjs`). The GitHub social image is uploaded by Sri in the repository settings.
+- 10f web push (large): push subscriptions table with row-level security, a scheduled rule check (with 18f) and the service worker handler. VAPID keys are secrets Sri sets at deploy time.
 
-**C. Now possible (the site is deployed; the shared cache 19h is built as `FeedHub` and `AiHub`).** 18f scheduled jobs, 21b previews, 21d uptime checker and quota alarms, 21f backup rehearsal, 10f and 6g web push, 15g with `SITE_URL` set, 15f share images (needs designed images), 15h design QA at 1280, 746 and 375 px in both themes with keyboard and screen reader.
+**C. Testing that a thread can run now (part of Phase 17).** 17a full feature pass in a browser at desktop, tablet and phone sizes, including the 22d Start at the selected aircraft button; 17d keyboard-only pass of every dialog and performance numbers (Lighthouse) on the deployed build. The live site is not reachable from cloud sessions (the network policy blocks `workers.dev`), so run these from a local session or against `preview:worker`. A screen reader pass (5f, 17d, 15h) needs a person.
 
-**D. No source or not feasible for now.** 7d lightning, 7f winds aloft, 8c daily TFRs, 8e filed routes, 9b 30-day replay, 9c incident history, 11b, 11c, 11d, 14c (done in part: the two Explain with AI buttons are built, #84 and the airport button), 6e, 6g, 6h (Airframes and legal), 16g language, 23e moderation, and the post-release ideas in Phase 24.
+**D. No source or not feasible for now.** 7d lightning, 7f winds aloft, 8c daily TFRs, 8e filed routes, 9b 30-day replay, 9c incident history, 11b, 11c, 11d, 14c (done in part: the two Explain with AI buttons are built, #84 and the airport button), 6e, 6g, 6h (Airframes and legal), 16g language, 18f nightly refresh and SWIM consumer, 23e moderation, and the post-release ideas in Phase 24.
 
-**E. Final stage: Phase 17.** The live audit ran on 2026-11-24 (17b and 17c done on the deployed build, see `RELEASE.md`) and its fixes are in the audit batch. Still open: 17a full feature pass in a visible browser on desktop, tablet and phone, 17d accessibility and performance audit on the live build (screen reader and keyboard pass need a person), 17e release checklist closed (the owner actions in `RELEASE.md` section 1), 17f soft launch announced. Rollback is written once, in `DEPLOY.md`.
+**E. Final stage: Phase 17.** The live audit ran on 2026-11-24 (17b and 17c done on the deployed build, see `RELEASE.md`) and its fixes are in the audit batch, deployed 2026-11-25. Still open: 17a and 17d (above), 17e release checklist closed (the owner actions in `RELEASE.md` section 1), 17f soft launch announced. Rollback is written once, in `DEPLOY.md`.
 
 ## How work is delivered
 
