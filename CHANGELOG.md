@@ -6,6 +6,7 @@ All notable changes to SkyDeck. The format follows [Keep a Changelog](https://ke
 
 ### Added
 
+- Supabase keep-alive (plan 18f): a daily Worker cron trigger (04:17 UTC) runs one tiny anonymous read so the free Supabase project is not paused for inactivity. Logs the status only.
 - Tooling and docs (#86 to #90): `dev` is the working branch and `main` is production, with the promote and deploy steps in CONTRIBUTING (#87); an advisory Claude review of every pull request (#88, #89); the old data-credits branch recorded as merged (#86); AGENTS.md updated for the shared AI object and the key quota pacing (#90).
 - Audit batch (Phase 17, live audit 2026-11-24): the privacy, terms, disclaimer and help pages now say what the AI features send and to whom (Cloudflare Workers AI, then Google Gemini), the terms gained an Accounts paragraph, the credits and README name the AI providers (Llama 4 Scout, Gemini), `DEPLOY.md` has one step-by-step rollback that covers the Durable Object migrations, and `RELEASE.md` was refreshed for the deployed state with the owner actions listed.
 - Aircraft panel: an Explain with AI button under Flight facts that describes in 2 to 4 plain sentences what the selected flight is doing right now, from the panel's own facts (Workers AI, Gemini as fallback). On demand, labelled AI-generated, nothing stored (Phase 14c, per-flight part, #84).
