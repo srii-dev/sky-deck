@@ -246,13 +246,15 @@ function SkyDeck() {
     }
   }, []);
 
+  const mockLat = viewport?.lat;
+  const mockLon = viewport?.lon;
   useEffect(() => {
-    if (import.meta.env.DEV && isMock && viewport) {
+    if (import.meta.env.DEV && isMock && mockLat != null && mockLon != null) {
       void import("@/lib/mock-fixture.dev").then(({ generateDevMockAircraft }) => {
-        setMockAircraft(generateDevMockAircraft(viewport.lat, viewport.lon));
+        setMockAircraft(generateDevMockAircraft(mockLat, mockLon));
       });
     }
-  }, [isMock, viewport?.lat, viewport?.lon]);
+  }, [isMock, mockLat, mockLon]);
 
   useEffect(() => {
     const el = hudRef.current;

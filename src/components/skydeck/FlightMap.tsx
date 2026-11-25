@@ -1437,7 +1437,8 @@ export default function FlightMap(props: FlightMapProps) {
     map.flyTo({
       center: [t.lon, t.lat],
       zoom: t.zoom ?? Math.max(map.getZoom(), 9),
-      padding: cameraPadding(!!props.selectedHex),
+      // Read through the ref: selecting an aircraft must not repeat the flight.
+      padding: cameraPadding(!!propsRef.current.selectedHex),
       speed: 1.4,
       // Not essential: a visitor who prefers reduced motion gets a jump instead of a flight (Phase 5f).
     });

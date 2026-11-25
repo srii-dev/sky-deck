@@ -49,7 +49,10 @@ async function select(page: Page, callsign: string) {
   await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
 }
 
-test("map, desktop, dark, an aircraft open", async ({ page }) => {
+/** The desktop screenshot, kept for the banner so it never reads an older copy from disk. */
+let desktopShot: Buffer | null = null;
+
+async function shootDesktop(page: Page): Promise<Buffer> {
   await page.setViewportSize({ width: 1280, height: 800 });
   await openMap(page, "dark", "dark");
   await select(page, "SKD303");
@@ -59,7 +62,12 @@ test("map, desktop, dark, an aircraft open", async ({ page }) => {
     }),
   ).toBeVisible();
   await page.waitForTimeout(TILE_SETTLE_MS);
-  await page.screenshot({ path: out("map-desktop.png") });
+  return page.screenshot();
+}
+
+test("map, desktop, dark, an aircraft open", async ({ page }) => {
+  desktopShot = await shootDesktop(page);
+  writeFileSync(out("map-desktop.png"), desktopShot);
 });
 
 test("map, desktop, light theme, satellite", async ({ page }) => {
@@ -92,14 +100,18 @@ test("map, phone, details sheet", async ({ browser }) => {
   await context.close();
 });
 
-/** The banner: the app's name and tagline in its own fonts and colours, next to the desktop screenshot taken above. */
+/**
+ * The banner: the app's name and tagline in its own fonts and colours, next to the desktop screenshot taken above.
+ * Run on its own (--grep banner), it takes that screenshot itself.
+ */
 test("banner", async ({ page }) => {
+  desktopShot ??= await shootDesktop(page);
   const root = process.cwd();
   const brand = readFileSync(join(root, "src/config/brand.ts"), "utf8");
   const pick = (name: string) => brand.match(new RegExp(`${name}\\s*=\\s*"([^"]+)"`))?.[1] ?? "";
   const font = (file: string) =>
     `data:font/woff2;base64,${readFileSync(join(root, "public/fonts", file)).toString("base64")}`;
-  const shot = `data:image/png;base64,${readFileSync(out("map-desktop.png")).toString("base64")}`;
+  const shot = `data:image/png;base64,${desktopShot.toString("base64")}`;
   // The Lucide "plane" outline the site header uses (same path as scripts/make-share-image.mjs).
   const PLANE =
     "M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z";
