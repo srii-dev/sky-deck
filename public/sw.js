@@ -68,9 +68,17 @@ self.addEventListener("fetch", (event) => {
 
 // ---------- closed-page alerts (web push, Phase 10f) ----------
 
-/** Only a path on this site may be opened from a notification. */
+/**
+ * Only a path on this site may be opened from a notification. A backslash is refused too: URL parsing reads "/\\host"
+ * as "//host", another site.
+ */
 function safePath(url) {
-  return typeof url === "string" && url.startsWith("/") && !url.startsWith("//") ? url : "/";
+  return typeof url === "string" &&
+    url.startsWith("/") &&
+    !url.startsWith("//") &&
+    !url.includes("\\")
+    ? url
+    : "/";
 }
 
 function text(v, max) {
@@ -106,7 +114,11 @@ self.addEventListener("notificationclick", (event) => {
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
       for (const c of list) {
         if (new URL(c.url).origin === self.location.origin && "navigate" in c) {
-          return c.focus().then(() => c.navigate(target));
+          // navigate() refuses a tab this worker does not control (opened before it was installed): open a new one then.
+          return c
+            .focus()
+            .then(() => c.navigate(target))
+            .catch(() => self.clients.openWindow(target));
         }
       }
       return self.clients.openWindow(target);

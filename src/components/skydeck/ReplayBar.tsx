@@ -24,7 +24,7 @@ export function ReplayBar({ replay }: { replay: ReplayApi }) {
       className="glass-panel pointer-events-auto flex w-[min(92vw,460px)] max-w-full flex-col gap-1 rounded-md px-3 py-2"
     >
       <div className="flex items-center gap-2">
-        <span className="rounded border border-amber-500/60 bg-amber-500/15 px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-amber-300">
+        <span className="rounded border border-amber-500/60 bg-amber-500/15 px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-warning">
           Replay
         </span>
         <Button

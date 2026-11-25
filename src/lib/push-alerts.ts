@@ -277,9 +277,53 @@ export function messagesByUser(events: readonly PushEvent[]): Map<string, PushMe
 
 // ---------- state kept between checks ----------
 
-/** Only the cooldowns are saved; which aircraft matched is kept in memory (a fresh object only learns, never floods). */
+/*
+ * Both halves of the rule state are saved to the object's storage after every check. The cron runs every two minutes
+ * and an idle Durable Object is evicted after 70 to 140 seconds, so memory alone would usually be empty again at the
+ * next check: every check would then only learn which aircraft match (evaluateRules treats a rule without previous
+ * matches as new) and never alert. Saved matches older than MATCHING_MAX_AGE_MS are ignored, so a check after a long
+ * pause (no subscribers for a while, a stopped cron) learns again instead of alerting for every aircraft at once.
+ */
+
+/** Saved matches older than this are not used: the next check only learns, as on a first start. */
+export const MATCHING_MAX_AGE_MS = 10 * 60 * 1000;
+/** Upper bound on the saved matches (characters of aircraft codes); rules past it only learn again next check. */
+export const MAX_SAVED_MATCH_CHARS = 1_000_000;
+
+export interface SavedMatching {
+  at: number;
+  /** Rule key ("user:rule") and its matching aircraft codes, joined by commas. */
+  rules: [string, string][];
+}
+
 export function serializeCooldowns(state: RuleState): [string, number][] {
   return [...state.lastAlert];
+}
+
+export function serializeMatching(state: RuleState, now: number): SavedMatching {
+  const rules: [string, string][] = [];
+  let chars = 0;
+  for (const [ruleId, hexes] of state.matching) {
+    const joined = [...hexes].join(",");
+    chars += ruleId.length + joined.length;
+    if (chars > MAX_SAVED_MATCH_CHARS) break;
+    rules.push([ruleId, joined]);
+  }
+  return { at: now, rules };
+}
+
+/** The saved matches, or an empty map when they are missing, malformed or too old. */
+export function restoreMatching(saved: unknown, now: number): Map<string, Set<string>> {
+  const matching = new Map<string, Set<string>>();
+  const s = saved as Partial<SavedMatching> | null | undefined;
+  if (!s || typeof s.at !== "number" || !Array.isArray(s.rules)) return matching;
+  if (!(now - s.at >= 0 && now - s.at <= MATCHING_MAX_AGE_MS)) return matching;
+  for (const item of s.rules) {
+    if (!Array.isArray(item) || typeof item[0] !== "string" || typeof item[1] !== "string")
+      continue;
+    matching.set(item[0], new Set(item[1] ? item[1].split(",") : []));
+  }
+  return matching;
 }
 
 export function restoreCooldowns(saved: unknown): RuleState {

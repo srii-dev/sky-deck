@@ -178,6 +178,22 @@ describe("closed-page alerts (web push)", () => {
     expect(sw.shown[0]!.title).toBe("SkyDeck alert");
     expect(sw.shown[1]!.options["data"]).toEqual({ url: "/" });
     expect(sw.shown[2]!.options["data"]).toEqual({ url: "/" });
+    // "/\\host" parses as "//host".
+    await push(sw, { title: "z", url: "/\\evil.example/" });
+    expect(sw.shown[3]!.options["data"]).toEqual({ url: "/" });
+  });
+
+  it("opens a new tab when the open one cannot be navigated (not controlled by the worker)", async () => {
+    const sw = load();
+    sw.windows.push({
+      url: "https://app.test/",
+      focus: async () => undefined,
+      navigate: async () => {
+        throw new TypeError("not controlled");
+      },
+    });
+    await click(sw, "/?hex=a1b2c3");
+    expect(sw.opened).toEqual(["https://app.test/?hex=a1b2c3"]);
   });
 
   it("opens the aircraft on this site when clicked, reusing an open tab", async () => {
