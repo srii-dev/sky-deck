@@ -231,6 +231,10 @@ describe("AI service", () => {
       const w = provider("workers-ai", "ok");
       const ai = createAiService({ ...base, timeoutMs: 1000, providers: [hang, w] });
       const pending = ai.generate({ task: "t", prompt: "p" });
+      // The cache key (SHA-256 in Web Crypto) resolves outside the fake clock: wait until the timeout is set.
+      await vi.waitFor(() => {
+        if (vi.getTimerCount() === 0) throw new Error("timeout not set yet");
+      });
       await vi.advanceTimersByTimeAsync(1100);
       expect((await pending).provider).toBe("workers-ai");
     } finally {
@@ -238,10 +242,11 @@ describe("AI service", () => {
     }
   });
 
-  it("has helpers that behave", () => {
+  it("has helpers that behave", async () => {
     expect(utcDay(Date.UTC(2026, 10, 9, 23, 59))).toBe("2026-11-09");
-    expect(cacheKey("a", "b")).toBe(cacheKey("a", "b"));
-    expect(cacheKey("a", "b")).not.toBe(cacheKey("a", "c"));
+    expect(await cacheKey("a", "b")).toBe(await cacheKey("a", "b"));
+    expect(await cacheKey("a", "b")).not.toBe(await cacheKey("a", "c"));
+    expect(await cacheKey("a", "b")).toMatch(/^a:[0-9a-f]{64}$/);
     const b = createMemoryBudgetStore();
     b.add("gemini", "d", 2);
     expect(b.used("gemini", "d")).toBe(2);
