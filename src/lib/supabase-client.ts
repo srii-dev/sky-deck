@@ -1,4 +1,4 @@
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { getAuthConfig } from "./auth-config.functions";
 
@@ -6,6 +6,8 @@ import { getAuthConfig } from "./auth-config.functions";
  * The browser's Supabase client (Phase 18d), created on first use. It uses the public anon key from the server
  * and keeps the session in this browser's local storage (the library's default), so a visitor stays signed in
  * after a reload. Nothing here touches the service role key.
+ * The library itself (about 750 KB of source) is loaded only here, on first use, so the map page does not download
+ * or run it for visitors who never sign in.
  * Returns null when the site has no Supabase configuration or on a server render.
  */
 
@@ -31,8 +33,9 @@ export function hasStoredSession(): boolean {
 export function getSupabase(): Promise<SupabaseClient | null> {
   if (typeof window === "undefined") return Promise.resolve(null);
   client ??= getAuthConfig()
-    .then((c) => {
+    .then(async (c) => {
       if (!c.configured || !c.url || !c.anonKey) return null;
+      const { createClient } = await import("@supabase/supabase-js");
       return createClient(c.url, c.anonKey, {
         auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
       });
