@@ -53,6 +53,17 @@ describe("useSheetInset", () => {
     expect(document.documentElement.hasAttribute("data-sheet-tall")).toBe(true);
   });
 
+  it("measures the room left against the published top bar height", () => {
+    // 812 - 120 - 200 = 492: a 500 px sheet is tall under a 120 px top bar, but not under the 60 px one.
+    const ref = setup(true, 500);
+    ref.current.style.setProperty("--hud-h", "120px");
+    renderHook(() => useSheetInset(ref));
+    expect(document.documentElement.hasAttribute("data-sheet-tall")).toBe(true);
+    ref.current.style.setProperty("--hud-h", "60px");
+    resize?.();
+    expect(document.documentElement.hasAttribute("data-sheet-tall")).toBe(false);
+  });
+
   it("counts as 0 from the md breakpoint up, where the panel is a side panel", () => {
     const ref = setup(false, 500);
     renderHook(() => useSheetInset(ref));

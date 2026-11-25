@@ -120,6 +120,11 @@ export async function isSubscriptionSaved(sb: SupabaseClient, endpoint: string):
   }
 }
 
+/** The account-limit error from the database triggers (not the endpoint or key format checks, same code). */
+export function isFullError(error: { code?: string; message?: string }): boolean {
+  return error.code === "23514" && /\bare full\b/.test(error.message ?? "");
+}
+
 export async function saveSubscription(
   sb: SupabaseClient,
   userId: string,
@@ -140,8 +145,8 @@ export async function saveSubscription(
       p256dh: keys.p256dh,
       auth: keys.auth,
     });
-    // Row-level security refuses the sixth browser (code 42501).
-    if (error) return error.code === "42501" ? "full" : "failed";
+    // The database refuses the sixth browser (migration 20261125010000: check_violation, "... are full ...").
+    if (error) return isFullError(error) ? "full" : "failed";
     return "saved";
   } catch {
     return "failed";
