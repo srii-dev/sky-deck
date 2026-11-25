@@ -69,10 +69,11 @@ export function isClientDisconnect(error: unknown): boolean {
 // recorded for consumeLastCapturedError and expanded before serialization.
 const originalConsoleError = console.error.bind(console);
 console.error = (...args: unknown[]) => {
-  const disconnect = args.find(isClientDisconnect);
-  if (disconnect) {
+  // Only when every error in the call is a dropped request, so a real error logged alongside is never hidden.
+  const errors = args.filter(isErrorLike);
+  if (errors.length > 0 && errors.every(isClientDisconnect)) {
     // Recorded so server.ts finds it and does not log a second "h3 swallowed SSR error" for the same request.
-    record(disconnect);
+    record(errors[0]);
     console.warn(
       "[request aborted] the browser closed the connection before the response finished",
     );
