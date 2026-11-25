@@ -35,10 +35,25 @@ export default defineConfig(({ command, mode }) => {
         "react-dom/client",
         "react/jsx-runtime",
         "react/jsx-dev-runtime",
+        // Found only after the first page load (TanStack Start's client entry is virtual, so the dependency scan
+        // never reaches them). Discovering them late makes Vite re-bundle and force a full reload on a cold start,
+        // which aborts every module request of the first load (dev-plan 0h).
+        "@tanstack/router-core",
+        "@tanstack/router-core/isServer",
+        "@tanstack/router-core/ssr/client",
+        "seroval",
       ],
       ignoreOutdatedRequests: true,
     },
-    server: { host: "::", port: 8080 },
+    server: {
+      host: "::",
+      port: 8080,
+      // TanStack Start only accepts a server function call in development once the server side has compiled the
+      // file that defines it. A browser tab left open across a restart, or a client-only component (the map is
+      // lazy and never rendered on the server), can call one first and get "Invalid server function ID" (500).
+      // Compiling every server function file right at start-up closes that window (dev-plan 0h).
+      warmup: { ssrFiles: ["./src/lib/*.functions.ts"] },
+    },
     plugins: [
       tailwindcss(),
       tsConfigPaths({ projects: ["./tsconfig.json"] }),

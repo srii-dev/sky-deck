@@ -92,6 +92,7 @@ All notable changes to SkyDeck. The format follows [Keep a Changelog](https://ke
 
 ### Fixed
 
+- Development server cold start (0h): the first page load no longer aborts every module request and reloads (four dependencies Vite found late are now pre-bundled); server function calls made before the server side compiled their file no longer fail with `Invalid server function ID` (those files are compiled at start-up); a page reloaded mid-load now logs one `[request aborted]` line instead of three stack traces.
 - Design QA (15h): on phones the feed notices ("Live data is busy", missing areas, partial view) now sit under the top bar instead of over the map credit at the bottom, and disabled toolbar buttons such as Replay keep their solid panel and only dim the icon, so they no longer turn dark over a dark map in the light theme. With an aircraft or airport panel open, the scale bar moves left of the desktop side panel instead of sitting half behind it, and on phones the zoom buttons, scale and map credit sit above the bottom sheet (hidden while the sheet is pulled up to full height).
 - The project's address in the footer, the README clone line and the issue template config is now `https://github.com/srii-dev/sky-deck` (the old account name only worked through a redirect).
 
