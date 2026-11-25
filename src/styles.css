@@ -423,6 +423,25 @@
     max-width: calc(100vw - 224px);
   }
 }
+/* Design QA 15h. Desktop: the aircraft and airport side panels (right-14, w-[360px]) leave a gutter for the zoom
+   buttons, but the scale bar is wider than that gutter and would sit half behind the panel, so while a panel is open it
+   moves to the bottom edge just left of the panel (56 + 360 px from the right). Phones: the bottom sheets publish their height as --sheet-h (useSheetInset), and the zoom buttons,
+   scale and credit sit above the sheet; when the sheet is pulled up too far to leave room, they hide until it closes. */
+@media (min-width: 768px) {
+  html:has([data-map-panel]) .maplibregl-ctrl-bottom-right .maplibregl-ctrl-scale {
+    position: absolute;
+    right: 416px;
+    bottom: 0;
+  }
+}
+@media (max-width: 767.98px) {
+  .maplibregl-map .maplibregl-ctrl-bottom-right {
+    bottom: var(--sheet-h, 0px);
+  }
+  html[data-sheet-tall] .maplibregl-map .maplibregl-ctrl-bottom-right {
+    visibility: hidden;
+  }
+}
 /* Touch screens: the zoom and compass buttons are 29 px by default, too small for a thumb. */
 @media (pointer: coarse) {
   .maplibregl-ctrl.maplibregl-ctrl-group button {
