@@ -27,7 +27,8 @@ State on 2026-11-24: the site runs on Cloudflare at https://skydeck.sky-deck.wor
 - [ ] **Domain and brand name (15b, Decision 7)**: buy the domain after the product is finished; the name was never checked for clashes.
 - [ ] **Private contact address (23g)**: create it once there is a domain, then replace `CONTACT_NOTE` in `src/lib/legal-content.ts`.
 - [ ] **Legal pages read by the owner (16e).** The AI text on privacy, terms, disclaimer and help is new (2026-11-24); read it before indexing is allowed.
-- [ ] **Supabase Auth Site URL** set to the real address (dashboard, Authentication, URL configuration), and the Google sign-in decision made.
+- [x] **Supabase Auth Site URL** and redirect URLs set to the workers.dev address (2026-11-25); set them again for the domain.
+- [ ] **Google sign-in decision** made.
 - [ ] **0a Esri satellite imagery terms**: not read. Keep, use a keyed source, or drop Satellite.
 - [ ] **0b airplanes.live 403**: unresolved; adsb.lol is the working provider and airplanes.live the fallback.
 - [ ] **0c Airframes anonymous API**: unresolved (email draft is local only).

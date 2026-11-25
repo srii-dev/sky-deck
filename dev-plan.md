@@ -372,7 +372,7 @@ Removed in the 2026-11-25 check because the code on `dev` already has them: 22i 
 | Item | What is needed |
 | --- | --- |
 | 15b brand | Logo and app icons done (2026-11-22, PR #74). Still open: the domain (Decision 7) and a palette note. |
-| 16b Cloudflare | **Done:** deployed by hand (latest 2026-11-25, version 4f6dc7dc), `ADSBLOL_API_KEY` in use, `SITE_INDEXING=off` set. Open: Supabase Auth Site URL and the custom domain. |
+| 16b Cloudflare | **Done:** deployed by hand (latest 2026-11-25, version 4f6dc7dc), `ADSBLOL_API_KEY` in use, `SITE_INDEXING=off` set, Supabase Auth Site URL and redirect URLs set (2026-11-25). Open: the custom domain. |
 | 0a, 0b, 0c, 0d, 0f | Esri imagery terms (keep, key or drop), airplanes.live access, the Airframes answer, the ACARS legal review, credits wording matched to the terms. |
 | 23g contact | A private contact address for takedowns and complaints. |
 | 15e landing page | Decide the landing design and how `/map` redirects shared links. |
