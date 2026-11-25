@@ -23,7 +23,7 @@ export function SiteHeader({ className }: { className?: string }) {
   return (
     <header className={cn("border-b border-border bg-card/60", className)}>
       <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-3">
-        <Link to="/" className="flex items-center gap-2" aria-label={APP_NAME + " home"}>
+        <Link to="/" className="flex items-center gap-2" aria-label={`${APP_NAME} ${APP_TAGLINE}, home`}>
           <span className="flex size-8 items-center justify-center rounded-md border border-border bg-background/60 text-primary">
             <Plane className="size-4" aria-hidden />
           </span>
