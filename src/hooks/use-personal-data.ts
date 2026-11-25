@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 
 import type { AuthApi } from "@/hooks/use-auth";
 import {
@@ -16,6 +17,7 @@ import {
   isWatched,
   loadRecentFlights,
   loadWatchlist,
+  MAX_WATCH_ITEMS,
   normalizeKey,
   removeWatch,
   storeRecentFlights,
@@ -55,6 +57,22 @@ export interface PersonalData {
   clearRecent(): void;
   /** Re-read the lists from this browser's storage (after "Delete my saved data"). */
   reload(): void;
+}
+
+/** What to tell the visitor when the account's watchlist had no room for some of this browser's items. */
+export function watchlistFullNotice(
+  left: readonly WatchItem[],
+): [string, { description: string; duration: number }] {
+  const names = left.slice(0, 3).map((w) => w.label);
+  const more = left.length - names.length;
+  const list = names.join(", ") + (more > 0 ? ` and ${more} more` : "");
+  return [
+    `Your account's watchlist is full (${MAX_WATCH_ITEMS} items)`,
+    {
+      description: `${left.length === 1 ? "1 item from this browser did not fit and was" : `${left.length} items from this browser did not fit and were`} left out: ${list}. Remove some and add them again.`,
+      duration: 15_000,
+    },
+  ];
 }
 
 export function usePersonalData(auth: AuthApi): PersonalData {
@@ -113,6 +131,7 @@ export function usePersonalData(auth: AuthApi): PersonalData {
       const r = mergeRecentFlights(loadRecentFlights(), remote.data.recent);
       setWatchBoth(w.merged);
       setRecentBoth(r.merged);
+      if (w.didNotFit.length > 0) toast.warning(...watchlistFullNotice(w.didNotFit));
       const [a, b] = await Promise.all([
         upsertWatchItems(sb, userId, w.toUpload),
         upsertRecentFlights(sb, userId, r.toUpload),

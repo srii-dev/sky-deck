@@ -21,6 +21,7 @@ import {
   type AlertState,
 } from "@/lib/watch-alerts";
 import { mergeRecentFlights, mergeWatchlists } from "@/lib/cloud-merge";
+import { watchlistFullNotice } from "@/hooks/use-personal-data";
 
 describe("watchlist", () => {
   it("normalises keys per kind", () => {
@@ -258,7 +259,7 @@ describe("cloud merge", () => {
     const r = mergeWatchlists([w("AAA1", 5), w("BBB2", 3)], [w("BBB2", 4), w("CCC3", 9)]);
     expect(r.merged.map((x) => x.key)).toEqual(["CCC3", "AAA1", "BBB2"]);
     expect(r.toUpload.map((x) => x.key)).toEqual(["AAA1"]);
-    expect(r.dropped).toBe(0);
+    expect(r.didNotFit).toEqual([]);
     // The earlier added date stays.
     expect(r.merged.find((x) => x.key === "BBB2")?.addedAt).toBe(3);
   });
@@ -272,8 +273,48 @@ describe("cloud merge", () => {
     );
     const r = mergeWatchlists(local, remote);
     expect(r.merged).toHaveLength(MAX_WATCH_ITEMS);
-    expect(r.dropped).toBe(30);
+    expect(r.didNotFit).toHaveLength(30);
     expect(r.toUpload.every((x) => r.merged.some((m) => m.key === x.key))).toBe(true);
+  });
+
+  it("uploads only what fits under the account's limit and lists the rest", () => {
+    // The account has 48 and this browser has 5 the account lacks: the database would refuse all 5 at once.
+    const remote = Array.from({ length: 48 }, (_, i) =>
+      w("REM" + String(i).padStart(3, "0"), 10 + i),
+    );
+    const local = [w("NEW1", 900), w("NEW2", 800), w("NEW3", 700), w("NEW4", 1), w("NEW5", 2)];
+    const r = mergeWatchlists(local, remote);
+    expect(r.toUpload.map((x) => x.key)).toEqual(["NEW1", "NEW2"]);
+    expect(r.didNotFit.map((x) => x.key)).toEqual(["NEW3", "NEW5", "NEW4"]);
+    expect(r.merged).toHaveLength(MAX_WATCH_ITEMS);
+    // Everything the account already had stays, even items older than the ones left out.
+    expect(remote.every((x) => r.merged.some((m) => m.key === x.key))).toBe(true);
+  });
+
+  it("uploads nothing to a full account", () => {
+    const remote = Array.from({ length: MAX_WATCH_ITEMS }, (_, i) =>
+      w("REM" + String(i).padStart(3, "0"), 10 + i),
+    );
+    const r = mergeWatchlists([w("NEW1", 900)], remote);
+    expect(r.toUpload).toEqual([]);
+    expect(r.didNotFit.map((x) => x.key)).toEqual(["NEW1"]);
+    expect(r.merged.map((x) => x.key).sort()).toEqual(remote.map((x) => x.key).sort());
+  });
+
+  it("names what did not fit", () => {
+    const [title, opts] = watchlistFullNotice([
+      w("AAA1", 3),
+      w("BBB2", 2),
+      w("CCC3", 1),
+      w("DDD4", 0),
+    ]);
+    expect(title).toContain(String(MAX_WATCH_ITEMS));
+    expect(opts.description).toContain(
+      "4 items from this browser did not fit and were left out: AAA1, BBB2, CCC3 and 1 more",
+    );
+    expect(watchlistFullNotice([w("AAA1", 3)])[1].description).toContain(
+      "1 item from this browser did not fit and was left out: AAA1.",
+    );
   });
 
   it("merges recent flights by newest view", () => {

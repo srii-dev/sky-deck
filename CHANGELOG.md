@@ -97,6 +97,7 @@ All notable changes to SkyDeck. The format follows [Keep a Changelog](https://ke
 
 ### Fixed
 
+- Watchlist sync on sign-in: when this browser had more new items than the account had room for (50), the database refused the whole upload, so none of them were saved and the sync showed an error. Now only what fits is uploaded, and a notice names the items that were left out.
 - Closed-page alerts, security review (2026-11-25): the web push migration's account limits were subqueries in the insert policies, which Postgres refuses with "infinite recursion", so every subscribe would have failed; a follow-up migration (`20261125010000_web_push_limits.sql`) moves them into triggers that also set `created_at` and `updated_at` on the server, so back-dated rows cannot jump the check's caps. The check now takes every user's first rule before anyone's second, so one account cannot use up all feed circles; push requests never follow redirects; database reads and pushes time out after 10 s; and signed VAPID tokens are reused per push service to save CPU.
 - Development server cold start (0h, Windows): the map's web worker no longer throws `ReferenceError: document is not defined`. Vite served it with its live-reload client, which touches `document` on every CSS update (Tailwind sends several on a cold start); the MapLibre worker is now served unchanged in development.
 - Unit tests on Node 26 when `--no-experimental-webstorage` does not reach the test process: the test setup points `localStorage` and `sessionStorage` back at jsdom's.
