@@ -8,6 +8,9 @@ import { useEffect, type RefObject } from "react";
  *
  * From the md breakpoint up the panels are side panels that leave the controls alone, so the height counts as 0 there.
  */
+const CONTROLS_ROOM = 200;
+const DEFAULT_HUD_H = 160;
+
 export function useSheetInset(ref: RefObject<HTMLElement | null>): void {
   useEffect(() => {
     const el = ref.current;
@@ -17,8 +20,13 @@ export function useSheetInset(ref: RefObject<HTMLElement | null>): void {
     const update = () => {
       const h = phone.matches ? el.getBoundingClientRect().height : 0;
       root.style.setProperty("--sheet-h", `${Math.round(h)}px`);
-      // The controls need about 200 px above the sheet and below the top bar.
-      root.toggleAttribute("data-sheet-tall", h > 0 && h > window.innerHeight - 360);
+      // The controls need about 200 px above the sheet and below the top bar, whose height the page publishes as
+      // --hud-h (inherited here from <main>; 160 px if it is not set).
+      const hud = parseFloat(getComputedStyle(el).getPropertyValue("--hud-h")) || DEFAULT_HUD_H;
+      root.toggleAttribute(
+        "data-sheet-tall",
+        h > 0 && h > window.innerHeight - hud - CONTROLS_ROOM,
+      );
     };
     update();
     const ro = new ResizeObserver(update);

@@ -71,6 +71,8 @@ All notable changes to SkyDeck. The format follows [Keep a Changelog](https://ke
 
 ### Changed
 
+- Cleanups after the 2026-11-25 merges: eslint runs with no warnings (`toggleVariants` moved to `toggle-variants.ts`, unused `buttonVariants`/`badgeVariants` exports dropped, two effect dependency warnings fixed without changing behaviour); the phone map controls hide under a tall sheet based on the measured top bar height instead of a fixed 360 px (#100 review); the README banner test no longer reads a desktop screenshot left on disk by an earlier test (#97 review).
+
 - AI calls go through one global `AiHub` Durable Object, so budgets, pacing and caches are shared by every visitor. Each provider has a per-minute limit; Workers AI is skipped until 00:00 UTC once its daily allowance is gone, and Gemini's daily quota is rechecked hourly. With no provider free the answer is "AI is busy, try again in a minute." ACARS headlines are cached per message in memory and shared; they are at most 12 words, explanations 1 to 2 sentences for routine messages and up to 5 for emergency, caution and weather. The ACARS panel retries busy headlines with a growing gap, and the message card has a Try again button (#83).
 - With an adsb.lol key, refreshes of tiles that already have a copy are paced so what is left of each hourly and daily window is spread evenly, with a reserve for tiles that have no copy; copies up to an hour old are shown with their real age in between, so a wide view cannot use the day's quota in minutes (#85).
 - With an adsb.lol key, requests are counted against the key's published limits and not sent once a limit would be passed; the map then shows saved copies up to an hour old (protects a free key from being revoked).
