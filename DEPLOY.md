@@ -67,7 +67,7 @@ Web push (Phase 10f, PRs #102 and #105) ships switched off. Do these in order, o
    1. `supabase/migrations/20261125000000_web_push.sql` (tables `push_subscriptions` and `push_rules`, row-level security, own-row policies).
    2. `supabase/migrations/20261125010000_web_push_limits.sql` (moves the 5-browser and 20-rule limits from the insert policies into triggers and sets `created_at` and `updated_at` on the server). Apply it in the same sitting: with only the first file, every subscribe fails with "infinite recursion detected in policy".
 
-   Check in the SQL Editor that both tables have row-level security and both triggers exist:
+   Check in the SQL Editor that both tables have row-level security and both triggers exist (run the two queries one at a time; the editor shows only the last result):
 
    ```sql
    select tablename, rowsecurity from pg_tables
@@ -77,6 +77,7 @@ Web push (Phase 10f, PRs #102 and #105) ships switched off. Do these in order, o
    ```
 
    Expected: two rows with `rowsecurity` true, then `push_subscriptions_before_write` and `push_rules_before_write`. Then run the Security Advisor (Database, Advisors): it should report nothing new.
+
 3. **Make the VAPID key pair once**: `npx web-push generate-vapid-keys` (downloads the `web-push` tool for that one command; nothing is added to the project). It prints a public key and a private key. Save both in your password manager straight away. Never make a new pair later: every saved browser subscription belongs to this pair, and a new one silently stops alerts for everyone until they switch them on again.
 4. **Set the four secrets** (each command asks for the value and creates a new version of the live Worker with it; nothing is redeployed from the repository):
 
@@ -88,6 +89,7 @@ Web push (Phase 10f, PRs #102 and #105) ships switched off. Do these in order, o
    ```
 
    For `SUPABASE_SERVICE_ROLE_KEY` use the legacy `service_role` key (the long value starting `eyJ`, on the Legacy API keys tab): the check sends it both as `apikey` and as `Authorization: Bearer`, which is how the legacy key is used. A new `sb_secret_` key was not tested with this code. The service role key bypasses row-level security; it is used only inside `PushHub` (`getPushConfig` only checks that it is set) and never reaches a browser or a log. `bunx wrangler secret list --name skydeck` shows the names (never the values). Alerts switch on when the last of the four is set.
+
 5. **Check the cron runs** (`bunx wrangler tail skydeck`, or the dashboard's Workers Logs). Every two minutes there should be one `[push-check]` line with counts only, for example `{"rules":0,"circles":0,"circlesFailed":0,"skipped":0,"events":0,"sent":0,"failed":0,"removed":0,"retried":0}`. No line at all means a setting is missing (the object answers "not-configured", which is not logged) or the cron did not run (check Trigger events). `[push-check] failed:` means the object threw; the message says why. Once a day, at 04:17 UTC, `[keepalive] supabase ok (200)` should appear too.
 6. **Try it end to end** on a laptop and an Android phone (Chrome) with a test account: sign in, Watchlist, Alert rules, make a rule with a small area over busy airspace (for example "any aircraft within 10 nm of" a large airport), switch on "Also alert me when SkyDeck is closed", allow notifications, then close every SkyDeck tab. A notification should arrive within a few minutes, and clicking it should open the map on that aircraft. On an iPhone or iPad, web push works only after "Add to Home Screen" (iOS 16.4 or later), from the installed app. Then check in Supabase (Table Editor) that `push_subscriptions` has one row per browser and `push_rules` only the rules with an area, and that switching the alerts off in a browser removes that browser's row (and the rules, once no browser is left).
 7. **Watch the free-plan numbers for the first days** (Cloudflare dashboard, Workers and Durable Objects metrics): each check is one Durable Object request to `PushHub` plus one per feed circle it loads through `FeedHub` (at most 20), so up to about 15,000 of the plan's 100,000 daily Durable Object requests once rules exist; with no rules it is 720 a day. Each check also makes at most about 25 outside requests (database reads, up to 20 pushes, a few deletes). The CPU time per check was not measured; if the `PushHub` metrics show errors or the check takes long, switch it off (below) and report it.
@@ -97,7 +99,7 @@ To switch closed-page alerts off again without a deploy: `bunx wrangler secret d
 ## After a deploy
 
 - `https://<address>/api/health` answers `{"status":"ok"}`.
-- Run the smoke tests against it: `E2E_BASE_URL=https://<address> bun run test:e2e`.
+- Run the live tests against it: `E2E_BASE_URL=https://<address> E2E_PRODUCTION=1 bun run test:e2e` (`E2E_PRODUCTION=1` adds the production checks in `e2e/production.spec.ts`).
 - Open the site on a phone and a laptop, then follow `RELEASE.md` section 5.
 - Set the Supabase Auth Site URL to the address (Supabase dashboard, Authentication, URL configuration). Done for the workers.dev address on 2026-11-25; set it again for a domain.
 - In the dashboard (Workers, skydeck, Settings, Trigger events) both cron triggers are listed. Once web push is switched on, `[push-check]` lines appear every two minutes (see the checklist above).
@@ -118,7 +120,7 @@ This is the only rollback procedure; `RELEASE.md` points here.
 
 1. List the recent versions and pick the last good one: `bunx wrangler deployments list --name skydeck`. Note its version id.
 2. Roll back to it: `bunx wrangler rollback <version-id> --name skydeck` (without an id it goes to the previous version). Wrangler asks for a message; say why.
-3. Check it: `https://<address>/api/health` answers `{"status":"ok"}`, then run the live tests: `E2E_BASE_URL=https://<address> bun run test:e2e`. Open the site once on a phone or laptop.
+3. Check it: `https://<address>/api/health` answers `{"status":"ok"}`, then run the live tests: `E2E_BASE_URL=https://<address> E2E_PRODUCTION=1 bun run test:e2e`. Open the site once on a phone or laptop.
 4. If visitors still see the bad version, the service worker cached it: change `CACHE` in `public/sw.js` and redeploy from `main` (see `RELEASE.md` section 5).
 5. Fix on `dev`, promote to `main` and deploy again. A rollback does not change the code on `main`; the next deploy replaces it.
 
