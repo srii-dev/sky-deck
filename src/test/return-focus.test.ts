@@ -24,6 +24,27 @@ describe("returnFocus", () => {
     expect(close.defaultPrevented).toBe(true);
   });
 
+  it("falls back to the outer dialog's opener when the dialog was opened from inside one that has closed", () => {
+    const toolbar = document.createElement("button");
+    const outer = document.createElement("div");
+    outer.setAttribute("role", "dialog");
+    const row = document.createElement("button");
+    outer.append(row);
+    const inner = document.createElement("div");
+    document.body.append(toolbar, outer, inner);
+
+    toolbar.focus();
+    returnFocus.onOpenAutoFocus(eventOn(outer));
+    row.focus();
+    returnFocus.onOpenAutoFocus(eventOn(inner));
+    outer.remove();
+
+    const close = eventOn(inner);
+    returnFocus.onCloseAutoFocus(close);
+    expect(document.activeElement).toBe(toolbar);
+    expect(close.defaultPrevented).toBe(true);
+  });
+
   it("leaves the default alone when the opener is gone or was never recorded", () => {
     const button = document.createElement("button");
     const content = document.createElement("div");
