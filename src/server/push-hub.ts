@@ -10,7 +10,7 @@ import {
 } from "../lib/push-alerts";
 import { deletePushSubscription, loadPushData } from "../lib/push-store.server";
 import { requireConfig } from "../lib/server-config.server";
-import { buildPushRequest } from "../lib/web-push";
+import { buildPushRequest, type VapidCache } from "../lib/web-push";
 import type { RuleState } from "../lib/alert-rules";
 
 /*
@@ -22,6 +22,8 @@ import type { RuleState } from "../lib/alert-rules";
  * service role key are set. Exported from the Worker entry by exports.cloudflare.ts.
  */
 
+const SEND_TIMEOUT_MS = 10_000;
+
 interface FeedHubNamespace {
   idFromName(name: string): unknown;
   get(id: unknown): { load(lat: number, lon: number, radiusNm: number): Promise<FeedResponse> };
@@ -30,6 +32,7 @@ interface FeedHubNamespace {
 export class PushHub extends DurableObject<Record<string, unknown>> {
   private state: RuleState = { matching: new Map(), lastAlert: new Map() };
   private running = false;
+  private vapidCache: VapidCache = new Map();
 
   constructor(ctx: ConstructorParameters<typeof DurableObject>[0], env: Record<string, unknown>) {
     super(ctx, env);
@@ -87,8 +90,13 @@ export class PushHub extends DurableObject<Record<string, unknown>> {
           const req = await buildPushRequest(sub, JSON.stringify(message), vapid, {
             ttlS: PUSH_TTL_S,
             urgency: "high",
+            cache: this.vapidCache,
           });
-          const res = await fetch(req.url, req.init);
+          // A push service that hangs must not hold the check (and the next one, which would answer "busy").
+          const res = await fetch(req.url, {
+            ...req.init,
+            signal: AbortSignal.timeout(SEND_TIMEOUT_MS),
+          });
           // The body is not needed; drop it so the connection is released.
           await res.body?.cancel();
           return res.status;

@@ -15,13 +15,18 @@ export interface PushStoreConfig {
 type Fetch = typeof fetch;
 
 const ROW_LIMIT = 2000;
+/** A slow database must not hold the check past the next cron run. */
+const STORE_TIMEOUT_MS = 10_000;
 
 function headers(c: PushStoreConfig): Record<string, string> {
   return { apikey: c.serviceKey, Authorization: `Bearer ${c.serviceKey}` };
 }
 
 async function getRows<T>(c: PushStoreConfig, path: string, f: Fetch): Promise<T[]> {
-  const res = await f(`${c.url.replace(/\/$/, "")}/rest/v1/${path}`, { headers: headers(c) });
+  const res = await f(`${c.url.replace(/\/$/, "")}/rest/v1/${path}`, {
+    headers: headers(c),
+    signal: AbortSignal.timeout(STORE_TIMEOUT_MS),
+  });
   if (!res.ok) throw new Error(`push store read failed (${res.status})`);
   const data = (await res.json()) as unknown;
   return Array.isArray(data) ? (data as T[]) : [];
@@ -57,6 +62,7 @@ export async function deletePushSubscription(
   const res = await f(`${c.url.replace(/\/$/, "")}/rest/v1/push_subscriptions?${q.toString()}`, {
     method: "DELETE",
     headers: headers(c),
+    signal: AbortSignal.timeout(STORE_TIMEOUT_MS),
   });
   if (!res.ok) throw new Error(`push store delete failed (${res.status})`);
 }

@@ -80,6 +80,26 @@ export function pushRuleKey(userId: string, ruleId: string): string {
   return userId + ":" + ruleId;
 }
 
+/**
+ * The rows in turns: every user's first rule, then every user's second, and so on (users and their rules keep the
+ * database's oldest-first order). The caps then cut the last turns, so one account with many rules in different
+ * areas cannot use up every circle while other people's first rules wait.
+ */
+export function takeTurns(rows: readonly PushRuleRow[]): PushRuleRow[] {
+  const byUser = new Map<unknown, PushRuleRow[]>();
+  for (const row of rows) {
+    const list = byUser.get(row.user_id) ?? [];
+    list.push(row);
+    byUser.set(row.user_id, list);
+  }
+  const out: PushRuleRow[] = [];
+  const lists = [...byUser.values()];
+  for (let turn = 0; out.length < rows.length; turn++) {
+    for (const list of lists) if (turn < list.length) out.push(list[turn]!);
+  }
+  return out;
+}
+
 /** Which circles to load and which rules to check, from the rows the database returned. */
 export function planPushCheck(
   ruleRows: readonly PushRuleRow[],
@@ -98,7 +118,7 @@ export function planPushCheck(
   const rules: PlannedRule[] = [];
   const perUser = new Map<string, number>();
   let skipped = 0;
-  for (const row of ruleRows) {
+  for (const row of takeTurns(ruleRows)) {
     if (typeof row.user_id !== "string" || !subscriptions.has(row.user_id)) continue;
     const ruleId = typeof row.rule_id === "string" ? row.rule_id.slice(0, 40) : "";
     const conditions = cleanConditions(row.conditions);

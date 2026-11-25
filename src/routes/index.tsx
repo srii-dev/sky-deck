@@ -7,6 +7,7 @@ import { Info, Mountain, Radio, SlidersHorizontal, Box } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { returnFocus } from "@/lib/return-focus";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { LiveIndicator } from "@/components/skydeck/LiveIndicator";
 import { SearchBox } from "@/components/skydeck/SearchBox";
@@ -255,13 +256,15 @@ function SkyDeck() {
     }
   }, []);
 
+  const mockLat = viewport?.lat;
+  const mockLon = viewport?.lon;
   useEffect(() => {
-    if (import.meta.env.DEV && isMock && viewport) {
+    if (import.meta.env.DEV && isMock && mockLat != null && mockLon != null) {
       void import("@/lib/mock-fixture.dev").then(({ generateDevMockAircraft }) => {
-        setMockAircraft(generateDevMockAircraft(viewport.lat, viewport.lon));
+        setMockAircraft(generateDevMockAircraft(mockLat, mockLon));
       });
     }
-  }, [isMock, viewport?.lat, viewport?.lon]);
+  }, [isMock, mockLat, mockLon]);
 
   useEffect(() => {
     const el = hudRef.current;
@@ -1015,7 +1018,13 @@ function SkyDeck() {
                 )}
               </Button>
             </PopoverTrigger>
-            <PopoverContent align="end" className="glass-panel w-80">
+            {/* Records the opener so Credits, opened from here, can give focus back to the Filters button. Closing stays
+                with Radix, which leaves focus alone after a click outside. */}
+            <PopoverContent
+              onOpenAutoFocus={returnFocus.onOpenAutoFocus}
+              align="end"
+              className="glass-panel w-80"
+            >
               <FiltersPanel
                 filters={filters}
                 onChange={setFilters}
