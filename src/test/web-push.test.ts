@@ -25,7 +25,7 @@ function browserKeys() {
     ua,
     auth,
     sub: {
-      endpoint: "https://push.example.net/send/abc123",
+      endpoint: "https://fcm.googleapis.com/send/abc123",
       p256dh: ua.getPublicKey().toString("base64url"),
       auth: auth.toString("base64url"),
     },
@@ -86,14 +86,14 @@ describe("VAPID (RFC 8292)", () => {
   it("signs a token for the push service's origin that verifies with the public key", async () => {
     const keys = vapidKeys();
     const now = Date.UTC(2026, 10, 25, 12);
-    const header = await vapidAuthorization("https://push.example.net/send/abc", keys, now);
+    const header = await vapidAuthorization("https://fcm.googleapis.com/send/abc", keys, now);
     const m = /^vapid t=([^.]+)\.([^.]+)\.([^,]+), k=(.+)$/.exec(header);
     expect(m).not.toBeNull();
     const [, h, b, s, k] = m!;
     expect(k).toBe(keys.publicKey);
     const claims = JSON.parse(Buffer.from(b!, "base64url").toString()) as Record<string, unknown>;
     expect(claims).toEqual({
-      aud: "https://push.example.net",
+      aud: "https://fcm.googleapis.com",
       exp: now / 1000 + 12 * 3600,
       sub: "https://skydeck.example",
     });
@@ -140,6 +140,23 @@ describe("subscriptions", () => {
     expect(isValidSubscription(sub)).toBe(true);
     expect(isValidSubscription({ ...sub, endpoint: "http://push.example.net/x" })).toBe(false);
     expect(isValidSubscription({ ...sub, endpoint: "not a url" })).toBe(false);
+    // Only the browsers' push services: the server sends requests to this address.
+    for (const ok of [
+      "https://updates.push.services.mozilla.com/wpush/v2/abc",
+      "https://web.push.apple.com/QAbc",
+      "https://wns2-par02p.notify.windows.com/w/?token=abc",
+    ])
+      expect(isValidSubscription({ ...sub, endpoint: ok }), ok).toBe(true);
+    for (const bad of [
+      "https://evil.example/fcm.googleapis.com",
+      "https://fcm.googleapis.com.evil.example/x",
+      "https://127.0.0.1/x",
+      "https://localhost/x",
+      "https://fcm.googleapis.com:8443/x",
+      "https://user:pw@fcm.googleapis.com/x",
+      "https://evilpush.services.mozilla.com.example/x",
+    ])
+      expect(isValidSubscription({ ...sub, endpoint: bad }), bad).toBe(false);
     expect(isValidSubscription({ ...sub, p256dh: sub.auth })).toBe(false);
     expect(isValidSubscription({ ...sub, auth: sub.p256dh })).toBe(false);
   });

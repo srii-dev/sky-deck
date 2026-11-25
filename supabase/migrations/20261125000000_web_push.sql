@@ -9,7 +9,12 @@
 
 create table public.push_subscriptions (
   user_id uuid not null references auth.users (id) on delete cascade,
-  endpoint text not null check (endpoint ~ '^https://' and char_length(endpoint) <= 1000),
+  -- Only the browsers' push services (Google, Mozilla, Microsoft, Apple): the server sends requests to this address,
+  -- so it must never be one a user picks. The server checks the same list again (src/lib/web-push.ts).
+  endpoint text not null check (
+    endpoint ~ '^https://(fcm\.googleapis\.com|web\.push\.apple\.com|([a-z0-9-]+\.)*push\.services\.mozilla\.com|[a-z0-9-]+(\.[a-z0-9-]+)*\.notify\.windows\.com|[a-z0-9-]+(\.[a-z0-9-]+)*\.push\.apple\.com)/'
+    and char_length(endpoint) <= 1000
+  ),
   -- base64url P-256 public key (65 bytes -> 87 characters) and 16-byte auth secret (22 characters).
   p256dh text not null check (p256dh ~ '^[A-Za-z0-9_-]{80,100}$'),
   auth text not null check (auth ~ '^[A-Za-z0-9_-]{16,32}$'),

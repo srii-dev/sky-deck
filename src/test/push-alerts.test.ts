@@ -36,7 +36,7 @@ function key() {
 function sub(user: string, n = 1): PushSubscriptionRow {
   return {
     user_id: user,
-    endpoint: `https://push.example.net/${user}/${n}`,
+    endpoint: `https://fcm.googleapis.com/fcm/send/${user}/${n}`,
     p256dh: key(),
     auth: Buffer.from("0123456789abcdef").toString("base64url"),
   };
@@ -228,8 +228,8 @@ describe("one check", () => {
     const second = await runPushCheck(first.state, busy.d);
     expect(second.report).toMatchObject({ events: 1, sent: 2, failed: 0 });
     expect(busy.sent.map((s) => s.endpoint)).toEqual([
-      "https://push.example.net/u1/1",
-      "https://push.example.net/u1/2",
+      "https://fcm.googleapis.com/fcm/send/u1/1",
+      "https://fcm.googleapis.com/fcm/send/u1/2",
     ]);
     // Same aircraft next time: no new alert.
     const third = await runPushCheck(second.state, deps({ aircraft: [plane()] }).d);
@@ -244,7 +244,7 @@ describe("one check", () => {
     });
     const r = await runPushCheck(first.state, gone.d);
     expect(r.report).toMatchObject({ sent: 1, failed: 1, removed: 1 });
-    expect(gone.deleted).toEqual(["https://push.example.net/u1/1"]);
+    expect(gone.deleted).toEqual(["https://fcm.googleapis.com/fcm/send/u1/1"]);
   });
 
   it("tries again next check when an alert reached none of the user's browsers", async () => {

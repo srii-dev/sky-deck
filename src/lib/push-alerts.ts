@@ -6,6 +6,7 @@ import {
   isPushEligible,
   MAX_ALERT_RULES,
   MAX_RULE_NAME,
+  RULE_COOLDOWN_MS,
   type AlertRule,
   type RuleAircraft,
   type RuleEvent,
@@ -318,8 +319,14 @@ export async function runPushCheck(
     removed: 0,
     retried: 0,
   };
-  if (plan.rules.length === 0)
-    return { state: { matching: new Map(), lastAlert: state.lastAlert }, report };
+  if (plan.rules.length === 0) {
+    // Nothing to check: still drop cooldowns old enough to have no effect.
+    const now = deps.now();
+    const lastAlert = new Map(
+      [...state.lastAlert].filter(([, at]) => now - at <= RULE_COOLDOWN_MS),
+    );
+    return { state: { matching: new Map(), lastAlert }, report };
+  }
 
   const feeds = new Map<string, Aircraft[]>();
   await Promise.all(

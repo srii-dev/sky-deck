@@ -70,11 +70,30 @@ function checkPoint(raw: Uint8Array, what: string): void {
     throw new Error(`${what} is not an uncompressed P-256 key`);
 }
 
-/** Whether a subscription from the browser looks usable (https endpoint, keys of the right length). */
+/**
+ * The browsers' push services. The server POSTs to a subscription's endpoint, which a signed-in user writes, so only
+ * these hosts are accepted; anything else (our own hosts, IP addresses, other sites) would let a user aim the Worker
+ * at an address of their choice.
+ */
+const PUSH_HOSTS = [
+  "fcm.googleapis.com",
+  "web.push.apple.com",
+  "updates.push.services.mozilla.com",
+];
+const PUSH_HOST_SUFFIXES = [".push.services.mozilla.com", ".notify.windows.com", ".push.apple.com"];
+
+export function isPushServiceHost(host: string): boolean {
+  const h = host.toLowerCase();
+  return PUSH_HOSTS.includes(h) || PUSH_HOST_SUFFIXES.some((s) => h.endsWith(s));
+}
+
+/** Whether a subscription from the browser looks usable (a known push service over https, keys of the right length). */
 export function isValidSubscription(s: PushSubscriptionKeys): boolean {
   try {
     const url = new URL(s.endpoint);
     if (url.protocol !== "https:" || s.endpoint.length > 1000) return false;
+    if (url.port !== "" || url.username !== "" || url.password !== "") return false;
+    if (!isPushServiceHost(url.hostname)) return false;
     const p = base64UrlDecode(s.p256dh);
     return p.length === 65 && p[0] === 4 && base64UrlDecode(s.auth).length === 16;
   } catch {
