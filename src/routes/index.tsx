@@ -1076,11 +1076,12 @@ function SkyDeck() {
         )}
       </div>
 
-      {/* Emergency alert */}
+      {/* Emergency alert. It sits on the same row as the ruler bar beside the map tools, so it moves down while the
+          ruler is on; otherwise it would cover the ruler's readout and buttons. */}
       {emergencies.length > 0 && (
         <div
           className={`pointer-events-none absolute inset-x-0 z-30 flex justify-center pl-16 pr-3 md:px-3 ${selected ? "md:pr-[428px]" : ""}`}
-          style={{ top: "calc(var(--hud-h, 76px) + 8px)" }}
+          style={{ top: `calc(var(--hud-h, 76px) + ${rulerActive ? 56 : 8}px)` }}
         >
           <EmergencyBanner aircraft={emergencies} onPick={pickAircraft} />
         </div>

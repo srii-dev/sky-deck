@@ -127,6 +127,10 @@ test("the ruler starts at the selected aircraft and a map click finishes the mea
   page,
 }) => {
   await openMap(page);
+  // Wait for the stub's 7700 aircraft: the emergency banner shares the ruler bar's row and used to cover its buttons.
+  await expect(page.getByRole("alert").filter({ hasText: "Emergency squawk" })).toBeVisible({
+    timeout: 30_000,
+  });
   const ruler = page.getByRole("button", { name: "Measure distance" });
   const startAtAircraft = page.getByRole("button", { name: "Start at the selected aircraft" });
 
