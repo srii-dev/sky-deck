@@ -36,6 +36,40 @@ describe("QuotaGuard", () => {
     const again = new QuotaGuard(limits, g.snapshot());
     expect(again.canSend(T0 + 200_000)).toBe(false);
   });
+
+  it("stops at the weekly limit until Monday 00:00 UTC, also across a month change", () => {
+    const g = new QuotaGuard({ ...limits, perDay: 100, perWeek: 2 });
+    const monday = Date.UTC(2026, 10, 30, 23, 0, 0); // Monday 30 November
+    expect(g.take(monday)).toBe(true);
+    expect(g.take(monday + 3 * 86_400_000)).toBe(true); // Thursday 3 December, same week
+    const sunday = Date.UTC(2026, 11, 6, 23, 59, 59);
+    expect(g.take(sunday)).toBe(false);
+    expect(g.take(sunday + 1000)).toBe(true);
+  });
+
+  it("stops at the monthly limit until the 1st", () => {
+    const g = new QuotaGuard({ ...limits, perDay: 100, perMonth: 2 });
+    const t = Date.UTC(2026, 11, 20);
+    expect([g.take(t), g.take(t + 86_400_000), g.take(t + 2 * 86_400_000)]).toEqual([
+      true,
+      true,
+      false,
+    ]);
+    expect(g.take(Date.UTC(2027, 0, 1))).toBe(true);
+  });
+
+  it("records nothing for a refused request, and snapshots and restores copies", () => {
+    const g = new QuotaGuard(limits);
+    for (let i = 0; i < 4; i++) g.take(T0 + i);
+    const saved = g.snapshot();
+    expect(saved.day.count).toBe(3);
+    expect(saved.recent).toHaveLength(3);
+    const again = new QuotaGuard(limits, saved);
+    again.take(T0 + 20_000);
+    expect(saved.day.count).toBe(3);
+    expect(g.snapshot().day.count).toBe(3);
+    expect(again.snapshot().day.count).toBe(4);
+  });
 });
 
 describe("adsb.lol key quota in the feed", () => {
