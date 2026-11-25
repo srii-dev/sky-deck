@@ -247,6 +247,16 @@ describe("one check", () => {
     expect(gone.deleted).toEqual(["https://push.example.net/u1/1"]);
   });
 
+  it("tries again next check when an alert reached none of the user's browsers", async () => {
+    const first = await runPushCheck(newRuleState(), deps().d);
+    const down = deps({ aircraft: [plane()], send: async () => 503 });
+    const r = await runPushCheck(first.state, down.d);
+    expect(r.report).toMatchObject({ events: 1, sent: 0, failed: 2, retried: 1 });
+    const up = deps({ aircraft: [plane()] });
+    const again = await runPushCheck(r.state, up.d);
+    expect(again.report).toMatchObject({ events: 1, sent: 2, retried: 0 });
+  });
+
   it("never sends more than the per-check limit", async () => {
     const users = Array.from({ length: 30 }, (_, i) => "u" + i);
     const loadData = async () => ({
@@ -258,6 +268,11 @@ describe("one check", () => {
     const r = await runPushCheck(first.state, many.d);
     expect(r.report.events).toBe(30);
     expect(many.sent).toHaveLength(MAX_PUSH_SENDS);
+    // The users the budget did not reach get their alert on the next check.
+    expect(r.report.retried).toBe(30 - MAX_PUSH_SENDS);
+    const next = deps({ loadData, aircraft: [plane()] });
+    await runPushCheck(r.state, next.d);
+    expect(next.sent).toHaveLength(30 - MAX_PUSH_SENDS);
   });
 
   it("does nothing without rules, and treats a failed feed as not loaded", async () => {

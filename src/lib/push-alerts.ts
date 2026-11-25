@@ -296,6 +296,8 @@ export interface PushCheckReport {
   sent: number;
   failed: number;
   removed: number;
+  /** Alerts kept for the next check because they reached none of the user's browsers. */
+  retried: number;
 }
 
 /** Run one check. Counts only in the report: no ids, addresses or flights, so it can be logged. */
@@ -314,6 +316,7 @@ export async function runPushCheck(
     sent: 0,
     failed: 0,
     removed: 0,
+    retried: 0,
   };
   if (plan.rules.length === 0)
     return { state: { matching: new Map(), lastAlert: state.lastAlert }, report };
@@ -334,8 +337,10 @@ export async function runPushCheck(
   const result = evaluatePushRules(state, plan, feeds, deps.now());
   report.events = result.events.length;
   let budget = MAX_PUSH_SENDS;
+  const notDelivered: string[] = [];
   for (const [userId, messages] of messagesByUser(result.events)) {
     const targets = plan.subscriptions.get(userId) ?? [];
+    const sentBefore = report.sent;
     for (const sub of targets) {
       let gone = false;
       for (const m of messages) {
@@ -362,6 +367,16 @@ export async function runPushCheck(
         }
       }
     }
+    if (report.sent === sentBefore) notDelivered.push(userId);
+  }
+  // A user whose alerts reached none of their browsers (failed, or not tried because the budget ran out) gets them
+  // again next check: their matches and cooldowns are taken back, so the aircraft count as new.
+  const retry = new Set(notDelivered);
+  for (const e of result.events) {
+    if (!retry.has(e.userId) || !e.hex) continue;
+    result.state.matching.get(e.ruleId)?.delete(e.hex);
+    result.state.lastAlert.delete(e.ruleId + ":" + e.hex);
+    report.retried += 1;
   }
   return { state: result.state, report };
 }
