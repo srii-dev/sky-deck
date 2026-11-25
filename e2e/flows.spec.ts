@@ -430,6 +430,143 @@ test("alert rules: plain English and the form both make rules that fit the stub 
   await expect(yours.getByRole("listitem").nth(1)).toContainText("1 matching now");
 });
 
+/** Must match SUPABASE_URL in playwright.config.ts. */
+const SUPABASE = "https://stub.supabase.test";
+const PUSH_ENDPOINT = "https://fcm.googleapis.com/fcm/send/e2e-browser";
+type Row = Record<string, unknown>;
+
+/** The two push tables in memory, behind the part of Supabase's REST API the page uses; other reads are empty. */
+async function stubAccount(page: Page) {
+  const db: Record<string, Row[]> = { push_subscriptions: [], push_rules: [] };
+  await page.route(`${SUPABASE}/**`, async (route) => {
+    const request = route.request();
+    const headers = {
+      "access-control-allow-origin": "*",
+      "access-control-allow-headers": request.headers()["access-control-request-headers"] ?? "",
+      "access-control-allow-methods": "GET, HEAD, POST, PATCH, DELETE",
+    };
+    const method = request.method();
+    if (method === "OPTIONS") return route.fulfill({ status: 204, headers });
+    const url = new URL(request.url());
+    const table = url.pathname.replace("/rest/v1/", "");
+    const rows = db[table];
+    if (!rows) return route.fulfill({ headers, json: [] });
+    const matches = (row: Row) =>
+      [...url.searchParams].every(([column, filter]) => {
+        if (filter.startsWith("eq.")) return row[column] === filter.slice(3);
+        if (!filter.startsWith("in.(")) return true;
+        return filter.slice(4, -1).replaceAll('"', "").split(",").includes(String(row[column]));
+      });
+    if (method === "GET") return route.fulfill({ headers, json: rows.filter(matches) });
+    if (method === "POST") rows.push(...[request.postDataJSON() as Row | Row[]].flat());
+    if (method === "PATCH")
+      for (const row of rows.filter(matches)) Object.assign(row, request.postDataJSON());
+    if (method === "DELETE") db[table] = rows.filter((row) => !matches(row));
+    return route.fulfill({ status: method === "POST" ? 201 : 204, headers });
+  });
+  return db;
+}
+
+/**
+ * A signed-in visitor with two saved rules (one with an area), and a stand-in for the browser's push service: the
+ * dev server registers no service worker, and a real subscription would call the browser maker's server.
+ */
+async function signedInWithFakePush(page: Page, permission: "granted" | "denied") {
+  await page.addInitScript(
+    ({ endpoint, answer }) => {
+      const user = { id: "e2e-user", aud: "authenticated", email: "e2e@example.test" };
+      localStorage.setItem(
+        "sb-stub-auth-token",
+        JSON.stringify({
+          access_token: "e2e.e2e.e2e",
+          refresh_token: "e2e",
+          token_type: "bearer",
+          expires_in: 3600,
+          expires_at: Math.floor(Date.now() / 1000) + 3600,
+          user,
+        }),
+      );
+      const rule = { enabled: true, createdAt: 1 };
+      const area = { lat: 40.7, lon: -74, radiusNm: 40, label: "New York" };
+      localStorage.setItem(
+        "skydeck:alert-rules",
+        JSON.stringify([
+          { ...rule, id: "near", name: "Near me", conditions: { kinds: ["helicopter"], area } },
+          { ...rule, id: "anywhere", name: "Anywhere", conditions: { kinds: ["helicopter"] } },
+        ]),
+      );
+      let current: object | null = null;
+      const pushManager = {
+        getSubscription: async () => current,
+        subscribe: async () =>
+          (current = {
+            toJSON: () => ({ endpoint, keys: { p256dh: "e2e-p256dh", auth: "e2e-auth" } }),
+            unsubscribe: async () => {
+              current = null;
+              return true;
+            },
+          }),
+      };
+      navigator.serviceWorker.getRegistration = async () =>
+        ({ pushManager }) as unknown as ServiceWorkerRegistration;
+      class FakeNotification {
+        static permission = "default";
+        static requestPermission = async () => (FakeNotification.permission = answer);
+      }
+      Object.defineProperty(window, "Notification", {
+        configurable: true,
+        value: FakeNotification,
+      });
+    },
+    { endpoint: PUSH_ENDPOINT, answer: permission },
+  );
+}
+
+async function openPushSwitch(page: Page) {
+  await openMap(page);
+  await page.getByRole("button", { name: "Watchlist", exact: true }).click();
+  await page.getByRole("button", { name: /^Alert rules/ }).click();
+  const rules = page.getByRole("dialog", { name: "Alert rules" });
+  const section = rules.getByRole("region", { name: "Alerts while SkyDeck is closed" });
+  const toggle = section.getByRole("switch");
+  await expect(toggle).toBeEnabled();
+  await expect(toggle).not.toBeChecked();
+  return { section, toggle };
+}
+
+test("closed-page alerts: on saves this browser and its area rules, off removes both", async ({
+  page,
+}) => {
+  const db = await stubAccount(page);
+  await signedInWithFakePush(page, "granted");
+  const { section, toggle } = await openPushSwitch(page);
+
+  await toggle.click();
+  await expect(toggle).toBeChecked();
+  await expect(section).toContainText("On for this browser.");
+  expect(db["push_subscriptions"]).toEqual([
+    { user_id: "e2e-user", endpoint: PUSH_ENDPOINT, p256dh: "e2e-p256dh", auth: "e2e-auth" },
+  ]);
+  // The rule without an area cannot be checked while the page is closed, so it is not uploaded.
+  await expect.poll(() => db["push_rules"]!.map((r) => r["rule_id"])).toEqual(["near"]);
+
+  await toggle.click();
+  await expect(section).toContainText("Off for this browser.");
+  await expect(toggle).not.toBeChecked();
+  expect(db).toEqual({ push_subscriptions: [], push_rules: [] });
+});
+
+test("closed-page alerts: blocked notifications save nothing and say why", async ({ page }) => {
+  const db = await stubAccount(page);
+  await signedInWithFakePush(page, "denied");
+  const { section, toggle } = await openPushSwitch(page);
+
+  await toggle.click();
+  await expect(section.getByRole("alert")).toContainText("Notifications are blocked");
+  await expect(toggle).toBeDisabled();
+  expect(db).toEqual({ push_subscriptions: [], push_rules: [] });
+});
+
 test("opening aircraft adds their types to the collection", async ({ page }) => {
   await openMap(page);
   await pick(page, "SKD303", "SKD303");
