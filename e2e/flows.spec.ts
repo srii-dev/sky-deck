@@ -317,6 +317,29 @@ test("saved views: save, go to and delete", async ({ page }) => {
   await expect(page.getByText(/^Saved views stay in this browser/)).toBeVisible();
 });
 
+test("without the basemap style the map still moves to a saved view", async ({ page }) => {
+  // OpenFreeMap down, or a network that blocks it (as in some cloud containers). Without a loaded style MapLibre ran no
+  // camera moves at all, so going to a saved view, a search result or an airport did nothing.
+  await page.route("https://tiles.openfreemap.org/styles/**", (route) => route.abort());
+  await page.addInitScript(() =>
+    localStorage.setItem(
+      "skydeck:saved-views",
+      JSON.stringify([{ name: "Harbour", lat: 40.72, lon: -73.95, zoom: 9 }]),
+    ),
+  );
+  await openMap(page, "/?lat=42.36&lon=-71.01&z=8");
+  await page.getByRole("button", { name: "Saved views" }).click();
+  await page.getByRole("button", { name: "Harbour", exact: true }).click();
+  // Within the rounding the address uses, as in the saved views flow above.
+  await expect
+    .poll(() => {
+      const p = new URL(page.url()).searchParams;
+      const [lat, lon] = [Number(p.get("lat")), Number(p.get("lon"))];
+      return Math.abs(lat - 40.72) < 0.02 && Math.abs(lon + 73.95) < 0.02 && p.get("z") === "9";
+    })
+    .toBe(true);
+});
+
 test("the address carries the selected aircraft and reopening it selects it again", async ({
   page,
   context,
