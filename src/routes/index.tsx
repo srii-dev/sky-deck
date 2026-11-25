@@ -44,6 +44,7 @@ import type { GlideStatus } from "@/components/skydeck/FlightMap";
 import { useAircraftFeed } from "@/hooks/use-aircraft-feed";
 import { useFlagPref } from "@/hooks/use-flag-pref";
 import { useFlag } from "@/hooks/use-flag";
+import { useAfterPaint } from "@/hooks/use-after-paint";
 import { serverFlags } from "@/lib/flags";
 import { usePersonalData } from "@/hooks/use-personal-data";
 import { useWatchAlerts } from "@/hooks/use-watch-alerts";
@@ -92,6 +93,8 @@ import { useNotifyPrefs } from "@/hooks/use-notify-prefs";
 import { sunTimes } from "@/lib/sun";
 
 const FlightMap = lazy(() => import("@/components/skydeck/FlightMap"));
+/** The dialog fade-in (components/ui/dialog.tsx, duration-200) plus a frame or two. */
+const GUIDE_FADE_MS = 300;
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -134,6 +137,13 @@ function MapFallback() {
 }
 
 function SkyDeck() {
+  // The map waits for the first paint. When the first-run guide opens, it also waits for the guide's 200 ms
+  // fade-in, so a slow phone shows the guide before it starts building the map.
+  const mapAfterPaint = useAfterPaint(() =>
+    shouldAutoShowGuide(readFlagPref(STORAGE_KEYS.guideSeen, false), window.location.search)
+      ? GUIDE_FADE_MS
+      : 0,
+  );
   const satelliteOn = useFlag("satellite");
   const [viewport, setViewport] = useState<Viewport | null>(null);
   const [selectedHex, setSelectedHex] = useState<string | null>(null);
@@ -841,44 +851,49 @@ function SkyDeck() {
         {APP_NAME} — {APP_TAGLINE}
       </h1>
       <ClientOnly fallback={<MapFallback />}>
-        <Suspense fallback={<MapFallback />}>
-          <FlightMap
-            aircraft={visible}
-            selectedHex={selectedHex}
-            onSelect={onSelect}
-            trail={feed.trail}
-            trail3d={trail3d}
-            nightShade={nightOn}
-            colorBy={colorBy}
-            basemap={basemap}
-            terrain={terrain}
-            follow={follow}
-            flyTarget={flyTarget}
-            onViewportChange={setPendingViewport}
-            glideRing={glideRing}
-            glideRatio={glideRatio}
-            onGlideStatus={setGlideStatus}
-            showTrail={showTrail}
-            receivedAt={feed.fetchedAt}
-            presentHexes={presentHexes}
-            smoothMotion={smoothMotion}
-            chase={chase && follow}
-            replay={replay.source}
-            alertAreas={alertAreas}
-            pickMode={!!areaPick}
-            onPick={onAreaPick}
-            onMotionDelay={setMotionDelaySec}
-            onSelectedMotion={(hex, m) => setSelectedMotion({ hex, m })}
-            weather={weather.state}
-            onWeatherPick={setWeatherPickId}
-            routeAirspace={routeAirspace}
-            onAirspacePick={setAirspacePickId}
-            rulerActive={rulerActive}
-            rulerPoints={rulerPoints}
-            onRulerPoint={(p) => setRulerPoints((pts) => nextRulerPoints(pts, p))}
-            rulerUnits={units}
-          />
-        </Suspense>
+        {/* The map library (about 1 MB) loads after the first paint, so the page and the guide appear first. */}
+        {!mapAfterPaint ? (
+          <MapFallback />
+        ) : (
+          <Suspense fallback={<MapFallback />}>
+            <FlightMap
+              aircraft={visible}
+              selectedHex={selectedHex}
+              onSelect={onSelect}
+              trail={feed.trail}
+              trail3d={trail3d}
+              nightShade={nightOn}
+              colorBy={colorBy}
+              basemap={basemap}
+              terrain={terrain}
+              follow={follow}
+              flyTarget={flyTarget}
+              onViewportChange={setPendingViewport}
+              glideRing={glideRing}
+              glideRatio={glideRatio}
+              onGlideStatus={setGlideStatus}
+              showTrail={showTrail}
+              receivedAt={feed.fetchedAt}
+              presentHexes={presentHexes}
+              smoothMotion={smoothMotion}
+              chase={chase && follow}
+              replay={replay.source}
+              alertAreas={alertAreas}
+              pickMode={!!areaPick}
+              onPick={onAreaPick}
+              onMotionDelay={setMotionDelaySec}
+              onSelectedMotion={(hex, m) => setSelectedMotion({ hex, m })}
+              weather={weather.state}
+              onWeatherPick={setWeatherPickId}
+              routeAirspace={routeAirspace}
+              onAirspacePick={setAirspacePickId}
+              rulerActive={rulerActive}
+              rulerPoints={rulerPoints}
+              onRulerPoint={(p) => setRulerPoints((pts) => nextRulerPoints(pts, p))}
+              rulerUnits={units}
+            />
+          </Suspense>
+        )}
       </ClientOnly>
 
       {/* Top HUD */}

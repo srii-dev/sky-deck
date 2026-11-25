@@ -31,6 +31,7 @@ import {
 import { currentAirportList, isLargeLoaded, loadLargeAirports } from "@/lib/airport-list";
 import { serverFlags } from "@/lib/flags";
 import { declutter } from "@/lib/declutter";
+import { metersPerPixel, needsRedraw, type DrawnPlane } from "@/lib/redraw-gate";
 import { rulerSummary } from "@/lib/measure";
 import type { UnitSystem } from "@/lib/units";
 import {
@@ -969,6 +970,10 @@ export default function FlightMap(props: FlightMapProps) {
       bearing: initial.bearing,
       maxPitch: 80,
       attributionControl: { compact: true },
+      // No label cross-fade. The aircraft layer is a symbol layer, so with the default 300 ms fade every aircraft
+      // update kept MapLibre repainting the whole map for the next 300 ms; at a few updates a second that was a
+      // nearly continuous 30 fps render on a phone. Labels now appear and hide at once instead of fading.
+      fadeDuration: 0,
     });
     mapRef.current = map;
     if (import.meta.env.DEV) (window as unknown as { __skydeckMap?: MLMap }).__skydeckMap = map;
@@ -1103,18 +1108,27 @@ export default function FlightMap(props: FlightMapProps) {
     });
 
     // ---------- animation loop ----------
+    // Paced by a timer, then aligned to the next frame. A bare requestAnimationFrame loop asks the browser for a new
+    // frame 60 times a second even when the tick then does nothing, and each of those frames costs style, layout and
+    // paint of the whole page: on a slow phone that alone kept the main thread busy for seconds after load.
     let raf = 0;
-    let last = 0;
+    let tickTimer: ReturnType<typeof setTimeout> | undefined;
+    const scheduleTick = () => {
+      tickTimer = setTimeout(() => {
+        raf = requestAnimationFrame(tick);
+      }, FRAME_MS);
+    };
     let lastTickWall = 0;
     let lastSelectedEmit = 0;
-    // An empty source stays empty: skipping the update saves a full map repaint every frame when nothing is shown.
-    let drewNothing = false;
+    // What the aircraft source last received, and which source that was (a basemap switch replaces it). A tick
+    // whose result would look the same is not sent: each setData repaints the whole map (see redraw-gate.ts).
+    let lastDrawn: Map<string, DrawnPlane> | null = null;
+    let lastDrawnSrc: GeoJSONSource | null = null;
     // Planes kept by the last declutter pass; they win ties next frame so nothing flickers.
     let shownRef = new Set<string>();
-    const tick = (ts: number) => {
-      raf = requestAnimationFrame(tick);
-      if (ts - last < FRAME_MS || !styleReadyRef.current) return;
-      last = ts;
+    const tick = () => {
+      scheduleTick();
+      if (!styleReadyRef.current) return;
       const src = map.getSource("sd-aircraft") as GeoJSONSource | undefined;
       if (!src) return;
       const wall = Date.now();
@@ -1204,8 +1218,37 @@ export default function FlightMap(props: FlightMapProps) {
       } else if (shownRef.size) {
         shownRef = new Set();
       }
-      if (drawn.length || !drewNothing) src.setData({ type: "FeatureCollection", features: drawn });
-      drewNothing = features.length === 0;
+      const next = new Map<string, DrawnPlane>();
+      for (const f of drawn) {
+        const p = f.properties as {
+          hex: string;
+          cs?: string;
+          kind?: string;
+          shape: string;
+          track: number;
+          color: string;
+          alt: number;
+          fade: number;
+          sel: boolean;
+          emg: boolean;
+        };
+        const [lon, lat] = f.geometry.coordinates as [number, number];
+        next.set(p.hex, {
+          lon,
+          lat,
+          track: p.track,
+          fade: p.fade,
+          alt: p.alt,
+          look: `${p.cs ?? ""}|${p.kind ?? ""}|${p.shape}|${p.color}|${p.sel ? 1 : 0}|${p.emg ? 1 : 0}`,
+        });
+      }
+      const centre = map.getCenter();
+      const prev = src === lastDrawnSrc ? lastDrawn : null;
+      if (needsRedraw(prev, next, metersPerPixel(centre.lat, map.getZoom()))) {
+        src.setData({ type: "FeatureCollection", features: drawn });
+        lastDrawn = next;
+        lastDrawnSrc = src;
+      }
       if (selPos && propsRef.current.follow && !map.isMoving()) {
         map.setCenter([selPos[1], selPos[0]]);
         // Chase camera: turn towards the heading a little each frame, so the view follows turns smoothly.
@@ -1216,7 +1259,7 @@ export default function FlightMap(props: FlightMapProps) {
         }
       }
     };
-    raf = requestAnimationFrame(tick);
+    scheduleTick();
 
     const onSourceData = (e: { sourceId?: string; isSourceLoaded?: boolean }) => {
       if (e.sourceId === "sd-dem" && e.isSourceLoaded) {
@@ -1232,6 +1275,7 @@ export default function FlightMap(props: FlightMapProps) {
 
     return () => {
       cancelAnimationFrame(raf);
+      if (tickTimer) clearTimeout(tickTimer);
       if (terrainTimer) clearTimeout(terrainTimer);
       terrainGen += 1;
       map.off("sourcedata", onSourceData);
