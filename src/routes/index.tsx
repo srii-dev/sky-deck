@@ -964,8 +964,13 @@ function SkyDeck() {
                 )}
               </Button>
             </PopoverTrigger>
-            {/* returnFocus: Credits, opened from here, then gives focus back to the Filters button. */}
-            <PopoverContent {...returnFocus} align="end" className="glass-panel w-80">
+            {/* Records the opener so Credits, opened from here, can give focus back to the Filters button. Closing stays
+                with Radix, which leaves focus alone after a click outside. */}
+            <PopoverContent
+              onOpenAutoFocus={returnFocus.onOpenAutoFocus}
+              align="end"
+              className="glass-panel w-80"
+            >
               <FiltersPanel
                 filters={filters}
                 onChange={setFilters}

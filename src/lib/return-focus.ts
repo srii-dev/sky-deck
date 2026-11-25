@@ -4,7 +4,8 @@
  * close. Spread onto <DialogContent>: the element focused when the dialog opens is remembered per dialog and focused
  * again when it closes, if it is still on the page. A dialog opened from inside another one (Settings → Account) closes
  * or a popover first, so its button is gone by then: focus goes back to whatever opened the outer one instead, when
- * the outer one spreads this too (a <PopoverContent> can).
+ * the outer one recorded its opener too (a <PopoverContent> passes only onOpenAutoFocus, so Radix still leaves focus
+ * alone when the popover closes on a click outside).
  */
 const openers = new WeakMap<EventTarget, HTMLElement[]>();
 
