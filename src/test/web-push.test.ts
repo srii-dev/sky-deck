@@ -137,13 +137,14 @@ describe("VAPID (RFC 8292)", () => {
 
   it("reuses a signed token per push service origin until an hour before it expires", async () => {
     const { sub } = browserKeys();
+    const keys = vapidKeys();
     const cache = new Map<string, { header: string; until: number }>();
     const t0 = Date.UTC(2026, 10, 25);
-    const a = await buildPushRequest(sub, "x", vapidKeys(), { cache, now: t0 });
-    const b = await buildPushRequest(sub, "x", vapidKeys(), { cache, now: t0 + 60_000 });
+    const a = await buildPushRequest(sub, "x", keys, { cache, now: t0 });
+    const b = await buildPushRequest(sub, "x", keys, { cache, now: t0 + 60_000 });
     expect(b.init.headers["Authorization"]).toBe(a.init.headers["Authorization"]);
     expect(cache.size).toBe(1);
-    const c = await buildPushRequest(sub, "x", vapidKeys(), { cache, now: t0 + 11.5 * 3600_000 });
+    const c = await buildPushRequest(sub, "x", keys, { cache, now: t0 + 11.5 * 3600_000 });
     expect(c.init.headers["Authorization"]).not.toBe(a.init.headers["Authorization"]);
   });
 });
