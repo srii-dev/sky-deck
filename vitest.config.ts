@@ -15,6 +15,10 @@ export default defineConfig({
       : [],
   },
   resolve: {
-    alias: { "@": path.resolve(__dirname, "./src") },
+    alias: {
+      "@": path.resolve(__dirname, "./src"),
+      // Only the Workers runtime has this module; a stand-in lets tests load the Durable Objects in src/server.
+      "cloudflare:workers": path.resolve(__dirname, "./src/test/server-do-fake.ts"),
+    },
   },
 });
