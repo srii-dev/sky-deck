@@ -55,24 +55,32 @@ export default defineConfig(({ command, mode }) => {
         ? [
             nitro({
               defaultPreset: "cloudflare-module",
+              // Runs the closed-page alert check on the cron trigger below (Phase 10f).
+              plugins: ["./src/server/push-cron.ts"],
               // Workers AI binding for the ACARS descriptions (src/lib/ai.server.ts reads it as AI). CI builds
               // without it (SKYDECK_AI_BINDING=off): wrangler dev needs a Cloudflare token for a remote binding.
               cloudflare: {
-                // FeedHub, the shared feed cache (src/server/feed-hub.ts), and AiHub, the shared AI service
-                // (src/server/ai-hub.ts), are exported from the Worker entry here.
+                // FeedHub, the shared feed cache (src/server/feed-hub.ts), AiHub, the shared AI service
+                // (src/server/ai-hub.ts), and PushHub, the closed-page alert check (src/server/push-hub.ts), are
+                // exported from the Worker entry here.
                 exports: "./src/server/exports.cloudflare.ts",
                 wrangler: {
                   durable_objects: {
                     bindings: [
                       { name: "FEED_HUB", class_name: "FeedHub" },
                       { name: "AI_HUB", class_name: "AiHub" },
+                      { name: "PUSH_HUB", class_name: "PushHub" },
                     ],
                   },
                   // The Workers Free plan only offers SQLite-backed Durable Objects. Never edit a deployed tag.
                   migrations: [
                     { tag: "v1", new_sqlite_classes: ["FeedHub"] },
                     { tag: "v2", new_sqlite_classes: ["AiHub"] },
+                    { tag: "v3", new_sqlite_classes: ["PushHub"] },
                   ],
+                  // Closed-page alert check every two minutes (src/server/push-cron.ts). It does nothing until the
+                  // VAPID keys and the service role key are set.
+                  triggers: { crons: ["*/2 * * * *"] },
                   ...(process.env["SKYDECK_AI_BINDING"] === "off" ? {} : { ai: { binding: "AI" } }),
                 },
               },

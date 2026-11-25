@@ -4,8 +4,8 @@ import { distanceNm } from "./route-geometry";
 /*
  * Alert rules (Phase 10b, 10c, 10d): conditions a visitor sets up ("a heavy jet below 5,000 ft within 40 nm of
  * JFK", "any military aircraft", "callsign RCH"). The browser checks them against every aircraft update while the
- * page is open; nothing is sent anywhere and nothing runs when the tab is closed (Phase 10f needs a backend).
- * Rules are kept in this browser. Pure functions plus a storage layer that never throws.
+ * page is open. Rules are kept in this browser; a signed-in visitor can also save the ones with an area to their
+ * account for closed-page alerts (web push, Phase 10f, src/lib/push-alerts.ts). Pure functions plus a storage layer that never throws.
  */
 
 export const ALERT_RULES_KEY = "skydeck:alert-rules";
@@ -205,6 +205,14 @@ export function setRuleEnabled(
 }
 
 const fmtFt = (v: number) => v.toLocaleString("en-US") + " ft";
+
+/** Largest area a rule may watch and still be checked while the page is closed (web push, Phase 10f). */
+export const PUSH_MAX_AREA_NM = 250;
+
+/** Whether a rule can be checked while the page is closed: it needs an area, at most PUSH_MAX_AREA_NM wide. */
+export function isPushEligible(c: RuleConditions): boolean {
+  return c.area !== undefined && c.area.radiusNm <= PUSH_MAX_AREA_NM && hasConditions(c);
+}
 
 /** A plain-English summary such as "heavy jet, below 5,000 ft, within 40 nm of JFK". */
 export function describeConditions(c: RuleConditions): string {

@@ -25,7 +25,7 @@ export const CONTACT_URL = REPO_URL + "/issues";
 export const CONTACT_NOTE =
   "Questions, corrections and takedown requests: open an issue on the project's GitHub page. Do not put private details in a public issue; say that you want a private reply and a way to give one will be arranged.";
 
-const UPDATED = "2026-11-24";
+const UPDATED = "2026-11-25";
 
 export const LEGAL_PAGES: readonly LegalPage[] = [
   {
@@ -86,6 +86,7 @@ export const LEGAL_PAGES: readonly LegalPage[] = [
         heading: "If you create an account",
         paragraphs: [
           "An account stores your email address and a password hash (we never see your password), an optional display name, your watchlist (up to 50 items) and your recently viewed flights (up to 15), so they follow you between devices. Accounts and data are provided by Supabase. In the account dialog, Delete my account removes all of it at once.",
+          "If you switch on alerts while SkyDeck is closed (Alert rules), your account also stores this browser's push subscription (the address of your browser maker's push service and two keys that let us encrypt alerts only your browser can read) and your alert rules that have an area. Our server checks those rules every few minutes. Switching the alerts off removes the browser, and the rules when no browser is left; deleting the account removes everything. The alerts travel through Google, Mozilla or Apple's push service, encrypted, so they see only that something was sent.",
         ],
       },
       {
