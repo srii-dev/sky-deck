@@ -220,12 +220,13 @@ export function MapTools({
   };
 
   return (
-    <div className="pointer-events-auto flex items-start gap-2">
+    // Only the buttons and the ruler chip take clicks: this row's box also spans the map beside the column.
+    <div className="pointer-events-none flex items-start gap-2">
       {/* In a short window (a phone on its side) the column wraps into a second column instead of running off the screen. */}
       {/* On a phone with an aircraft selected the column is shorter and wraps, so the last button stays above the collapsed bottom sheet (about 215 px). */}
       <div
         className={cn(
-          "flex flex-col flex-wrap content-start gap-2 md:max-h-[calc(100dvh-var(--hud-h,76px)-148px)]",
+          "pointer-events-auto flex flex-col flex-wrap content-start gap-2 md:max-h-[calc(100dvh-var(--hud-h,76px)-148px)]",
           layers.hasSelection
             ? "max-h-[calc(100dvh-var(--hud-h,76px)-240px)]"
             : "max-h-[calc(100dvh-var(--hud-h,76px)-84px)]",
@@ -503,7 +504,7 @@ export function MapTools({
       </div>
       {ruler.active && (
         <div
-          className="glass-panel flex items-center gap-2 rounded-md px-3 py-2 text-sm"
+          className="glass-panel pointer-events-auto flex items-center gap-2 rounded-md px-3 py-2 text-sm"
           role="status"
         >
           <span className="data-value text-primary">
