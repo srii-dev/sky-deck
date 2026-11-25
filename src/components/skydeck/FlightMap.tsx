@@ -108,6 +108,26 @@ function styleFor(b: Basemap): string | StyleSpecification {
   return "https://tiles.openfreemap.org/styles/dark";
 }
 
+/**
+ * A plain background in the basemap's colours, used when the basemap style cannot be fetched (OpenFreeMap down, or a
+ * network that blocks it). Without any loaded style MapLibre draws nothing and runs no camera moves, so no aircraft
+ * would show and flying to a saved view, a search result or an airport would do nothing.
+ */
+function fallbackStyle(b: Basemap): StyleSpecification {
+  return {
+    version: 8,
+    glyphs: GLYPHS,
+    sources: {},
+    layers: [
+      {
+        id: "sd-fallback-background",
+        type: "background",
+        paint: { "background-color": b === "light" ? "#e9ecef" : "#0b1018" },
+      },
+    ],
+  };
+}
+
 const FT_TO_M = 0.3048;
 const KT_TO_MS = 0.514444;
 const M_PER_DEG = 111320;
@@ -1000,6 +1020,19 @@ export default function FlightMap(props: FlightMapProps) {
       map.once("idle", run);
       terrainTimer = setTimeout(run, 3000);
     };
+
+    // The basemap style could not be fetched: keep the tracker working on a plain background. Only the style's own
+    // address counts (a failed tile, font or weather image is not a reason); the next basemap change tries again.
+    map.on("error", (e) => {
+      const url = (e.error as { url?: unknown } | undefined)?.url;
+      const basemap = propsRef.current.basemap;
+      const wanted = styleFor(basemap);
+      if (typeof wanted !== "string" || url !== wanted) return;
+      console.warn(`[map] basemap style unavailable (${url}); using a plain background`);
+      styleReadyRef.current = false;
+      sceneReadyRef.current = false;
+      map.setStyle(fallbackStyle(basemap), { diff: false });
+    });
 
     map.on("style.load", () => {
       styleReadyRef.current = false;
