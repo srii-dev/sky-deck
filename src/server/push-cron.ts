@@ -9,7 +9,11 @@ interface PushHubNamespace {
   get(id: unknown): { check(): Promise<unknown> };
 }
 
+/** Every two minutes. Read by vite.config.ts for the Worker's cron triggers. */
+export const PUSH_CRON = "*/2 * * * *";
+
 interface ScheduledEvent {
+  controller?: { cron?: string } | undefined;
   env?: { PUSH_HUB?: PushHubNamespace; VAPID_PRIVATE_KEY?: unknown } | undefined;
 }
 
@@ -18,6 +22,8 @@ interface Hooks {
 }
 
 export async function runScheduledPushCheck(e: ScheduledEvent): Promise<void> {
+  // Other cron triggers (the daily Supabase keep-alive) are not this check.
+  if (e.controller?.cron !== PUSH_CRON) return;
   const ns = e.env?.PUSH_HUB;
   if (!ns || typeof ns.idFromName !== "function") return;
   // Not set up yet: skip the call to the object (it would only answer "not-configured").

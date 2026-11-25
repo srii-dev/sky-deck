@@ -54,6 +54,8 @@ Shared feed cache: the build adds a Durable Object, `FeedHub` (binding `FEED_HUB
 
 AI (ACARS panel descriptions): the build adds a Workers AI binding named `AI` to the Worker, so nothing needs setting up for it. `GEMINI_API_KEY` is optional and only used when Workers AI fails or its daily budget is used (`bunx wrangler secret put GEMINI_API_KEY --name skydeck`). Set `AI_ENABLED` to `off` to switch all AI off.
 
+Supabase keep-alive: the build adds a daily cron trigger (`17 4 * * *`, 04:17 UTC) to the Worker. It reads one row of `profiles` as the anonymous role (row-level security returns none) so the free Supabase project is not paused after a week without activity. It uses `SUPABASE_URL` and `SUPABASE_ANON_KEY` above and nothing else; without them it logs "not configured, skipped". Check it in the Cloudflare dashboard (Workers, skydeck, Settings, Trigger events) and in the logs (`[keepalive] supabase ok (200)`). Locally: `bun run preview:worker -- --test-scheduled`, then open `http://127.0.0.1:4174/cdn-cgi/handler/scheduled?cron=17+4+*+*+*`.
+
 ## After a deploy
 
 - `https://<address>/api/health` answers `{"status":"ok"}`.

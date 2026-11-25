@@ -5,6 +5,8 @@ import tsConfigPaths from "vite-tsconfig-paths";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import { nitro } from "nitro/vite";
 import react from "@vitejs/plugin-react";
+import { KEEPALIVE_CRON } from "./src/lib/supabase-keepalive.server";
+import { PUSH_CRON } from "./src/server/push-cron";
 
 export default defineConfig(({ command, mode }) => {
   // Every VITE_ variable is also defined for server code, where Vite does not fill import.meta.env itself.
@@ -55,8 +57,9 @@ export default defineConfig(({ command, mode }) => {
         ? [
             nitro({
               defaultPreset: "cloudflare-module",
-              // Runs the closed-page alert check on the cron trigger below (Phase 10f).
-              plugins: ["./src/server/push-cron.ts"],
+              // Daily Supabase keep-alive (plan item 18f) and the closed-page alert check (Phase 10f), each on its cron
+              // trigger below. Each plugin ignores the other's cron.
+              plugins: ["./src/server/keepalive.plugin.ts", "./src/server/push-cron.ts"],
               // Workers AI binding for the ACARS descriptions (src/lib/ai.server.ts reads it as AI). CI builds
               // without it (SKYDECK_AI_BINDING=off): wrangler dev needs a Cloudflare token for a remote binding.
               cloudflare: {
@@ -78,9 +81,10 @@ export default defineConfig(({ command, mode }) => {
                     { tag: "v2", new_sqlite_classes: ["AiHub"] },
                     { tag: "v3", new_sqlite_classes: ["PushHub"] },
                   ],
-                  // Closed-page alert check every two minutes (src/server/push-cron.ts). It does nothing until the
-                  // VAPID keys and the service role key are set.
-                  triggers: { crons: ["*/2 * * * *"] },
+                  // Daily Supabase keep-alive (src/server/keepalive.plugin.ts) and the closed-page alert check every two
+                  // minutes (src/server/push-cron.ts; it does nothing until the VAPID keys and the service role key are
+                  // set). The Free plan allows 5 cron triggers.
+                  triggers: { crons: [KEEPALIVE_CRON, PUSH_CRON] },
                   ...(process.env["SKYDECK_AI_BINDING"] === "off" ? {} : { ai: { binding: "AI" } }),
                 },
               },

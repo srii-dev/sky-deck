@@ -123,6 +123,39 @@ test("the route comes from the stub's route lookup", async ({ page }) => {
   await expect(panel(page).getByText("BOS", { exact: true }).first()).toBeVisible();
 });
 
+test("the ruler starts at the selected aircraft and a map click finishes the measurement", async ({
+  page,
+}) => {
+  await openMap(page);
+  // Wait for the stub's 7700 aircraft: the emergency banner shares the ruler bar's row and used to cover its buttons.
+  await expect(page.getByRole("alert").filter({ hasText: "Emergency squawk" })).toBeVisible({
+    timeout: 30_000,
+  });
+  const ruler = page.getByRole("button", { name: "Measure distance" });
+  const startAtAircraft = page.getByRole("button", { name: "Start at the selected aircraft" });
+
+  // With nothing selected the ruler only asks for a start point.
+  await ruler.click();
+  await expect(page.getByText("Click a start point", { exact: true })).toBeVisible();
+  await expect(startAtAircraft).toHaveCount(0);
+
+  await pick(page, "SKD303", "SKD303");
+  await startAtAircraft.click();
+  await expect(page.getByText("Click a second point", { exact: true })).toBeVisible();
+  await expect(startAtAircraft).toHaveCount(0);
+
+  // The second point is an ordinary map click; the readout then shows distance and bearing.
+  const map = page.locator("canvas.maplibregl-canvas");
+  const box = await map.boundingBox();
+  if (!box) throw new Error("map canvas has no size");
+  await page.mouse.click(box.x + box.width * 0.3, box.y + box.height * 0.7);
+  await expect(page.getByRole("status").getByText(/ · \d{3}° [NESW]{1,3}$/)).toBeVisible();
+
+  await page.getByRole("button", { name: "Clear", exact: true }).click();
+  await expect(page.getByText("Click a start point", { exact: true })).toBeVisible();
+  await expect(startAtAircraft).toBeVisible();
+});
+
 test("N and P step through the aircraft in callsign order", async ({ page }) => {
   await openMap(page);
   await expect(count(page, `${COUNT} ac`)).toBeVisible();

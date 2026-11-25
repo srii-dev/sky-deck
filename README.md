@@ -1,10 +1,22 @@
 # SkyDeck
 
+![SkyDeck, a live 3D flight tracker: the map with an aircraft's details panel open](.github/images/banner.png)
+
 A live 3D flight tracker for the web. See aircraft move in real time on a terrain map, tap any plane for details, follow it, and watch for emergency squawks.
 
 SkyDeck is an independent project. It is inspired by the general category of flight-tracker apps and is not affiliated with, endorsed by, or a copy of any commercial app.
 
 > **Status:** early work in progress. The live map, search, filters, trails and aircraft categories work, and so do the glide-range ring with reachable airports, an ADS-B message inspector and ACARS messages (per aircraft, and an all-aircraft panel with AI headlines). A preview runs at https://skydeck.sky-deck.workers.dev. What is planned is in [Roadmap](#roadmap).
+
+## Screenshots
+
+The pictures use invented test aircraft (callsigns such as SKD303), not live data. Regenerate them with `node scripts/make-readme-images.mjs`.
+
+![The map in the dark theme with the details panel of a Boeing 777 open](.github/images/map-desktop.png)
+
+| Satellite map, light theme | Phone layout |
+| --- | --- |
+| ![The satellite map in the light theme with an Airbus A320 selected](.github/images/map-satellite-light.png) | ![The phone layout with the aircraft details sheet at the bottom](.github/images/map-phone.png) |
 
 ## Features
 
@@ -83,6 +95,7 @@ Then open the URL that Vite prints (usually http://localhost:3000 or http://loca
 | `bun run test:watch` | Run the tests in watch mode |
 | `bun run test:e2e` | Run the browser smoke tests (needs `bun x playwright install chromium-headless-shell` once) |
 | `bun run test:e2e:worker` | Build first, then run the browser tests against the production build in Cloudflare's local runtime |
+| `node scripts/make-readme-images.mjs` | Redraw the README screenshots and banner in `.github/images/` from the app with invented test aircraft (needs the map tile hosts) |
 | `bun run lint` | Lint the code |
 | `bun run format` | Format with Prettier |
 
