@@ -29,6 +29,8 @@ export const MAX_PUSH_RULES = 300;
 /** Pushes one check may send in total, and per user. */
 export const MAX_PUSH_SENDS = 20;
 export const MAX_PUSH_PER_USER = 3;
+/** Pushes one user's alerts may use in one check, over all their browsers. */
+export const MAX_PUSH_SENDS_PER_USER = 6;
 /** Subscriptions per user (the database allows the same). */
 export const MAX_PUSH_SUBSCRIPTIONS = 5;
 /** How long a push service may hold an alert for a device that is offline: older news is no use. */
@@ -344,24 +346,38 @@ export async function runPushCheck(
   const result = evaluatePushRules(state, plan, feeds, deps.now());
   report.events = result.events.length;
   let budget = MAX_PUSH_SENDS;
-  const notDelivered: string[] = [];
+  const retry = new Set<string>();
   for (const [userId, messages] of messagesByUser(result.events)) {
     const targets = plan.subscriptions.get(userId) ?? [];
-    const sentBefore = report.sent;
+    // One user (many browsers, or broken ones) can never use up the whole check.
+    let userBudget = MAX_PUSH_SENDS_PER_USER;
+    let delivered = false;
+    // Worth trying again next check: the budget ran out, or a push service had a passing problem (5xx, 429,
+    // network). Other refusals (400, 403, 413) would fail the same way again.
+    let transient = false;
     for (const sub of targets) {
       let gone = false;
       for (const m of messages) {
-        if (budget <= 0 || gone) break;
+        if (gone) break;
+        if (budget <= 0 || userBudget <= 0) {
+          transient = true;
+          break;
+        }
         budget -= 1;
+        userBudget -= 1;
         try {
           const status = await deps.send(sub, m);
-          if (status >= 200 && status < 300) report.sent += 1;
-          else {
+          if (status >= 200 && status < 300) {
+            report.sent += 1;
+            delivered = true;
+          } else {
             report.failed += 1;
             gone = isGoneStatus(status);
+            if (status === 429 || status >= 500) transient = true;
           }
         } catch {
           report.failed += 1;
+          transient = true;
         }
       }
       if (gone && budget > 0) {
@@ -374,11 +390,10 @@ export async function runPushCheck(
         }
       }
     }
-    if (report.sent === sentBefore) notDelivered.push(userId);
+    if (!delivered && transient) retry.add(userId);
   }
-  // A user whose alerts reached none of their browsers (failed, or not tried because the budget ran out) gets them
-  // again next check: their matches and cooldowns are taken back, so the aircraft count as new.
-  const retry = new Set(notDelivered);
+  // A user whose alerts reached none of their browsers for a passing reason gets them again next check: their
+  // matches and cooldowns are taken back, so the aircraft count as new.
   for (const e of result.events) {
     if (!retry.has(e.userId) || !e.hex) continue;
     result.state.matching.get(e.ruleId)?.delete(e.hex);

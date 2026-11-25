@@ -11,6 +11,7 @@ import {
   MAX_PUSH_CIRCLES,
   MAX_PUSH_PER_USER,
   MAX_PUSH_SENDS,
+  MAX_PUSH_SENDS_PER_USER,
   messagesByUser,
   planPushCheck,
   restoreCooldowns,
@@ -255,6 +256,26 @@ describe("one check", () => {
     const up = deps({ aircraft: [plane()] });
     const again = await runPushCheck(r.state, up.d);
     expect(again.report).toMatchObject({ events: 1, sent: 2, retried: 0 });
+  });
+
+  it("does not retry a refusal that would fail again, and caps one user's sends", async () => {
+    const first = await runPushCheck(newRuleState(), deps().d);
+    const refused = deps({ aircraft: [plane()], send: async () => 400 });
+    const r = await runPushCheck(first.state, refused.d);
+    expect(r.report).toMatchObject({ failed: 2, retried: 0 });
+    const again = deps({ aircraft: [plane()] });
+    await runPushCheck(r.state, again.d);
+    expect(again.sent).toHaveLength(0);
+
+    const manyBrowsers = async () => ({
+      subs: [1, 2, 3, 4, 5].map((n) => sub("u1", n)),
+      rules: [rule("u1", "r1")],
+    });
+    const learned = await runPushCheck(newRuleState(), deps({ loadData: manyBrowsers }).d);
+    const many = Array.from({ length: 5 }, (_, i) => plane({ hex: "abc12" + i }));
+    const capped = deps({ loadData: manyBrowsers, aircraft: many });
+    await runPushCheck(learned.state, capped.d);
+    expect(capped.sent).toHaveLength(MAX_PUSH_SENDS_PER_USER);
   });
 
   it("never sends more than the per-check limit", async () => {
