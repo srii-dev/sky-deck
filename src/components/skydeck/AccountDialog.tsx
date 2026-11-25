@@ -106,7 +106,9 @@ export function AccountDialog({ open, onOpenChange, auth, syncNote }: Props) {
         </DialogHeader>
 
         {auth.status === "idle" || auth.status === "loading" ? (
-          <p className="hud-label animate-pulse">Loading…</p>
+          <p role="status" className="hud-label animate-pulse">
+            Loading…
+          </p>
         ) : auth.status === "unavailable" ? (
           <p className="text-sm text-muted-foreground">
             Accounts are not available on this site yet.
@@ -122,7 +124,7 @@ export function AccountDialog({ open, onOpenChange, auth, syncNote }: Props) {
               Delete my saved data removes them.
             </p>
             {error && (
-              <p role="alert" className="text-sm text-destructive">
+              <p role="alert" className="text-sm text-destructive-text">
                 {error}
               </p>
             )}
@@ -200,7 +202,7 @@ export function AccountDialog({ open, onOpenChange, auth, syncNote }: Props) {
               )}
             </div>
             {error && (
-              <p role="alert" className="text-sm text-destructive">
+              <p role="alert" className="text-sm text-destructive-text">
                 {error}
               </p>
             )}

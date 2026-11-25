@@ -443,7 +443,7 @@ export function MapTools({
                     <button
                       type="button"
                       aria-label={`Delete saved view ${v.name}`}
-                      className="rounded p-1.5 text-muted-foreground hover:text-destructive"
+                      className="rounded p-1.5 text-muted-foreground hover:text-destructive-text"
                       onClick={() => remove(v.name)}
                     >
                       <Trash2 className="size-4" />

@@ -122,6 +122,14 @@ export function SearchBox({ aircraft, onAircraft, onAirport }: Props) {
           </button>
         )}
       </div>
+      {/* Always in the page, so screen readers pick up changes: how many suggestions there are, or that a search runs. */}
+      <span role="status" className="sr-only">
+        {busy
+          ? "Searching…"
+          : listOpen
+            ? `${items.length} suggestion${items.length === 1 ? "" : "s"}, use the up and down arrows to choose`
+            : ""}
+      </span>
       {listOpen && (
         <ul
           id="search-suggestions"

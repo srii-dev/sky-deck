@@ -134,7 +134,7 @@ export function WatchlistDialog(p: Props) {
             </Button>
           </form>
           {flightError && (
-            <p role="alert" className="text-xs text-destructive">
+            <p role="alert" className="text-xs text-destructive-text">
               {flightError}
             </p>
           )}
@@ -201,7 +201,7 @@ export function WatchlistDialog(p: Props) {
               {p.recent.map((r) => (
                 <li key={r.hex}>
                   <button
-                    className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent"
+                    className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent/15"
                     onClick={() => p.onOpenRecent(r)}
                   >
                     <Plane className="size-4 shrink-0" aria-hidden />

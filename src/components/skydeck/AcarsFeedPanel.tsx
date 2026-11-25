@@ -277,7 +277,9 @@ function MessageCard({
             What happened · {AI_LABEL}
           </p>
           {detail.state === "loading" ? (
-            <p className="animate-pulse text-sm italic text-white/70">Writing the full story…</p>
+            <p role="status" className="animate-pulse text-sm italic text-white/70">
+              Writing the full story…
+            </p>
           ) : detail.state === "failed" && detail.busy ? (
             <div className="flex flex-wrap items-center gap-2">
               <p className="text-sm text-white/70">
@@ -517,7 +519,9 @@ export function AcarsFeedPanel({
             </div>
           </SheetHeader>
           <div className="min-h-0 flex-1 overflow-y-auto">
-            {status.error && <p className="px-4 pb-2 text-xs text-destructive">{status.error}</p>}
+            {status.error && (
+              <p className="px-4 pb-2 text-xs text-destructive-text">{status.error}</p>
+            )}
             {aiError?.state === "failed" && (
               <p className="px-4 pb-2 text-[11px] text-muted-foreground">
                 {aiError.retry

@@ -30,6 +30,10 @@ const TEXT_PAIRS: [fg: string, bg: string, min: number][] = [
   ["--primary", "--background", 4.5],
   ["--accent", "--background", 3],
   ["--destructive", "--background", 3],
+  // Red text (errors, emergency squawks) is small text, so it needs the full 4.5 on the page and on cards.
+  ["--destructive-text", "--background", 4.5],
+  ["--destructive-text", "--card", 4.5],
+  ["--destructive-text", "--popover", 4.5],
   ["--success", "--background", 3],
   ["--ring", "--background", 3],
 ];
