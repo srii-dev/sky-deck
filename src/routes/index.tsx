@@ -465,9 +465,10 @@ function SkyDeck() {
     () => feed.aircraft.filter((a) => isEmergency(a.squawk)),
     [feed.aircraft],
   );
-  // Feed status notices ("Live data is busy", missing areas, partial view). Desktop shows them above the bottom edge;
-  // phones show them under the top bar instead, because at 375 px the bottom is taken by the altitude legend, the
-  // map credit and the zoom buttons (design QA 15h). The two places switch with CSS, not JS, so SSR matches.
+  // Feed status notices ("Live data is busy", missing areas, partial view). Phones show them under the top bar, below
+  // the emergency banner, because at 375 px the bottom is taken by the altitude legend, the map credit and the zoom
+  // buttons (design QA 15h); from md up the same element is fixed above the bottom edge. One copy in the DOM, placed
+  // with CSS, not JS, so SSR matches.
   const hasFeedNotice = !!(feed.error || feed.areasMissing || feed.partial);
   const feedNotices = (
     <>
@@ -1099,7 +1100,7 @@ function SkyDeck() {
         )}
       </div>
 
-      {/* Emergency alert, and on phones the feed notices under it (see feedNotices below). */}
+      {/* Emergency alert, and the feed notices (under it on phones, at the bottom from md up; see feedNotices). */}
       {(emergencies.length > 0 || hasFeedNotice) && (
         <div
           className={`pointer-events-none absolute inset-x-0 z-30 flex flex-col items-center gap-1.5 pl-16 pr-3 md:px-3 ${selected ? "md:pr-[428px]" : ""}`}
@@ -1108,13 +1109,11 @@ function SkyDeck() {
           {emergencies.length > 0 && (
             <EmergencyBanner aircraft={emergencies} onPick={pickAircraft} />
           )}
-          {hasFeedNotice && <div className="contents md:hidden">{feedNotices}</div>}
-        </div>
-      )}
-
-      {hasFeedNotice && (
-        <div className="pointer-events-none absolute inset-x-0 bottom-16 z-20 hidden flex-col items-center gap-1.5 md:flex">
-          {feedNotices}
+          {hasFeedNotice && (
+            <div className="flex flex-col items-center gap-1.5 md:fixed md:inset-x-0 md:bottom-16">
+              {feedNotices}
+            </div>
+          )}
         </div>
       )}
 
