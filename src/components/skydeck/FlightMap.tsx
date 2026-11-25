@@ -1,374 +1,43 @@
-import { useEffect, useRef } from "react";
-import {
-  Map as MLMap,
-  type ExpressionSpecification,
-  NavigationControl,
-  ScaleControl,
-  setWorkerUrl,
-  type GeoJSONSource,
-  type RasterDEMSourceSpecification,
-  type StyleSpecification,
-} from "maplibre-gl";
+import { useEffect, useRef, useState } from "react";
+import { Map as MLMap, NavigationControl, ScaleControl, setWorkerUrl } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
-import type { FeatureCollection, Feature, Point, LineString, Polygon } from "geojson";
 
-import { altitudeColor, EMERGENCY_COLOR, isEmergency, type Aircraft } from "@/lib/aircraft";
-import { keepUprightWithoutHeading } from "@/lib/aircraft-kind";
-import { panelPadding } from "@/lib/panel-padding";
-import {
-  buildRingPolygon,
-  clampGlideRatio,
-  computeAGL,
-  ELEV_UNAVAILABLE_GENERIC,
-  ELEV_UNAVAILABLE_TERRAIN_OFF,
-  glideRatioBounds,
-  isElevationCacheValid,
-  rangeNm,
-  TERRAIN_EXAGGERATION,
-  type ElevationCacheEntry,
-} from "@/lib/glide-ring";
-import { currentAirportList, isLargeLoaded, loadLargeAirports } from "@/lib/airport-list";
-import { serverFlags } from "@/lib/flags";
-import { declutter } from "@/lib/declutter";
-import { metersPerPixel, needsRedraw, type DrawnPlane } from "@/lib/redraw-gate";
-import { rulerSummary } from "@/lib/measure";
-import type { UnitSystem } from "@/lib/units";
-import {
-  REACHABLE_LIMIT,
-  reachableAirports,
-  reachableAirportsGeoJSON,
-} from "@/lib/reachable-airports";
-import { parseShareParams } from "@/lib/share-link";
-import { applyAlertAreas, type AlertAreaDrawing } from "./alert-area-layers";
+import type { ElevationCacheEntry } from "@/lib/glide-ring";
+import { initialDelay, median, observeUpdate, type DelayState } from "@/lib/smooth-motion";
+import { applyAlertAreas } from "./alert-area-layers";
 import { applyNight } from "./night-layers";
-import { airlineColor, type ColorMode } from "@/lib/airline-colors";
-import { advanceClock, trailUpTo, visibleAt, type ReplaySource } from "@/lib/replay";
-import { buildPlaneSdf, buildSvgSdf } from "./plane-icon";
-import { LEGEND_SHAPES, svgMarkup } from "./aircraft-icons";
-import { iconShapeCached } from "@/lib/aircraft-shape";
-import { installAirportDetail } from "./airport-detail-layers";
-import { applyWeather, NO_WEATHER, pickWeather, type WeatherMapState } from "./weather-layers";
-import {
-  applyRouteAirspace,
-  NO_ROUTE_AIRSPACE,
-  pickAirspace,
-  type RouteAirspaceState,
-} from "./route-airspace-layers";
-import {
-  appendSample,
-  initialDelay,
-  missingOpacity,
-  motionAt,
-  observeUpdate,
-  median,
-  stepDelay,
-  type DelayState,
-  type MotionSample,
-  type MotionState,
-} from "@/lib/smooth-motion";
-import {
-  DEFAULT_VIEW,
-  type Basemap,
-  type FlyTarget,
-  type TrailPoint,
-  type Viewport,
-} from "./map-config";
+import { applyWeather, NO_WEATHER } from "./weather-layers";
+import { applyRouteAirspace, NO_ROUTE_AIRSPACE } from "./route-airspace-layers";
+import { startAnimationLoop } from "./flight-map/animation-loop";
+import { initialView, installViewportReporting, useCamera } from "./flight-map/camera";
+import { terrainBeforeId } from "./flight-map/common";
+import { updateGlideRing } from "./flight-map/glide";
+import { installInteractions, installRulerMouseLeave } from "./flight-map/interactions";
+import { installOverlays } from "./flight-map/overlays";
+import { applyRuler } from "./flight-map/ruler";
+import { applyTerrain, deferredSceneScheduler } from "./flight-map/scene";
+import { installStyleFallback, styleFor } from "./flight-map/styles";
+import { mergeAircraft, replayTracks } from "./flight-map/tracks";
+import { applyTrail } from "./flight-map/trail";
+import type { FlightMapProps, GlideStatus, MapCtx, Track } from "./flight-map/types";
+
+export type { FlightMapProps, GlideStatus } from "./flight-map/types";
 
 setWorkerUrl(workerUrl);
 
-const GLYPHS = "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf";
-const OFM_VECTOR = "https://tiles.openfreemap.org/planet";
-const TERRARIUM = "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png";
-const DEM_ATTRIB = "Terrain: Mapzen / AWS Terrain Tiles";
-const cameraPadding = (selected: boolean) => panelPadding(selected, window.innerWidth);
-
-const SATELLITE_STYLE: StyleSpecification = {
-  version: 8,
-  glyphs: GLYPHS,
-  sources: {
-    sat: {
-      type: "raster",
-      tiles: [
-        "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-      ],
-      tileSize: 256,
-      maxzoom: 19,
-      attribution: "Imagery © Esri, Vantor, Earthstar Geographics, and the GIS User Community",
-    },
-    openmaptiles: { type: "vector", url: OFM_VECTOR },
-  },
-  layers: [{ id: "sat", type: "raster", source: "sat" }],
-};
-
-function styleFor(b: Basemap): string | StyleSpecification {
-  // Never reached with the flag off (callers fall back first); this keeps Esri unrequested even so.
-  if (b === "satellite" && serverFlags().satellite) return SATELLITE_STYLE;
-  if (b === "light") return "https://tiles.openfreemap.org/styles/positron";
-  return "https://tiles.openfreemap.org/styles/dark";
-}
-
-/**
- * A plain background in the basemap's colours, used when the basemap style cannot be fetched (OpenFreeMap down, or a
- * network that blocks it). Without any loaded style MapLibre draws nothing and runs no camera moves, so no aircraft
- * would show and flying to a saved view, a search result or an airport would do nothing.
- */
-function fallbackStyle(b: Basemap): StyleSpecification {
-  return {
-    version: 8,
-    glyphs: GLYPHS,
-    sources: {},
-    layers: [
-      {
-        id: "sd-fallback-background",
-        type: "background",
-        paint: { "background-color": b === "light" ? "#e9ecef" : "#0b1018" },
-      },
-    ],
-  };
-}
-
-const FT_TO_M = 0.3048;
-const KT_TO_MS = 0.514444;
-const M_PER_DEG = 111320;
-const FRAME_MS = 90;
-/** Below this zoom, planes that sit on top of each other are thinned out (declutter). */
-const DECLUTTER_BELOW_ZOOM = 8;
-/** Draw order: higher on top, so the selected plane and emergencies stay visible. */
-const SORT_ON_TOP: ExpressionSpecification = [
-  "case",
-  ["get", "sel"],
-  1000,
-  ["get", "emg"],
-  900,
-  ["get", "alt"],
-];
-/**
- * Declutter cell in screen pixels: under half the drawn icon (64 px sprite times the icon-size at this zoom), so
- * icons may touch a little and the screen stays full instead of losing every plane whose box touches another.
- */
-function declutterCellPx(zoom: number): number {
-  const t = Math.min(1, Math.max(0, (zoom - 3) / 5));
-  return 64 * (0.32 + t * (0.55 - 0.32)) * 0.45;
-}
-
 /*
- * Aircraft motion (Phase 20). Each aircraft keeps its recent position reports as samples with their true
- * times. The map draws the world `delay` milliseconds in the past, so a drawn position is interpolated between
- * two real reports and not guessed. See src/lib/smooth-motion.ts for the rules (delay, gaps, dead reckoning).
+ * The live map. This component owns the MapLibre instance and its refs; the work is split into ./flight-map/:
+ * styles (basemaps and the plain fallback), overlays and scene (layers re-installed on every style.load), trail,
+ * ruler and glide (data layers), interactions (clicks and hover), camera (viewport, follow, camera moves), tracks
+ * (aircraft samples) and animation-loop (drawing aircraft at the delayed clock).
  */
-interface Track {
-  /** Latest data for this aircraft (labels, colour source, panel). */
-  a: Aircraft;
-  samples: readonly MotionSample[];
-  color: string;
-  emg: boolean;
-  /** Missing from the data (not just filtered out): kept for a while, then faded and removed. */
-  ghost: boolean;
-}
-
-function toSample(a: Aircraft, receivedAt: number): MotionSample {
-  return {
-    t: receivedAt - a.seenPos * 1000,
-    lat: a.lat,
-    lon: a.lon,
-    altFt: a.altFt,
-    track: a.track,
-    gs: a.gs,
-    vRate: a.vRate,
-    onGround: a.onGround,
-  };
-}
-
-/** Where a track is drawn at time T (the delayed clock). */
-function trackState(tr: Track, T: number): MotionState {
-  return (
-    motionAt(tr.samples, T) ?? {
-      lat: tr.a.lat,
-      lon: tr.a.lon,
-      altFt: tr.a.altFt,
-      track: tr.a.track,
-      gs: tr.a.gs,
-      vRate: tr.a.vRate,
-      onGround: tr.a.onGround,
-      phase: "stale",
-      beyondNewestMs: 0,
-    }
-  );
-}
-
-function renderPos(tr: Track, T: number): [number, number] {
-  const m = trackState(tr, T);
-  return [m.lat, m.lon];
-}
-
-function haversineNm(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const R = 3440.065;
-  const toR = Math.PI / 180;
-  const dLat = (lat2 - lat1) * toR;
-  const dLon = (lon2 - lon1) * toR;
-  const s =
-    Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * toR) * Math.cos(lat2 * toR) * Math.sin(dLon / 2) ** 2;
-  return 2 * R * Math.asin(Math.sqrt(s));
-}
-
-// Category icon SDFs, rasterised once per session and re-added after each style change.
-type SdfImage = { width: number; height: number; data: Uint8Array };
-const kindImages = new Map<string, SdfImage>();
-let kindImagesLoading: Promise<void> | null = null;
-function loadKindImages(): Promise<void> {
-  kindImagesLoading ??= Promise.all(
-    LEGEND_SHAPES.map(async (k) => {
-      const img = await buildSvgSdf(svgMarkup(k));
-      if (img) kindImages.set(`sd-kind-${k}`, img);
-    }),
-  ).then(() => undefined);
-  return kindImagesLoading;
-}
-function addKindImages(map: MLMap) {
-  // StrictMode cleanup calls map.remove(); adding to that instance throws or recreates a style.
-  if (map._removed) return;
-  for (const [id, img] of kindImages) {
-    if (map._removed) return;
-    try {
-      if (map.hasImage(id)) continue;
-      map.addImage(id, img, { sdf: true, pixelRatio: 2 });
-    } catch {
-      // The style was swapped or the map was removed. The next style.load adds the image.
-    }
-  }
-}
-
-const empty = (): FeatureCollection => ({ type: "FeatureCollection", features: [] });
-
-function ribbon(p: TrailPoint, q: TrailPoint, halfWidthM: number): number[][] {
-  const cos = Math.max(0.05, Math.cos((p.lat * Math.PI) / 180));
-  const dx = (q.lon - p.lon) * M_PER_DEG * cos;
-  const dy = (q.lat - p.lat) * M_PER_DEG;
-  const len = Math.hypot(dx, dy) || 1;
-  const px = (-dy / len) * halfWidthM;
-  const py = (dx / len) * halfWidthM;
-  const oLon = px / (M_PER_DEG * cos);
-  const oLat = py / M_PER_DEG;
-  return [
-    [p.lon + oLon, p.lat + oLat],
-    [q.lon + oLon, q.lat + oLat],
-    [q.lon - oLon, q.lat - oLat],
-    [p.lon - oLon, p.lat - oLat],
-    [p.lon + oLon, p.lat + oLat],
-  ];
-}
-
-function trailFeatures(trail: TrailPoint[]) {
-  const lines: Feature<LineString>[] = [];
-  const ribbons: Feature<Polygon>[] = [];
-  const curtains: Feature<Polygon>[] = [];
-  for (let i = 1; i < trail.length; i++) {
-    const p = trail[i - 1];
-    const q = trail[i];
-    if (!p || !q) continue;
-    if (Math.abs(p.lat - q.lat) < 1e-7 && Math.abs(p.lon - q.lon) < 1e-7) continue;
-    const altFt = q.onGround ? 0 : (q.altFt ?? 0);
-    const color = altitudeColor(q.altFt, q.onGround);
-    lines.push({
-      type: "Feature",
-      properties: { color },
-      geometry: {
-        type: "LineString",
-        coordinates: [
-          [p.lon, p.lat],
-          [q.lon, q.lat],
-        ],
-      },
-    });
-    const altM = altFt * FT_TO_M;
-    ribbons.push({
-      type: "Feature",
-      properties: { color, base: altM, top: altM + 90 },
-      geometry: { type: "Polygon", coordinates: [ribbon(p, q, 140)] },
-    });
-    curtains.push({
-      type: "Feature",
-      properties: { color, base: 0, top: altM },
-      geometry: { type: "Polygon", coordinates: [ribbon(p, q, 25)] },
-    });
-  }
-  return {
-    lines: { type: "FeatureCollection", features: lines } as FeatureCollection,
-    ribbons: { type: "FeatureCollection", features: ribbons } as FeatureCollection,
-    curtains: { type: "FeatureCollection", features: curtains } as FeatureCollection,
-  };
-}
-
-export interface GlideStatus {
-  aglFt: number | null;
-  rangeNm: number | null;
-  elevationAvailable: boolean;
-  reason?: string;
-}
-
-export interface FlightMapProps {
-  aircraft: Aircraft[];
-  selectedHex: string | null;
-  onSelect: (hex: string | null) => void;
-  trail: TrailPoint[];
-  trail3d: boolean;
-  basemap: Basemap;
-  terrain: boolean;
-  follow: boolean;
-  flyTarget: FlyTarget | null;
-  onViewportChange: (v: Viewport) => void;
-  glideRing?: boolean | undefined;
-  glideRatio?: number | null | undefined;
-  onGlideStatus?: ((status: GlideStatus) => void) | undefined;
-  /** Draw the selected aircraft's trail (default on). */
-  showTrail?: boolean | undefined;
-  /** Ruler: while active, a map click adds a point instead of selecting an aircraft. */
-  rulerActive?: boolean | undefined;
-  rulerPoints?: [number, number][] | undefined;
-  onRulerPoint?: ((point: [number, number]) => void) | undefined;
-  /** Units for the live ruler label that follows the cursor after the first point. */
-  rulerUnits?: UnitSystem | undefined;
-  /** When the aircraft data arrived (ms, Date.now()). Sample times are measured from it. */
-  receivedAt?: number | null | undefined;
-  /** Every aircraft in the data, before filters. One missing from here (not just filtered out) fades out. */
-  presentHexes?: ReadonlySet<string> | undefined;
-  /** Smooth (about 10 s behind, no guessing) or Live (shorter delay, more guessing). Default smooth. */
-  smoothMotion?: boolean | undefined;
-  /** The delay in use, in whole seconds, when it changes. */
-  onMotionDelay?: ((seconds: number) => void) | undefined;
-  /** The selected aircraft at the drawn moment, about once a second, so the panel can match the icon. */
-  onSelectedMotion?: ((hex: string, m: MotionState) => void) | undefined;
-  /** Chase camera (Phase 5d): while following, tilt the map and turn it to look along the aircraft's heading. */
-  chase?: boolean | undefined;
-  /** Session replay (Phase 9a): draw this recording at its clock time instead of the live aircraft. */
-  replay?: ReplaySource | null | undefined;
-  /** Shade the night side of the earth (Phase 24d). */
-  nightShade?: boolean | undefined;
-  /** Colour aircraft by altitude (default) or by airline (Phase 24b). */
-  colorBy?: ColorMode | undefined;
-  /** Areas used by alert rules, and the one being drawn (Phase 10c). */
-  alertAreas?: readonly AlertAreaDrawing[] | undefined;
-  /** Area drawing: while on, a map click is reported to onPick instead of selecting something. */
-  pickMode?: boolean | undefined;
-  onPick?: ((point: [number, number]) => void) | undefined;
-  /** Weather layers to draw (radar, echo tops, advisories, pilot reports). */
-  weather?: WeatherMapState | undefined;
-  /** A click on a weather item (its id), or null when the click hit none. */
-  onWeatherPick?: ((id: string | null) => void) | undefined;
-  /** The route line and airspace areas to draw (Phase 8). */
-  routeAirspace?: RouteAirspaceState | undefined;
-  /** A click on an airspace area (its id), or null when the click hit none. */
-  onAirspacePick?: ((id: string | null) => void) | undefined;
-}
-
 export default function FlightMap(props: FlightMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const rulerLabelRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MLMap | null>(null);
   const tracksRef = useRef(new Map<string, Track>());
   const delayRef = useRef<DelayState>(initialDelay("smooth"));
-  // Replay (Phase 9a): the recording as tracks in the same shape as live ones.
   const replayTracksRef = useRef<Map<string, Track> | null>(null);
   const lastReceivedRef = useRef<number | null>(null);
   const lastDelaySecRef = useRef<number | null>(null);
@@ -377,609 +46,27 @@ export default function FlightMap(props: FlightMapProps) {
   const propsRef = useRef(props);
   propsRef.current = props;
   const styleReadyRef = useRef(false);
-  // True once the deferred scene (buildings, terrain) is installed for the current style.
   const sceneReadyRef = useRef(false);
   const firstStyleRef = useRef(true);
-
-  // ---------- overlay installation (re-run after every style change) ----------
-  const installOverlays = () => {
-    const map = mapRef.current;
-    if (!map) return;
-
-    if (!map.hasImage("sd-plane")) {
-      const img = buildPlaneSdf();
-      if (img) map.addImage("sd-plane", img, { sdf: true, pixelRatio: 2 });
-    }
-    addKindImages(map);
-    void loadKindImages().then(() => {
-      const m = mapRef.current;
-      if (!m || m._removed) return;
-      addKindImages(m);
-    });
-
-    if (!map.getSource("sd-glide-ring"))
-      map.addSource("sd-glide-ring", { type: "geojson", data: empty() });
-    if (!map.getSource("sd-reach-airports"))
-      map.addSource("sd-reach-airports", { type: "geojson", data: empty() });
-    if (!map.getSource("sd-trail")) map.addSource("sd-trail", { type: "geojson", data: empty() });
-    if (!map.getSource("sd-trail-ribbon"))
-      map.addSource("sd-trail-ribbon", { type: "geojson", data: empty() });
-    if (!map.getSource("sd-trail-curtain"))
-      map.addSource("sd-trail-curtain", { type: "geojson", data: empty() });
-    if (!map.getSource("sd-aircraft"))
-      map.addSource("sd-aircraft", { type: "geojson", data: empty() });
-    if (!map.getSource("sd-ruler")) map.addSource("sd-ruler", { type: "geojson", data: empty() });
-
-    if (!map.getLayer("sd-glide-ring-fill")) {
-      map.addLayer(
-        {
-          id: "sd-glide-ring-fill",
-          type: "fill",
-          source: "sd-glide-ring",
-          paint: {
-            "fill-color": "#f5b83d",
-            "fill-opacity": 0.08,
-          },
-        },
-        map.getLayer("sd-trail-line") ? "sd-trail-line" : undefined,
-      );
-    }
-    if (!map.getLayer("sd-glide-ring-line")) {
-      map.addLayer(
-        {
-          id: "sd-glide-ring-line",
-          type: "line",
-          source: "sd-glide-ring",
-          layout: { "line-cap": "round", "line-join": "round" },
-          paint: {
-            "line-color": "#f5b83d",
-            "line-width": 1.5,
-            "line-dasharray": [4, 3],
-            "line-opacity": 0.7,
-          },
-        },
-        map.getLayer("sd-trail-line") ? "sd-trail-line" : undefined,
-      );
-    }
-
-    if (!map.getLayer("sd-trail-line")) {
-      map.addLayer({
-        id: "sd-trail-line",
-        type: "line",
-        source: "sd-trail",
-        layout: { "line-cap": "round", "line-join": "round" },
-        paint: {
-          "line-color": ["get", "color"],
-          "line-width": ["interpolate", ["linear"], ["zoom"], 4, 2, 12, 4],
-          "line-opacity": 0.95,
-        },
-      });
-    }
-    if (!map.getLayer("sd-trail-curtain")) {
-      map.addLayer({
-        id: "sd-trail-curtain",
-        type: "fill-extrusion",
-        source: "sd-trail-curtain",
-        paint: {
-          "fill-extrusion-color": ["get", "color"],
-          "fill-extrusion-base": ["get", "base"],
-          "fill-extrusion-height": ["get", "top"],
-          "fill-extrusion-opacity": 0.22,
-        },
-      });
-    }
-    if (!map.getLayer("sd-trail-ribbon")) {
-      map.addLayer({
-        id: "sd-trail-ribbon",
-        type: "fill-extrusion",
-        source: "sd-trail-ribbon",
-        paint: {
-          "fill-extrusion-color": ["get", "color"],
-          "fill-extrusion-base": ["get", "base"],
-          "fill-extrusion-height": ["get", "top"],
-          "fill-extrusion-opacity": 0.92,
-        },
-      });
-    }
-
-    // Ruler: a dashed line between two clicked points, above trails, below the aircraft.
-    if (!map.getLayer("sd-ruler-line")) {
-      map.addLayer({
-        id: "sd-ruler-line",
-        type: "line",
-        source: "sd-ruler",
-        filter: ["==", ["geometry-type"], "LineString"],
-        layout: { "line-cap": "round", "line-join": "round" },
-        paint: { "line-color": "#38bdf8", "line-width": 2.5, "line-dasharray": [2, 2] },
-      });
-    }
-    if (!map.getLayer("sd-ruler-dot")) {
-      map.addLayer({
-        id: "sd-ruler-dot",
-        type: "circle",
-        source: "sd-ruler",
-        filter: ["==", ["geometry-type"], "Point"],
-        paint: {
-          "circle-radius": 5,
-          "circle-color": "#38bdf8",
-          "circle-stroke-color": "#0b1220",
-          "circle-stroke-width": 2,
-        },
-      });
-    }
-    applyRuler();
-
-    // Airports inside the glide ring: above the ring and trails, below the aircraft.
-    if (!map.getLayer("sd-reach-airports-dot")) {
-      map.addLayer({
-        id: "sd-reach-airports-dot",
-        type: "circle",
-        source: "sd-reach-airports",
-        paint: {
-          "circle-radius": ["interpolate", ["linear"], ["zoom"], 3, 3, 12, 6],
-          "circle-color": "#f5b83d",
-          "circle-stroke-width": 1.5,
-          "circle-stroke-color": "rgba(5,10,18,0.9)",
-        },
-      });
-    }
-    if (!map.getLayer("sd-reach-airports-label")) {
-      map.addLayer({
-        id: "sd-reach-airports-label",
-        type: "symbol",
-        source: "sd-reach-airports",
-        layout: {
-          "text-field": ["coalesce", ["get", "iata"], ""],
-          "text-font": ["Noto Sans Regular"],
-          "text-size": 11,
-          "text-offset": [0, 0.9],
-          "text-anchor": "top",
-          "text-optional": true,
-          "text-allow-overlap": false,
-        },
-        paint: {
-          "text-color": "#f5b83d",
-          "text-halo-color": "rgba(5,10,18,0.9)",
-          "text-halo-width": 1.4,
-        },
-      });
-    }
-
-    if (!map.getLayer("sd-selected-ring")) {
-      map.addLayer({
-        id: "sd-selected-ring",
-        type: "circle",
-        source: "sd-aircraft",
-        filter: ["==", ["get", "sel"], true],
-        paint: {
-          "circle-radius": ["interpolate", ["linear"], ["zoom"], 3, 14, 12, 26],
-          "circle-color": "rgba(0,0,0,0)",
-          "circle-stroke-width": 2,
-          "circle-stroke-color": "#f5b83d",
-          "circle-pitch-alignment": "map",
-        },
-      });
-    }
-
-    if (!map.getLayer("sd-aircraft")) {
-      map.addLayer({
-        id: "sd-aircraft",
-        type: "symbol",
-        source: "sd-aircraft",
-        layout: {
-          // Category icon when known and loaded; otherwise the generic plane.
-          "icon-image": [
-            "coalesce",
-            ["image", ["concat", "sd-kind-", ["get", "shape"]]],
-            ["image", "sd-plane"],
-          ],
-          "icon-rotate": ["get", "track"],
-          "icon-rotation-alignment": "map",
-          "icon-pitch-alignment": "map",
-          "icon-allow-overlap": true,
-          "icon-ignore-placement": true,
-          "symbol-sort-key": SORT_ON_TOP,
-          "icon-size": [
-            "interpolate",
-            ["linear"],
-            ["zoom"],
-            3,
-            ["case", ["get", "sel"], 0.55, 0.32],
-            8,
-            ["case", ["get", "sel"], 0.85, 0.55],
-            13,
-            ["case", ["get", "sel"], 1.25, 0.9],
-          ],
-        },
-        paint: {
-          "icon-color": ["get", "color"],
-          "icon-halo-color": ["case", ["get", "sel"], "#f5b83d", "rgba(5,10,18,0.85)"],
-          "icon-halo-width": ["case", ["get", "sel"], 0.8, 1],
-          "icon-opacity": ["coalesce", ["get", "fade"], 1],
-        },
-      });
-    }
-
-    if (!map.getLayer("sd-aircraft-label")) {
-      map.addLayer({
-        id: "sd-aircraft-label",
-        type: "symbol",
-        source: "sd-aircraft",
-        minzoom: 8.5,
-        layout: {
-          "text-field": ["coalesce", ["get", "cs"], ""],
-          "text-font": ["Noto Sans Regular"],
-          "text-size": 11,
-          "text-offset": [0, 1.7],
-          "text-anchor": "top",
-          "text-optional": true,
-          "text-allow-overlap": false,
-        },
-        paint: {
-          "text-color": ["case", ["get", "emg"], EMERGENCY_COLOR, "#dbe7f0"],
-          "text-halo-color": "rgba(5,10,18,0.9)",
-          "text-halo-width": 1.4,
-          "text-opacity": ["coalesce", ["get", "fade"], 1],
-        },
-      });
-    }
-
-    // Aprons, taxiway names and gates at high zoom (Phase 4e), below trails and aircraft.
-    installAirportDetail(map, propsRef.current.basemap, terrainBeforeId(map));
-    applyAlertAreas(map, propsRef.current.alertAreas ?? [], terrainBeforeId(map));
-    applyNight(map, !!propsRef.current.nightShade, new Date(), terrainBeforeId(map));
-    // Radar, echo tops, advisories and pilot reports (Phase 7), below trails and aircraft.
-    applyWeather(map, propsRef.current.weather ?? NO_WEATHER, terrainBeforeId(map));
-    applyRouteAirspace(
-      map,
-      propsRef.current.routeAirspace ?? NO_ROUTE_AIRSPACE,
-      terrainBeforeId(map),
-    );
-    applyTrail();
-    updateGlideRing();
-    styleReadyRef.current = true;
-  };
-
-  // Below basemap labels when those sit under the trails, and always below trails and aircraft.
-  const terrainBeforeId = (map: MLMap): string | undefined => {
-    const layers = map.getStyle().layers ?? [];
-    let idx = -1;
-    for (let i = 0; i < layers.length; i++) {
-      const layer = layers[i];
-      if (!layer) continue;
-      const basemapSymbol = layer.type === "symbol" && !layer.id.startsWith("sd-");
-      if (layer.id === "sd-glide-ring-fill" || layer.id === "sd-trail-line" || basemapSymbol)
-        idx = idx < 0 ? i : Math.min(idx, i);
-    }
-    return idx >= 0 ? layers[idx]?.id : undefined;
-  };
-
-  const installDeferredScene = () => {
-    const map = mapRef.current;
-    if (!map || !map.isStyleLoaded()) return;
-    const p = propsRef.current;
-    const before = terrainBeforeId(map);
-
-    if (!map.getSource("openmaptiles")) {
-      map.addSource("openmaptiles", { type: "vector", url: OFM_VECTOR });
-    }
-    if (!map.getLayer("sd-buildings")) {
-      map.addLayer(
-        {
-          id: "sd-buildings",
-          type: "fill-extrusion",
-          source: "openmaptiles",
-          "source-layer": "building",
-          minzoom: 13,
-          paint: {
-            "fill-extrusion-color":
-              p.basemap === "dark" ? "#2b3644" : p.basemap === "light" ? "#d9dde2" : "#c9ced6",
-            "fill-extrusion-height": ["coalesce", ["get", "render_height"], 8],
-            "fill-extrusion-base": ["coalesce", ["get", "render_min_height"], 0],
-            "fill-extrusion-opacity": ["interpolate", ["linear"], ["zoom"], 13, 0, 14.5, 0.85],
-          },
-        },
-        before,
-      );
-    }
-    sceneReadyRef.current = true;
-    applyTerrain();
-    addKindImages(map);
-    updateGlideRing();
-  };
-
-  // The elevation sources and hill shading exist only once terrain was switched on: with it off (the default)
-  // the map never requests an elevation tile.
-  const addTerrainSources = (map: MLMap) => {
-    // 256 px tiles shown at 512 px and no finer than zoom 12: about a quarter of the requests, relief looks the same.
-    const dem: RasterDEMSourceSpecification = {
-      type: "raster-dem",
-      tiles: [TERRARIUM],
-      encoding: "terrarium",
-      tileSize: 512,
-      maxzoom: 12,
-    };
-    if (!map.getSource("sd-dem")) map.addSource("sd-dem", { ...dem, attribution: DEM_ATTRIB });
-    if (!map.getSource("sd-dem-hs")) map.addSource("sd-dem-hs", dem);
-    const basemap = propsRef.current.basemap;
-    if (!map.getLayer("sd-hillshade") && basemap !== "satellite") {
-      map.addLayer(
-        {
-          id: "sd-hillshade",
-          type: "hillshade",
-          source: "sd-dem-hs",
-          paint: {
-            "hillshade-exaggeration": basemap === "dark" ? 0.35 : 0.25,
-            "hillshade-shadow-color": basemap === "dark" ? "#000000" : "#5a6470",
-            "hillshade-highlight-color": basemap === "dark" ? "#2a3a4a" : "#ffffff",
-          },
-        },
-        terrainBeforeId(map),
-      );
-    }
-  };
-
-  const applyTerrain = () => {
-    const map = mapRef.current;
-    if (!map || !sceneReadyRef.current) return;
-    const on = propsRef.current.terrain;
-    if (on) {
-      addTerrainSources(map);
-      map.setTerrain({ source: "sd-dem", exaggeration: TERRAIN_EXAGGERATION });
-    } else if (map.getTerrain()) {
-      map.setTerrain(null);
-    }
-    if (map.getLayer("sd-hillshade"))
-      map.setLayoutProperty("sd-hillshade", "visibility", on ? "visible" : "none");
-  };
-
-  const applyRuler = (hover?: [number, number]) => {
-    const map = mapRef.current;
-    const src = map?.getSource("sd-ruler") as GeoJSONSource | undefined;
-    if (!src) return;
-    const set = propsRef.current.rulerPoints ?? [];
-    // One point set: the line follows the cursor until the second click.
-    const pts = set.length === 1 && hover ? [set[0]!, hover] : set;
-    const features: GeoJSON.Feature[] = pts.map((p) => ({
-      type: "Feature",
-      properties: {},
-      geometry: { type: "Point", coordinates: p },
-    }));
-    if (pts.length === 2) {
-      features.push({
-        type: "Feature",
-        properties: {},
-        geometry: { type: "LineString", coordinates: pts },
-      });
-    }
-    src.setData({ type: "FeatureCollection", features });
-  };
-
-  const applyTrail = (override?: TrailPoint[]) => {
-    const map = mapRef.current;
-    if (!map) return;
-    // While replaying, only the replay's own trail is drawn (the live trail would flicker over it).
-    if (propsRef.current.replay && !override) return;
-    const { trail, trail3d, selectedHex, showTrail } = propsRef.current;
-    // The trail stops at the drawn moment (the icon is a few seconds behind the newest data) and joins the icon.
-    const drawT = Date.now() - delayRef.current.delayMs;
-    const pts =
-      override ??
-      (selectedHex && showTrail !== false ? trail.filter((p) => (p.st ?? p.t) <= drawT) : []);
-    const tr = selectedHex && !override ? tracksRef.current.get(selectedHex) : undefined;
-    if (tr && pts.length) {
-      const m = trackState(tr, drawT);
-      pts.push({ lat: m.lat, lon: m.lon, altFt: m.altFt, onGround: m.onGround, t: Date.now() });
-    }
-    const f = trailFeatures(pts);
-    (map.getSource("sd-trail") as GeoJSONSource | undefined)?.setData(trail3d ? empty() : f.lines);
-    (map.getSource("sd-trail-ribbon") as GeoJSONSource | undefined)?.setData(
-      trail3d ? f.ribbons : empty(),
-    );
-    (map.getSource("sd-trail-curtain") as GeoJSONSource | undefined)?.setData(
-      trail3d ? f.curtains : empty(),
-    );
-  };
-
-  const emitGlideStatus = (status: GlideStatus) => {
-    const prev = lastGlideStatusRef.current;
-    if (
-      prev &&
-      prev.aglFt === status.aglFt &&
-      prev.rangeNm === status.rangeNm &&
-      prev.elevationAvailable === status.elevationAvailable &&
-      prev.reason === status.reason
-    ) {
-      return;
-    }
-    lastGlideStatusRef.current = status;
-    propsRef.current.onGlideStatus?.(status);
-  };
-
-  // Refreshes the ring, then the airport markers that depend on the ring's range.
-  const updateGlideRing = () => {
-    drawGlideRing();
-    updateReachMarkers();
-  };
-
-  // Markers for the airports inside the ring: the same set the panel lists. Cleared whenever
-  // the ring is off or has no usable range.
-  const updateReachMarkers = () => {
-    const map = mapRef.current;
-    if (!map) return;
-    const src = map.getSource("sd-reach-airports") as GeoJSONSource | undefined;
-    if (!src) return;
-    const p = propsRef.current;
-    const status = lastGlideStatusRef.current;
-    const ac = p.selectedHex ? p.aircraft.find((a) => a.hex === p.selectedHex) : undefined;
-    // The dev mock path draws its ring without publishing a status, so skip it here.
-    const isMock = import.meta.env.DEV && !!ac?.hex.startsWith("mock-");
-    if (!p.glideRing || !ac || isMock || !status?.elevationAvailable || status.rangeNm == null) {
-      src.setData(empty());
-      return;
-    }
-    if (!isLargeLoaded()) {
-      // Show the short list now; redraw with the larger list as soon as it has loaded.
-      loadLargeAirports()
-        .then(() => {
-          const m = mapRef.current;
-          if (m && !m._removed) updateReachMarkers();
-        })
-        .catch(() => {});
-    }
-    src.setData(
-      reachableAirportsGeoJSON(
-        reachableAirports(ac.lat, ac.lon, status.rangeNm, REACHABLE_LIMIT, currentAirportList()),
-      ),
-    );
-  };
-
-  const drawGlideRing = () => {
-    const map = mapRef.current;
-    if (!map) return;
-    const p = propsRef.current;
-    const src = map.getSource("sd-glide-ring") as GeoJSONSource | undefined;
-    if (!src) return;
-
-    const selectedHex = p.selectedHex;
-    const activeAircraft = selectedHex ? p.aircraft.find((a) => a.hex === selectedHex) : undefined;
-
-    if (!p.glideRing || !activeAircraft) {
-      src.setData(empty());
-      emitGlideStatus({ aglFt: null, rangeNm: null, elevationAvailable: false });
-      return;
-    }
-
-    if (import.meta.env.DEV && activeAircraft.hex.startsWith("mock-")) {
-      const mbounds = glideRatioBounds(activeAircraft.kind);
-      if (!mbounds || !p.terrain) {
-        src.setData(empty());
-        return;
-      }
-      const effectiveRatio = clampGlideRatio(
-        p.glideRatio ?? mbounds.defaultRatio,
-        activeAircraft.kind,
-      );
-      const range = rangeNm(activeAircraft.altFt ?? 0, effectiveRatio);
-      const polygon = buildRingPolygon(activeAircraft.lat, activeAircraft.lon, range);
-      src.setData(polygon);
-      return;
-    }
-
-    const bounds = glideRatioBounds(activeAircraft.kind);
-    if (!bounds) {
-      src.setData(empty());
-      emitGlideStatus({
-        aglFt: null,
-        rangeNm: null,
-        elevationAvailable: false,
-        reason: "No glide ratio for category",
-      });
-      return;
-    }
-
-    if (activeAircraft.onGround || activeAircraft.altFt == null) {
-      src.setData(empty());
-      emitGlideStatus({
-        aglFt: null,
-        rangeNm: null,
-        elevationAvailable: false,
-        reason: "Aircraft on ground",
-      });
-      return;
-    }
-
-    if (!p.terrain) {
-      src.setData(empty());
-      emitGlideStatus({
-        aglFt: null,
-        rangeNm: null,
-        elevationAvailable: false,
-        reason: ELEV_UNAVAILABLE_TERRAIN_OFF,
-      });
-      return;
-    }
-
-    let rawElevM: number | null = null;
-    try {
-      rawElevM = map.queryTerrainElevation([activeAircraft.lon, activeAircraft.lat]);
-    } catch {
-      rawElevM = null;
-    }
-
-    const now = Date.now();
-    if (rawElevM != null) {
-      elevCacheRef.current.set(activeAircraft.hex, {
-        elevM: rawElevM,
-        lat: activeAircraft.lat,
-        lon: activeAircraft.lon,
-        sampledAt: now,
-      });
-    } else {
-      const cached = elevCacheRef.current.get(activeAircraft.hex);
-      if (isElevationCacheValid(cached, activeAircraft.lat, activeAircraft.lon, now)) {
-        rawElevM = cached!.elevM;
-      }
-    }
-
-    if (rawElevM == null) {
-      src.setData(empty());
-      emitGlideStatus({
-        aglFt: null,
-        rangeNm: null,
-        elevationAvailable: false,
-        reason: ELEV_UNAVAILABLE_GENERIC,
-      });
-      return;
-    }
-
-    const aglFt = computeAGL(activeAircraft.altFt, activeAircraft.onGround, rawElevM);
-    if (aglFt == null || aglFt <= 0) {
-      src.setData(empty());
-      emitGlideStatus({
-        aglFt: null,
-        rangeNm: null,
-        elevationAvailable: false,
-      });
-      return;
-    }
-
-    const effectiveRatio = clampGlideRatio(
-      p.glideRatio ?? bounds.defaultRatio,
-      activeAircraft.kind,
-    );
-    const range = rangeNm(aglFt, effectiveRatio);
-    const polygon = buildRingPolygon(activeAircraft.lat, activeAircraft.lon, range);
-    src.setData(polygon);
-    emitGlideStatus({
-      aglFt,
-      rangeNm: range,
-      elevationAvailable: true,
-    });
-  };
+  // Built once: every field is a stable ref.
+  const [ctx] = useState<MapCtx>(() => ({
+    mapRef,
+    propsRef,
+    rulerLabelRef,
+    tracksRef,
+    replayTracksRef,
+    delayRef,
+    lastDelaySecRef,
+    elevCacheRef,
+    lastGlideStatusRef,
+    styleReadyRef,
+    sceneReadyRef,
+  }));
 
   // ---------- map init ----------
   useEffect(() => {
     if (!containerRef.current) return;
-    let initial = DEFAULT_VIEW;
-    try {
-      const saved = localStorage.getItem("skydeck:view");
-      if (saved) initial = { ...DEFAULT_VIEW, ...JSON.parse(saved) };
-    } catch {
-      /* ignore */
-    }
-    // A shared link wins over the view remembered in this browser.
-    const shared = parseShareParams(window.location.search);
-    if (shared.lat !== undefined && shared.lon !== undefined) {
-      initial = {
-        ...initial,
-        lat: shared.lat,
-        lon: shared.lon,
-        zoom: shared.zoom ?? initial.zoom,
-        pitch: shared.pitch ?? initial.pitch,
-        bearing: shared.bearing ?? initial.bearing,
-      };
-    }
+    const initial = initialView();
 
     const map = new MLMap({
       container: containerRef.current,
@@ -1003,314 +90,31 @@ export default function FlightMap(props: FlightMapProps) {
     );
     map.addControl(new ScaleControl({ unit: "nautical" }), "bottom-right");
 
-    let terrainGen = 0;
-    let terrainTimer: ReturnType<typeof setTimeout> | undefined;
-    const scheduleDeferredScene = () => {
-      const gen = ++terrainGen;
-      if (terrainTimer) clearTimeout(terrainTimer);
-      let installed = false;
-      const run = () => {
-        if (installed || gen !== terrainGen) return;
-        const current = mapRef.current;
-        if (!current?.isStyleLoaded()) return;
-        installed = true;
-        if (terrainTimer) clearTimeout(terrainTimer);
-        installDeferredScene();
-      };
-      map.once("idle", run);
-      terrainTimer = setTimeout(run, 3000);
-    };
-
-    // The basemap style could not be fetched: keep the tracker working on a plain background. Only the style's own
-    // address counts (a failed tile, font or weather image is not a reason); the next basemap change tries again.
-    map.on("error", (e) => {
-      const url = (e.error as { url?: unknown } | undefined)?.url;
-      const basemap = propsRef.current.basemap;
-      const wanted = styleFor(basemap);
-      if (typeof wanted !== "string" || url !== wanted) return;
-      console.warn(`[map] basemap style unavailable (${url}); using a plain background`);
-      styleReadyRef.current = false;
-      sceneReadyRef.current = false;
-      map.setStyle(fallbackStyle(basemap), { diff: false });
-    });
+    const deferredScene = deferredSceneScheduler(ctx, map);
+    installStyleFallback(ctx, map);
 
     map.on("style.load", () => {
       styleReadyRef.current = false;
       sceneReadyRef.current = false;
-      installOverlays();
-      scheduleDeferredScene();
+      installOverlays(ctx);
+      deferredScene.schedule();
     });
 
-    const emitViewport = () => {
-      const c = map.getCenter();
-      const b = map.getBounds();
-      const ne = b.getNorthEast();
-      const sw = b.getSouthWest();
-      const r = Math.max(
-        haversineNm(c.lat, c.lng, ne.lat, ne.lng),
-        haversineNm(c.lat, c.lng, sw.lat, sw.lng),
-      );
-      propsRef.current.onViewportChange({
-        lat: c.lat,
-        lon: ((((c.lng + 180) % 360) + 360) % 360) - 180,
-        radiusNm: Math.max(5, Math.min(250, r)),
-        zoom: map.getZoom(),
-        pitch: map.getPitch(),
-        bearing: map.getBearing(),
-        bounds: { north: ne.lat, south: sw.lat, east: ne.lng, west: sw.lng },
-      });
-      try {
-        localStorage.setItem(
-          "skydeck:view",
-          JSON.stringify({
-            lat: c.lat,
-            lon: c.lng,
-            zoom: map.getZoom(),
-            pitch: map.getPitch(),
-            bearing: map.getBearing(),
-          }),
-        );
-      } catch {
-        /* ignore */
-      }
-    };
-    map.on("moveend", emitViewport);
-    // Fetch immediately; don't wait for every terrain tile ("load") to arrive.
-    emitViewport();
-
-    map.on("click", (e) => {
-      if (propsRef.current.pickMode) {
-        propsRef.current.onPick?.([e.lngLat.lng, e.lngLat.lat]);
-        return;
-      }
-      if (propsRef.current.rulerActive) {
-        propsRef.current.onRulerPoint?.([e.lngLat.lng, e.lngLat.lat]);
-        return;
-      }
-      const weatherPick = pickWeather(map, e.point);
-      // Weather items sit above airspace areas, so an area is only picked when nothing else was.
-      const airspacePick = weatherPick ? null : pickAirspace(map, e.point);
-      if (!map.getLayer("sd-aircraft")) {
-        propsRef.current.onWeatherPick?.(weatherPick?.id ?? null);
-        propsRef.current.onAirspacePick?.(airspacePick);
-        return;
-      }
-      const pad = 10;
-      const feats = map.queryRenderedFeatures(
-        [
-          [e.point.x - pad, e.point.y - pad],
-          [e.point.x + pad, e.point.y + pad],
-        ],
-        { layers: ["sd-aircraft"] },
-      );
-      const hex = feats[0]?.properties?.["hex"] as string | undefined;
-      // An aircraft under the click wins; otherwise a weather item may be picked.
-      propsRef.current.onWeatherPick?.(hex ? null : (weatherPick?.id ?? null));
-      propsRef.current.onAirspacePick?.(hex ? null : airspacePick);
-      propsRef.current.onSelect(hex ?? null);
-    });
-    map.on("mousemove", (e) => {
-      if (propsRef.current.rulerActive) {
-        map.getCanvas().style.cursor = "crosshair";
-        const first =
-          propsRef.current.rulerPoints?.length === 1 ? propsRef.current.rulerPoints[0] : null;
-        const label = rulerLabelRef.current;
-        if (first) {
-          const hover: [number, number] = [e.lngLat.lng, e.lngLat.lat];
-          applyRuler(hover);
-          if (label) {
-            label.textContent = rulerSummary(
-              [first, hover],
-              propsRef.current.rulerUnits ?? "aviation",
-            );
-            label.style.transform = `translate(${e.point.x + 14}px, ${e.point.y + 14}px)`;
-            label.hidden = false;
-          }
-        } else if (label) label.hidden = true;
-        return;
-      }
-      if (!map.getLayer("sd-aircraft")) return;
-      const feats = map.queryRenderedFeatures(
-        [
-          [e.point.x - 6, e.point.y - 6],
-          [e.point.x + 6, e.point.y + 6],
-        ],
-        { layers: ["sd-aircraft"] },
-      );
-      map.getCanvas().style.cursor = feats.length ? "pointer" : "";
-    });
-
-    // ---------- animation loop ----------
-    // Paced by a timer, then aligned to the next frame. A bare requestAnimationFrame loop asks the browser for a new
-    // frame 60 times a second even when the tick then does nothing, and each of those frames costs style, layout and
-    // paint of the whole page: on a slow phone that alone kept the main thread busy for seconds after load.
-    let raf = 0;
-    let tickTimer: ReturnType<typeof setTimeout> | undefined;
-    const scheduleTick = () => {
-      tickTimer = setTimeout(() => {
-        raf = requestAnimationFrame(tick);
-      }, FRAME_MS);
-    };
-    let lastTickWall = 0;
-    let lastSelectedEmit = 0;
-    // What the aircraft source last received, and which source that was (a basemap switch replaces it). A tick
-    // whose result would look the same is not sent: each setData repaints the whole map (see redraw-gate.ts).
-    let lastDrawn: Map<string, DrawnPlane> | null = null;
-    let lastDrawnSrc: GeoJSONSource | null = null;
-    // Planes kept by the last declutter pass; they win ties next frame so nothing flickers.
-    let shownRef = new Set<string>();
-    const tick = () => {
-      scheduleTick();
-      if (!styleReadyRef.current) return;
-      const src = map.getSource("sd-aircraft") as GeoJSONSource | undefined;
-      if (!src) return;
-      const wall = Date.now();
-      const elapsed = lastTickWall ? wall - lastTickWall : 0;
-      lastTickWall = wall;
-      const mode = propsRef.current.smoothMotion === false ? "live" : "smooth";
-      delayRef.current = stepDelay(delayRef.current, mode, elapsed);
-      const rp = propsRef.current.replay ?? null;
-      if (rp) advanceClock(rp.clock, elapsed);
-      const drawT = rp ? rp.clock.t : wall - delayRef.current.delayMs;
-      const sec = Math.round(delayRef.current.delayMs / 1000);
-      if (sec !== lastDelaySecRef.current) {
-        lastDelaySecRef.current = sec;
-        propsRef.current.onMotionDelay?.(sec);
-      }
-      const sel = propsRef.current.selectedHex;
-      const features: Feature<Point>[] = [];
-      let selPos: [number, number] | null = null;
-      let selTrack: number | null = null;
-      for (const [hex, tr] of rp ? (replayTracksRef.current ?? []) : tracksRef.current) {
-        let fade = 1;
-        if (rp && !visibleAt(tr.samples, drawT)) continue;
-        if (!rp && tr.ghost) {
-          const last = tr.samples[tr.samples.length - 1];
-          const o = last ? missingOpacity(wall - last.t) : null;
-          if (o == null) {
-            tracksRef.current.delete(hex);
-            continue;
-          }
-          fade = o;
-        }
-        const m = trackState(tr, drawT);
-        // No new report for longer than dead reckoning is trusted: the aircraft is held and drawn dimmer.
-        if (!rp && m.phase === "stale") fade = Math.min(fade, 0.55);
-        const lat = m.lat;
-        const lon = m.lon;
-        const isSel = hex === sel;
-        if (isSel) {
-          selPos = [lat, lon];
-          selTrack = m.track;
-          if (wall - lastSelectedEmit >= 1000) {
-            lastSelectedEmit = wall;
-            if (!rp) propsRef.current.onSelectedMotion?.(hex, m);
-            if (propsRef.current.showTrail !== false) {
-              applyTrail(rp ? trailUpTo(tr.samples, drawT) : undefined);
-            }
-          }
-        }
-        features.push({
-          type: "Feature",
-          properties: {
-            hex,
-            cs: tr.a.callsign,
-            kind: tr.a.kind,
-            shape: iconShapeCached(tr.a.kind, tr.a.type),
-            track: m.track == null && keepUprightWithoutHeading(tr.a.kind) ? 0 : (m.track ?? 0),
-            color: rp
-              ? altitudeColor(m.altFt, m.onGround)
-              : tr.emg
-                ? EMERGENCY_COLOR
-                : propsRef.current.colorBy === "airline"
-                  ? airlineColor(tr.a.callsign)
-                  : tr.color,
-            alt: m.altFt ?? 0,
-            fade,
-            sel: isSel,
-            emg: tr.emg,
-          },
-          geometry: { type: "Point", coordinates: [lon, lat] },
-        });
-      }
-      let drawn = features;
-      if (map.getZoom() < DECLUTTER_BELOW_ZOOM && features.length > 1) {
-        const items = features.map((f) => {
-          const p = f.properties as { hex: string; sel: boolean; emg: boolean; alt: number };
-          const px = map.project(f.geometry.coordinates as [number, number]);
-          return {
-            key: p.hex,
-            x: px.x,
-            y: px.y,
-            priority: p.sel ? 3 : p.emg ? 2 : p.alt > 0 ? 1 : 0,
-          };
-        });
-        shownRef = declutter(items, declutterCellPx(map.getZoom()), shownRef);
-        const keep = shownRef;
-        drawn = features.filter((f) => keep.has((f.properties as { hex: string }).hex));
-      } else if (shownRef.size) {
-        shownRef = new Set();
-      }
-      const next = new Map<string, DrawnPlane>();
-      for (const f of drawn) {
-        const p = f.properties as {
-          hex: string;
-          cs?: string;
-          kind?: string;
-          shape: string;
-          track: number;
-          color: string;
-          alt: number;
-          fade: number;
-          sel: boolean;
-          emg: boolean;
-        };
-        const [lon, lat] = f.geometry.coordinates as [number, number];
-        next.set(p.hex, {
-          lon,
-          lat,
-          track: p.track,
-          fade: p.fade,
-          alt: p.alt,
-          look: `${p.cs ?? ""}|${p.kind ?? ""}|${p.shape}|${p.color}|${p.sel ? 1 : 0}|${p.emg ? 1 : 0}`,
-        });
-      }
-      const centre = map.getCenter();
-      const prev = src === lastDrawnSrc ? lastDrawn : null;
-      if (needsRedraw(prev, next, metersPerPixel(centre.lat, map.getZoom()))) {
-        src.setData({ type: "FeatureCollection", features: drawn });
-        lastDrawn = next;
-        lastDrawnSrc = src;
-      }
-      if (selPos && propsRef.current.follow && !map.isMoving()) {
-        map.setCenter([selPos[1], selPos[0]]);
-        // Chase camera: turn towards the heading a little each frame, so the view follows turns smoothly.
-        if (propsRef.current.chase && selTrack != null) {
-          const cur = map.getBearing();
-          const diff = ((((selTrack - cur) % 360) + 540) % 360) - 180;
-          map.setBearing(cur + diff * 0.06);
-        }
-      }
-    };
-    scheduleTick();
+    installViewportReporting(ctx, map);
+    installInteractions(ctx, map);
+    const stopAnimation = startAnimationLoop(ctx, map);
 
     const onSourceData = (e: { sourceId?: string; isSourceLoaded?: boolean }) => {
       if (e.sourceId === "sd-dem" && e.isSourceLoaded) {
-        updateGlideRing();
+        updateGlideRing(ctx);
       }
     };
     map.on("sourcedata", onSourceData);
-    const hideRulerLabel = () => {
-      if (rulerLabelRef.current) rulerLabelRef.current.hidden = true;
-      applyRuler();
-    };
-    map.getCanvas().addEventListener("mouseleave", hideRulerLabel);
+    installRulerMouseLeave(ctx, map);
 
     return () => {
-      cancelAnimationFrame(raf);
-      if (tickTimer) clearTimeout(tickTimer);
-      if (terrainTimer) clearTimeout(terrainTimer);
-      terrainGen += 1;
+      stopAnimation();
+      deferredScene.cancel();
       map.off("sourcedata", onSourceData);
       map.remove();
       mapRef.current = null;
@@ -1324,93 +128,35 @@ export default function FlightMap(props: FlightMapProps) {
     if (!rp) {
       replayTracksRef.current = null;
       // Back to live: draw the live trail again.
-      applyTrail();
+      applyTrail(ctx);
       return;
     }
-    const built = new Map<string, Track>();
-    for (const [hex, rt] of rp.tracks) {
-      const last = rt.samples[rt.samples.length - 1];
-      if (!last) continue;
-      const a = {
-        hex,
-        callsign: rt.meta.callsign,
-        registration: rt.meta.registration,
-        type: rt.meta.type,
-        description: null,
-        operator: null,
-        lat: last.lat,
-        lon: last.lon,
-        altFt: last.altFt,
-        onGround: last.onGround,
-        gs: last.gs,
-        track: last.track,
-        vRate: last.vRate,
-        squawk: rt.meta.squawk,
-        category: null,
-        kind: rt.meta.kind,
-        kindLabel: rt.meta.kindLabel,
-        seenPos: 0,
-      } as Aircraft;
-      built.set(hex, {
-        a,
-        samples: rt.samples,
-        color: altitudeColor(last.altFt, last.onGround),
-        emg: false,
-        ghost: false,
-      });
-    }
-    replayTracksRef.current = built;
-  }, [props.replay]);
+    replayTracksRef.current = replayTracks(rp);
+  }, [ctx, props.replay]);
 
   // ---------- data updates → sample buffers ----------
   useEffect(() => {
-    const wall = Date.now();
-    const received = props.receivedAt ?? wall;
-    const seen = new Set<string>();
-    const next = new Map(tracksRef.current);
-    const ages: number[] = [];
-    for (const a of props.aircraft) {
-      seen.add(a.hex);
-      const prev = next.get(a.hex);
-      next.set(a.hex, {
-        a,
-        samples: appendSample(prev?.samples ?? [], toSample(a, received)),
-        color: altitudeColor(a.altFt, a.onGround),
-        emg: isEmergency(a.squawk),
-        ghost: false,
-      });
-      ages.push(a.seenPos * 1000);
-    }
-    const present = props.presentHexes;
-    for (const [hex, tr] of next) {
-      if (seen.has(hex)) continue;
-      // Filtered out: remove now. Missing from the data: keep as a fading ghost.
-      if (present?.has(hex)) next.delete(hex);
-      else next.set(hex, { ...tr, ghost: true });
-    }
-    tracksRef.current = next;
+    const received = props.receivedAt ?? Date.now();
+    const { tracks, ages } = mergeAircraft(
+      tracksRef.current,
+      props.aircraft,
+      received,
+      props.presentHexes,
+    );
+    tracksRef.current = tracks;
     // Measure how late updates really arrive, once per update (not on filter changes).
     if (props.receivedAt != null && props.receivedAt !== lastReceivedRef.current && ages.length) {
       lastReceivedRef.current = props.receivedAt;
       delayRef.current = observeUpdate(delayRef.current, props.receivedAt, median(ages));
     }
-    applyTrail();
-    updateGlideRing();
+    applyTrail(ctx);
+    updateGlideRing(ctx);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.aircraft]);
 
   useEffect(() => {
-    applyTrail();
-  }, [props.trail, props.trail3d, props.selectedHex, props.showTrail]);
-
-  // Turning the chase camera on tilts the map and moves in close behind the aircraft.
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !props.chase || !props.follow) return;
-    const reduce =
-      typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
-    map.easeTo({ pitch: 68, zoom: Math.max(map.getZoom(), 12), duration: reduce ? 0 : 900 });
-  }, [props.chase, props.follow]);
+    applyTrail(ctx);
+  }, [ctx, props.trail, props.trail3d, props.selectedHex, props.showTrail]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -1449,24 +195,22 @@ export default function FlightMap(props: FlightMapProps) {
   }, [props.routeAirspace]);
 
   useEffect(() => {
-    applyRuler();
+    applyRuler(ctx);
     // The cursor label is only for the first point; a second click or leaving the ruler hides it.
     if (rulerLabelRef.current && (props.rulerPoints?.length !== 1 || !props.rulerActive))
       rulerLabelRef.current.hidden = true;
     const map = mapRef.current;
     if (map && !props.rulerActive) map.getCanvas().style.cursor = "";
-  }, [props.rulerPoints, props.rulerActive]);
+  }, [ctx, props.rulerPoints, props.rulerActive]);
 
   useEffect(() => {
-    applyTerrain();
-    updateGlideRing();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [props.terrain]);
+    applyTerrain(ctx);
+    updateGlideRing(ctx);
+  }, [ctx, props.terrain]);
 
   useEffect(() => {
-    updateGlideRing();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [props.glideRing, props.glideRatio, props.selectedHex]);
+    updateGlideRing(ctx);
+  }, [ctx, props.glideRing, props.glideRatio, props.selectedHex]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -1480,52 +224,8 @@ export default function FlightMap(props: FlightMapProps) {
     map.setStyle(styleFor(props.basemap), { diff: false });
   }, [props.basemap]);
 
-  // With the side panel open the map's centre moves to the middle of the part that is still visible, so a
-  // selected aircraft (and Follow, which uses the centre) is not hidden under the panel.
-  useEffect(() => {
-    const apply = (toAircraft: boolean) => {
-      const map = mapRef.current;
-      if (!map) return;
-      const hex = propsRef.current.selectedHex;
-      const pad = cameraPadding(!!hex);
-      if (map.getPadding().right === pad.right) return;
-      const ac = toAircraft ? propsRef.current.aircraft.find((a) => a.hex === hex) : undefined;
-      // Changing the padding alone moves every map point; ease to the aircraft, or else to the point that is
-      // already at the new visible centre, so the view stays put.
-      const c = map.getContainer();
-      const center: [number, number] = ac
-        ? [ac.lon, ac.lat]
-        : (() => {
-            const ll = map.unproject([(c.clientWidth - pad.right) / 2, c.clientHeight / 2]);
-            return [ll.lng, ll.lat];
-          })();
-      map.easeTo({ padding: pad, center, duration: 300 });
-    };
-    apply(true);
-    const onResize = () => apply(false);
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, [props.selectedHex]);
-
-  useEffect(() => {
-    const map = mapRef.current;
-    const t = props.flyTarget;
-    if (!map || !t) return;
-    map.flyTo({
-      center: [t.lon, t.lat],
-      zoom: t.zoom ?? Math.max(map.getZoom(), 9),
-      // Read through the ref: selecting an aircraft must not repeat the flight.
-      padding: cameraPadding(!!propsRef.current.selectedHex),
-      speed: 1.4,
-      // Not essential: a visitor who prefers reduced motion gets a jump instead of a flight (Phase 5f).
-    });
-  }, [props.flyTarget]);
-
-  // 3D trail is easier to read with some pitch.
-  useEffect(() => {
-    const map = mapRef.current;
-    if (map && props.trail3d && map.getPitch() < 40) map.easeTo({ pitch: 60, duration: 800 });
-  }, [props.trail3d]);
+  // Chase tilt, panel padding, fly-to targets and the 3D trail's pitch.
+  useCamera(ctx, props);
 
   return (
     <div className="absolute inset-0" role="region" aria-label="Live flight map">
