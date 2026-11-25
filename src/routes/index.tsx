@@ -465,6 +465,29 @@ function SkyDeck() {
     () => feed.aircraft.filter((a) => isEmergency(a.squawk)),
     [feed.aircraft],
   );
+  // Feed status notices ("Live data is busy", missing areas, partial view). Desktop shows them above the bottom edge;
+  // phones show them under the top bar instead, because at 375 px the bottom is taken by the altitude legend, the
+  // map credit and the zoom buttons (design QA 15h). The two places switch with CSS, not JS, so SSR matches.
+  const hasFeedNotice = !!(feed.error || feed.areasMissing || feed.partial);
+  const feedNotices = (
+    <>
+      {feed.error && (
+        <div className="glass-panel rounded-md px-3 py-1.5 text-center text-xs text-warning">
+          {feed.error}
+        </div>
+      )}
+      {feed.areasMissing && (
+        <div className="glass-panel rounded-md px-3 py-1.5 text-center text-xs text-muted-foreground">
+          Some areas may be missing
+        </div>
+      )}
+      {feed.partial && (
+        <div className="glass-panel rounded-md px-3 py-1.5 text-center text-xs text-muted-foreground">
+          Showing part of this view. Zoom in for full coverage.
+        </div>
+      )}
+    </>
+  );
   const selected = useMemo(
     () => allAircraft.find((a) => a.hex === selectedHex) ?? null,
     [allAircraft, selectedHex],
@@ -1076,33 +1099,22 @@ function SkyDeck() {
         )}
       </div>
 
-      {/* Emergency alert */}
-      {emergencies.length > 0 && (
+      {/* Emergency alert, and on phones the feed notices under it (see feedNotices below). */}
+      {(emergencies.length > 0 || hasFeedNotice) && (
         <div
-          className={`pointer-events-none absolute inset-x-0 z-30 flex justify-center pl-16 pr-3 md:px-3 ${selected ? "md:pr-[428px]" : ""}`}
+          className={`pointer-events-none absolute inset-x-0 z-30 flex flex-col items-center gap-1.5 pl-16 pr-3 md:px-3 ${selected ? "md:pr-[428px]" : ""}`}
           style={{ top: "calc(var(--hud-h, 76px) + 8px)" }}
         >
-          <EmergencyBanner aircraft={emergencies} onPick={pickAircraft} />
+          {emergencies.length > 0 && (
+            <EmergencyBanner aircraft={emergencies} onPick={pickAircraft} />
+          )}
+          {hasFeedNotice && <div className="contents md:hidden">{feedNotices}</div>}
         </div>
       )}
 
-      {(feed.error || feed.areasMissing || feed.partial) && (
-        <div className="pointer-events-none absolute inset-x-0 bottom-16 z-20 flex flex-col items-center gap-1.5">
-          {feed.error && (
-            <div className="glass-panel rounded-md px-3 py-1.5 text-xs text-warning">
-              {feed.error}
-            </div>
-          )}
-          {feed.areasMissing && (
-            <div className="glass-panel rounded-md px-3 py-1.5 text-xs text-muted-foreground">
-              Some areas may be missing
-            </div>
-          )}
-          {feed.partial && (
-            <div className="glass-panel rounded-md px-3 py-1.5 text-xs text-muted-foreground">
-              Showing part of this view. Zoom in for full coverage.
-            </div>
-          )}
+      {hasFeedNotice && (
+        <div className="pointer-events-none absolute inset-x-0 bottom-16 z-20 hidden flex-col items-center gap-1.5 md:flex">
+          {feedNotices}
         </div>
       )}
 

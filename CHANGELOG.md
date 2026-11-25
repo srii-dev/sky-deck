@@ -90,6 +90,7 @@ All notable changes to SkyDeck. The format follows [Keep a Changelog](https://ke
 
 ### Fixed
 
+- Design QA (15h): on phones the feed notices ("Live data is busy", missing areas, partial view) now sit under the top bar instead of over the map credit at the bottom, and disabled toolbar buttons such as Replay keep their solid panel and only dim the icon, so they no longer turn dark over a dark map in the light theme.
 - The project's address in the footer, the README clone line and the issue template config is now `https://github.com/srii-dev/sky-deck` (the old account name only worked through a redirect).
 
 - Location said "blocked" when the browser allowed it but Windows had location off for the browser; airspace areas stayed on the map after zooming out past the load limit (#73).
