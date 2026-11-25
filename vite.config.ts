@@ -1,4 +1,6 @@
 // Plain Vite config for TanStack Start on Cloudflare Workers.
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { defineConfig, loadEnv } from "vite";
 import tailwindcss from "@tailwindcss/vite";
 import tsConfigPaths from "vite-tsconfig-paths";
@@ -56,6 +58,31 @@ export default defineConfig(({ command, mode }) => {
       warmup: { ssrFiles: ["./src/lib/*.functions.ts"] },
     },
     plugins: [
+      {
+        // Vite serves workers with its HMR client imported, and that client reads `document` on every CSS update
+        // (Tailwind sends several on a cold start), so the map worker threw "document is not defined" (dev-plan 0h).
+        // The MapLibre worker is one self-contained file: serve it untouched in development.
+        name: "skydeck:raw-map-worker",
+        apply: "serve",
+        configureServer(server) {
+          server.middlewares.use((req, res, next) => {
+            // Only the worker's own request (?worker_file); the ?worker&url import in FlightMap.tsx must still get its URL.
+            const [path, query = ""] = (req.url ?? "").split("?");
+            if (
+              !path?.endsWith("/maplibre-gl/dist/maplibre-gl-worker.mjs") ||
+              !query.includes("worker_file")
+            ) {
+              return next();
+            }
+            res.setHeader("Content-Type", "text/javascript");
+            res.end(
+              readFileSync(
+                fileURLToPath(import.meta.resolve("maplibre-gl/dist/maplibre-gl-worker.mjs")),
+              ),
+            );
+          });
+        },
+      },
       tailwindcss(),
       tsConfigPaths({ projects: ["./tsconfig.json"] }),
       tanstackStart({
