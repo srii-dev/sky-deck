@@ -1107,7 +1107,8 @@ function SkyDeck() {
           (measured, as it wraps on a phone) while the ruler is on; otherwise it would cover the ruler's buttons. */}
       {(emergencies.length > 0 || hasFeedNotice) && (
         <div
-          className={`pointer-events-none absolute inset-x-0 z-30 flex flex-col items-center gap-1.5 pl-16 pr-3 md:px-3 ${selected ? "md:pr-[428px]" : ""}`}
+          // Keep clear of the map tools: one column (pl-16), or two on a phone with an aircraft selected, where it wraps.
+          className={`pointer-events-none absolute inset-x-0 z-30 flex flex-col items-center gap-1.5 pr-3 md:pl-16 ${selected ? "pl-[7.5rem] md:pr-[428px]" : "pl-16"}`}
           style={{
             top: `calc(var(--hud-h, 76px) + ${rulerActive && rulerBarH ? rulerBarH + 16 : 8}px)`,
           }}
@@ -1178,7 +1179,8 @@ function SkyDeck() {
         replay.source ||
         areaPick) && (
         <div
-          className={`pointer-events-none absolute inset-x-0 bottom-[max(5.5rem,env(safe-area-inset-bottom))] z-20 flex-col items-center gap-2 pl-14 pr-3 md:px-3 md:bottom-3 ${kiosk ? "hidden" : (selected || airport) && !replay.source ? "hidden xl:flex" : "flex"}`}
+          // On a tablet this row sits between the legends (bottom left) and the zoom buttons, which it would cover.
+          className={`pointer-events-none absolute inset-x-0 bottom-[max(5.5rem,env(safe-area-inset-bottom))] z-20 flex-col items-center gap-2 pl-14 pr-3 md:bottom-3 md:pl-[13.5rem] md:pr-16 lg:px-3 ${kiosk ? "hidden" : (selected || airport) && !replay.source ? "hidden xl:flex" : "flex"}`}
         >
           {weatherNotice && (
             <div className="glass-panel pointer-events-auto rounded-md px-3 py-1.5 text-xs text-muted-foreground">
