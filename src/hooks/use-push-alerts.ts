@@ -132,9 +132,9 @@ export function usePushAlerts(opts: {
     const sb = await getSupabase();
     if (sb && keys) {
       await deleteSubscription(sb, keys.endpoint);
-      // With no browser left the rules have no use on the server.
-      const { data } = await sb.from("push_subscriptions").select("endpoint").limit(1);
-      if ((data?.length ?? 0) === 0) await clearPushRules(sb);
+      // With no browser left the rules have no use on the server. A failed read is not "none left": keep them.
+      const { data, error } = await sb.from("push_subscriptions").select("endpoint").limit(1);
+      if (!error && (data?.length ?? 0) === 0) await clearPushRules(sb);
     }
     await unsubscribeBrowser();
     setStatus("off");
