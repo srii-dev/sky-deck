@@ -17,7 +17,7 @@ const buttonVariants = cva(
         ghost: "hover:bg-accent hover:text-accent-foreground",
         link: "text-primary underline-offset-4 hover:underline",
         panel:
-          "glass-panel text-foreground hover:border-accent/50 hover:text-accent data-[active=true]:border-primary/70 data-[active=true]:text-primary",
+          "glass-panel text-foreground hover:border-accent/50 hover:text-accent data-[active=true]:border-primary/70 data-[active=true]:text-primary disabled:opacity-100 disabled:text-muted-foreground/60",
         hud: "text-muted-foreground hover:bg-secondary hover:text-foreground data-[active=true]:bg-primary/15 data-[active=true]:text-primary",
       },
       size: {
