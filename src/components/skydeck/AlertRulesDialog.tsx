@@ -87,7 +87,11 @@ function PushSection({ push }: { push: PushAlertsApi }) {
         {PUSH_NOTES[push.status]} Only rules with an area up to {PUSH_MAX_AREA_NM} nm are checked
         while the page is closed; your rules are then saved to your account.
       </p>
-      {push.error && <p className="text-xs text-amber-300">{push.error}</p>}
+      {push.error && (
+        <p role="alert" className="text-xs text-warning">
+          {push.error}
+        </p>
+      )}
     </section>
   );
 }
@@ -295,9 +299,7 @@ export function AlertRulesDialog(p: Props) {
             Your rules ({p.rules.length} of {MAX_ALERT_RULES})
           </h3>
           {!p.alertsOn && (
-            <p className="text-xs text-amber-300">
-              Alerts are switched off in the Watchlist dialog.
-            </p>
+            <p className="text-xs text-warning">Alerts are switched off in the Watchlist dialog.</p>
           )}
           {p.rules.length === 0 ? (
             <p className="text-sm text-muted-foreground">No rules yet.</p>

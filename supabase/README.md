@@ -35,6 +35,7 @@ Planned (each in its own migration with its own policies, when its phase starts)
 A free Supabase project named `skydeck` (region us-east-1) was created on 2026-11-09. The migrations in this folder were applied to it through the Supabase connector, which records them in the project's own migration list under its own timestamps (the file names here are the source of truth).
 
 - `20261107000000_profiles.sql`: ran without errors. `profiles` has row-level security on (checked with the connector's table listing).
+- Web push (`20261125000000_web_push.sql`, `20261125010000_web_push_limits.sql`): not applied yet (checked read-only on 2026-11-25; the project then had the six migrations up to `profiles_policies_initplan`). Apply both together, in that order, before switching closed-page alerts on (`DEPLOY.md`, "Closed-page alerts: switch-on checklist").
 - `20261109000000_revoke_handle_new_user_execute.sql`: added because the project's security advisor reported that `handle_new_user()` could be called through the public API (`/rest/v1/rpc/handle_new_user`). After the revoke the advisor reported no findings.
 
 ## Account deletion function

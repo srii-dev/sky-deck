@@ -86,7 +86,7 @@ export interface TextGenerator {
 }
 
 /** Per-message headline cache key: Airframes ids are global, the text hash guards against a reused id. */
-export function briefCacheKey(m: AcarsAiInput): string {
+export function briefCacheKey(m: AcarsAiInput): Promise<string> {
   return cacheKey("acars-brief-msg", m.id + "\u0000" + m.text);
 }
 
@@ -103,8 +103,10 @@ export async function describeBriefs(
   const briefs: Record<number, string> = {};
   const todo: AcarsAiInput[] = [];
   let provider = "cache";
+  const keys = new Map<AcarsAiInput, string>();
+  for (const m of messages) keys.set(m, await briefCacheKey(m));
   for (const m of messages) {
-    const hit = cache.get(briefCacheKey(m), now());
+    const hit = cache.get(keys.get(m)!, now());
     if (hit) {
       briefs[m.id] = hit.text;
       provider = hit.provider;
@@ -125,7 +127,7 @@ export async function describeBriefs(
     const text = fresh[m.id];
     if (!text) continue;
     briefs[m.id] = text;
-    cache.set(briefCacheKey(m), { text, provider: res.provider, generatedAt: at }, at);
+    cache.set(keys.get(m)!, { text, provider: res.provider, generatedAt: at }, at);
   }
   return { briefs, provider: res.provider };
 }
