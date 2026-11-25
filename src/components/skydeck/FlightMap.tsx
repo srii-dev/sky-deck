@@ -48,6 +48,7 @@ export default function FlightMap(props: FlightMapProps) {
   const styleReadyRef = useRef(false);
   const sceneReadyRef = useRef(false);
   const firstStyleRef = useRef(true);
+  const stopBasemapRetryRef = useRef<(() => void) | null>(null);
   // Built once: every field is a stable ref.
   const [ctx] = useState<MapCtx>(() => ({
     mapRef,
@@ -61,6 +62,7 @@ export default function FlightMap(props: FlightMapProps) {
     lastGlideStatusRef,
     styleReadyRef,
     sceneReadyRef,
+    stopBasemapRetryRef,
   }));
 
   // ---------- map init ----------
@@ -116,6 +118,8 @@ export default function FlightMap(props: FlightMapProps) {
       stopAnimation();
       deferredScene.cancel();
       map.off("sourcedata", onSourceData);
+      stopBasemapRetryRef.current?.();
+      stopBasemapRetryRef.current = null;
       map.remove();
       mapRef.current = null;
     };
@@ -219,6 +223,8 @@ export default function FlightMap(props: FlightMapProps) {
       firstStyleRef.current = false;
       return;
     }
+    stopBasemapRetryRef.current?.();
+    stopBasemapRetryRef.current = null;
     styleReadyRef.current = false;
     sceneReadyRef.current = false;
     map.setStyle(styleFor(props.basemap), { diff: false });

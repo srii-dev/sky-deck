@@ -107,4 +107,6 @@ export interface MapCtx {
   styleReadyRef: RefObject<boolean>;
   /** True once the deferred scene (buildings, terrain) is installed for the current style. */
   sceneReadyRef: RefObject<boolean>;
+  /** Stops the checks for the real basemap while the plain fallback background is shown. */
+  stopBasemapRetryRef: RefObject<(() => void) | null>;
 }

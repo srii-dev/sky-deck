@@ -15,8 +15,11 @@ import {
   messagesByUser,
   planPushCheck,
   restoreCooldowns,
+  restoreMatching,
+  MATCHING_MAX_AGE_MS,
   runPushCheck,
   serializeCooldowns,
+  serializeMatching,
   takeTurns,
   type PushCheckDeps,
   type PushMessage,
@@ -202,6 +205,48 @@ describe("matching", () => {
     expect(back.matching.size).toBe(0);
     expect([...back.lastAlert]).toEqual([["u1:r1:abc123", 5]]);
     expect(restoreCooldowns("junk").lastAlert.size).toBe(0);
+  });
+
+  it("saves the matches too, so a check after the object was unloaded still alerts for a new aircraft", () => {
+    const first = evaluatePushRules(newRuleState(), plan, new Map([[key0, [plane()]]]), 1000);
+    // What a fresh object (evicted between two cron runs) reads back from storage.
+    const stored = JSON.parse(
+      JSON.stringify({
+        cooldowns: serializeCooldowns(first.state),
+        matching: serializeMatching(first.state, 1000),
+      }),
+    ) as { cooldowns: unknown; matching: unknown };
+    const restored = {
+      ...restoreCooldowns(stored.cooldowns),
+      matching: restoreMatching(stored.matching, 121_000),
+    };
+    const second = evaluatePushRules(
+      restored,
+      plan,
+      new Map([[key0, [plane(), plane({ hex: "def456", callsign: "BAW1" })]]]),
+      121_000,
+    );
+    expect(second.events.map((e) => e.hex)).toEqual(["def456"]);
+  });
+
+  it("ignores saved matches that are too old or malformed", () => {
+    const state = { matching: new Map([["u1:r1", new Set(["abc123"])]]), lastAlert: new Map() };
+    const saved = JSON.parse(JSON.stringify(serializeMatching(state, 0))) as unknown;
+    expect(restoreMatching(saved, MATCHING_MAX_AGE_MS).get("u1:r1")).toEqual(new Set(["abc123"]));
+    expect(restoreMatching(saved, MATCHING_MAX_AGE_MS + 1).size).toBe(0);
+    expect(restoreMatching("junk", 0).size).toBe(0);
+    expect(
+      restoreMatching(
+        {
+          at: 0,
+          rules: [
+            [1, 2],
+            ["u1:r2", ""],
+          ],
+        },
+        0,
+      ),
+    ).toEqual(new Map([["u1:r2", new Set()]]));
   });
 });
 

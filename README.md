@@ -6,7 +6,7 @@ A live 3D flight tracker for the web. See aircraft move in real time on a terrai
 
 SkyDeck is an independent project. It is inspired by the general category of flight-tracker apps and is not affiliated with, endorsed by, or a copy of any commercial app.
 
-> **Status:** early work in progress. The live map, search, filters, trails and aircraft categories work, and so do the glide-range ring with reachable airports, an ADS-B message inspector and ACARS messages (per aircraft, and an all-aircraft panel with AI headlines). A preview runs at https://skydeck.sky-deck.workers.dev. What is planned is in [Roadmap](#roadmap).
+> **Status:** early work in progress. The live map, search, filters, trails and aircraft categories work, and so do the glide-range ring with reachable airports, an ADS-B message inspector and ACARS messages (per aircraft, and an all-aircraft panel with AI headlines). Alerts while the site is closed (web push) are built but switched off until the owner sets them up. A preview runs at https://skydeck.sky-deck.workers.dev. What is planned is in [Roadmap](#roadmap).
 
 ## Screenshots
 
@@ -27,8 +27,8 @@ The pictures use invented test aircraft (callsigns such as SKD303), not live dat
 - **Altitude-coloured trails**, optionally drawn in 3D at real altitude, plus a follow-aircraft mode
 - **Search** by callsign, registration, ICAO hex, aircraft type, airline name (when known) or airport code, with recent searches
 - **Shareable links, my location and saved views**: the address always describes the current view (map position, selected aircraft, basemap), so you can copy it; one button centres the map on you, and named views are kept in your browser
-- **Optional accounts**: sign in, create an account, sign out and delete the account (Settings, Account). Nothing needs an account yet; it is the foundation for saved data later. Email and password only (no Google sign-in yet)
-- **Alert rules**: in the Watchlist dialog, Alert rules. Describe a rule in plain English ("heavy jet below 8,000 ft within 40 nm of JFK", "any military aircraft", "callsign starting with RCH", "squawk 7500") or set its conditions by hand (aircraft type, military, flight number, altitude range, in the air, an area). Draw an area on the map with two clicks. You get a message when an aircraft starts matching a rule while the page is open, with a cooldown of 30 minutes per aircraft. Rules stay in this browser. Messages when the tab is closed (web push) are not available
+- **Optional accounts**: sign in, create an account, sign out and delete the account (Settings, Account). An account keeps the watchlist and recent flights on every device, and closed-page alerts need one; everything else works without it. Email and password only (no Google sign-in yet)
+- **Alert rules**: in the Watchlist dialog, Alert rules. Describe a rule in plain English ("heavy jet below 8,000 ft within 40 nm of JFK", "any military aircraft", "callsign starting with RCH", "squawk 7500") or set its conditions by hand (aircraft type, military, flight number, altitude range, in the air, an area). Draw an area on the map with two clicks. You get a message when an aircraft starts matching a rule while the page is open, with a cooldown of 30 minutes per aircraft. Rules stay in this browser, unless you switch on **Also alert me when SkyDeck is closed** (signed in): then the rules that have an area up to 250 nm are saved to your account and checked on the server every two minutes, and matches arrive as browser notifications that open the map on the aircraft. Rules without an area still alert only while the page is open. The switch shows "Not available on this site yet" until the site's web push settings exist (`DEPLOY.md`); on an iPhone it works only in the installed app (Add to Home Screen)
 - **Track a flight**: in the Watchlist dialog, type a flight number (for example UAL123) and press Track. While the aircraft is in the area the map has loaded you see its stage (at the gate, taxiing, taking off, climbing, cruising, descending, on approach, landing, arrived) on a seven step bar, the route, about how far is left on a straight line and a rough time to go. The stage is a guess from altitude, speed and position, not an official status. If the route on file does not match where the aircraft is, it is ignored and the page says so.
 - **More aircraft shapes**: besides the nine categories, the map now draws four-engine heavy jets (747, A380, A340, C-17), twin-engine heavy jets (777, 787, A330, A350), rear-engine jets (CRJ, Embraer 145, MD-80, 717), twin turboprops (ATR, Dash 8, C-130) and fighters with their own silhouettes, chosen from the aircraft type code. The category, colours, alerts and panels are unchanged, and an aircraft with an unknown type keeps its category icon. The Aircraft types key lists every shape.
 - **Collection, achievements and daily challenges**: the trophy button in the map tools opens your collection. Every aircraft type and registration you open on the map is remembered in this browser, 13 achievements unlock as it grows (a helicopter, a glider, a four-engine heavy, 25 types, 50 registrations and more), and three challenges change every day, for example "find a helicopter, a glider and a heavy jet". Nothing leaves the browser, it is not synced to an account yet, and Clear collection removes it. Aircraft photos were not added.
@@ -39,7 +39,7 @@ The pictures use invented test aircraft (callsigns such as SKD303), not live dat
 - **Clean view and more downloads**: press K (or Settings, Clean view for a display) to hide the controls for a wall display; Esc leaves it. A trail can also be saved as KML, and the Filters panel downloads the aircraft shown as a CSV file.
 - **Day and night, airline colours, embeds**: the Layers popover has a Day and night switch that shades the night side of the earth and shows sunrise and sunset at the map centre. Settings can colour aircraft by airline (plain colours, not liveries) and copy an embed code: a page with `embed=1` shows just the map with a link back.
 - **Session replay**: the page records what it receives (about the last 30 minutes, kept in memory only, bounded in size). The History button in the map tools plays it back with play, pause, a scrub bar and 1x, 4x, 16x and 60x speed; aircraft glide between recorded reports and a selected aircraft's trail grows with the clock. It is only what this page saw while it was open, in the area it showed, and it is gone when the page is closed or reloaded. Replays older than the page and the 30-day replay are not available
-- **Watchlist, recent flights and alerts**: a Watch button on every aircraft (this airframe, or its flight number) and airport; a Watchlist dialog (star in the map tools) with live status, an alerts switch and recently viewed flights. While the page is open you get an in-app message when a watched item takes off, lands or squawks an emergency code (a takeoff or landing must be seen in two updates in a row). Everything is kept in this browser, and also in your account when you are signed in. A chase camera (Follow, then Chase camera) tilts the map and turns it with the aircraft's heading
+- **Watchlist, recent flights and alerts**: a Watch button on every aircraft (this airframe, or its flight number) and airport; a Watchlist dialog (star in the map tools) with live status, an alerts switch and recently viewed flights. While the page is open you get an in-app message when a watched item takes off, lands or squawks an emergency code (a takeoff or landing must be seen in two updates in a row). Everything is kept in this browser, and also in your account when you are signed in (at most 50 watched items there: when signing in with more, only what fits is uploaded and a notice names the rest). A chase camera (Follow, then Chase camera) tilts the map and turns it with the aircraft's heading
 - **Routes, terrain and airspace**: for the selected flight a dashed route line between its origin and destination (a straight great-circle line, labelled approximate) and a terrain profile along it from the free AWS elevation tiles; Layers switches for FAA Class B/C/D airspace and special use areas (restricted, prohibited, warning, alert, MOA) with a click card showing floor, ceiling and times of use. US data only; zoom in (6 degrees or less across). Temporary flight restrictions and filed-route waypoints are not available
 - **Smooth motion**: aircraft are drawn a few seconds behind the data and glide between real position reports instead of jumping when an update arrives. The delay adapts to the feed (about 10 s or more); Settings has a Live option with a shorter delay and more guessing. The selected aircraft's trail and panel values match the drawn moment
 - **Weather layers**: switches in the Layers menu for precipitation radar (past frames from RainViewer, with a play/pause timeline and no forecast), echo tops over the US, SIGMET and AIRMET polygons (US and international) and pilot reports from the last 2 hours. Click a polygon or dot for its raw text. Layers are off by default and remembered. Lightning and winds aloft are not included (see dev-plan.md)
@@ -47,7 +47,8 @@ The pictures use invented test aircraft (callsigns such as SKD303), not live dat
 - **Layers, ruler, flight chart and full screen**: a Layers menu switches terrain, the trail, the 3D trail and the glide ring (choices are remembered); the ruler measures distance and bearing between two clicked points; the aircraft panel charts altitude, speed and vertical rate since you started watching
 - **Settings, shortcuts and first-run guide**: a gear button opens Settings (units, map style, layer defaults, battery saver, shortcuts on or off, a JSON download of your saved data and a delete). Single-key shortcuts (press ? for the list) and a short guide on your first visit. Everything is kept in your browser only
 - **Trail download and aircraft facts**: download the selected aircraft's trail as CSV or GPX (built in your browser, with a data credit). An "About this aircraft" card shows type, operator, age and emitter category when the data feed has them, and says Unknown when it does not
-- **Phone layout**: a swipeable bottom sheet, 40 px touch targets, safe-area spacing, a landscape layout and a battery saver (aircraft refresh every 15 s instead of 7 s)
+- **Phone layout**: a swipeable bottom sheet, 40 px touch targets, safe-area spacing, a landscape layout and a battery saver (aircraft refresh every 15 s instead of 7 s). The zoom buttons, scale and map credit move above an open sheet, and the feed notices sit under the top bar
+- **Accessibility**: every control has a name and a target of at least 24 x 24 px, text contrast is checked in both themes (at rest and on hover), the feed state and search suggestions are announced to screen readers, keyboard focus goes back to where it was when a panel or dialog closes, and motion follows the reduced-motion setting. A pass with a real screen reader has not been done yet
 - **Filters**: altitude range, aircraft type, airline, hide ground traffic, emergency squawks only
 - **Emergency alerts** for squawks 7500, 7600 and 7700
 - **Units**: aviation, metric or imperial
@@ -69,7 +70,7 @@ The pictures use invented test aircraft (callsigns such as SKD303), not live dat
 
 ## Getting started
 
-**Requirements:** a current Node.js LTS (22 recommended) and [Bun](https://bun.sh). The repo ships a `bun.lock`, so Bun gives you the exact dependency versions. npm may also work, but it ignores that lockfile.
+**Requirements:** a current Node.js LTS (22 recommended, the version CI uses; the tests also run on Node 25 and 26) and [Bun](https://bun.sh). It is developed on Windows and tested on Linux. The repo ships a `bun.lock`, so Bun gives you the exact dependency versions. npm may also work, but it ignores that lockfile.
 
 ```sh
 git clone https://github.com/srii-dev/sky-deck.git
@@ -80,7 +81,7 @@ bun run dev
 
 Then open the URL that Vite prints (usually http://localhost:3000 or http://localhost:5173).
 
-**No API keys or environment variables are needed to run the map.** All data sources and map tiles are free and keyless (ACARS messages use Airframes' anonymous public API). Optional accounts (Settings, Account) need a Supabase project: copy `.env.example` to `.env` and fill in `SUPABASE_URL` and `SUPABASE_ANON_KEY`; without them the app works and the Account dialog says accounts are not available.
+**No API keys or environment variables are needed to run the map.** All data sources and map tiles are free and keyless (ACARS messages use Airframes' anonymous public API). Optional accounts (Settings, Account) need a Supabase project: copy `.env.example` to `.env` and fill in `SUPABASE_URL` and `SUPABASE_ANON_KEY`; without them the app works and the Account dialog says accounts are not available. The other names in `.env.example` (the adsb.lol key, AI, web push) are optional; how to set them on the live site is in `DEPLOY.md`.
 
 ### Scripts
 
@@ -113,23 +114,30 @@ Free community ADS-B sources
 
 - **The browser never calls ADS-B providers directly.** All requests go through server functions, which avoids CORS problems and keeps provider changes in one place.
 - **The one exception is ACARS messages** (`src/lib/airframes-client.ts`): the browser calls the public Airframes API directly: for the selected aircraft on a button press, and for all aircraft while the ACARS panel is open. That way each visitor has their own request budget. Only the ACARS panel's AI descriptions send message text through our server, to Workers AI or Gemini; nothing is stored. Message text is cleaned and shown as plain text only.
-- **Pacing and sharing** (`src/lib/request-control.ts`, `PROVIDER_MIN_GAP_MS` in `src/lib/adsb-sources.ts`): requests to each ADS-B provider are spaced out, and callers asking for the same area at the same time share one upstream request. A cached tile is aged before it is sent, and when a provider's queue is long a cached tile up to 30 s old is served instead of waiting. All of this works per server instance only.
+- **Pacing and sharing** (`src/lib/request-control.ts`, `PROVIDER_MIN_GAP_MS` in `src/lib/adsb-sources.ts`): requests to each ADS-B provider are spaced out, and callers asking for the same area at the same time share one upstream request. A cached tile is aged before it is sent, and when a provider's queue is long a cached tile up to 30 s old is served instead of waiting. On Cloudflare this all runs in one global `FeedHub` Durable Object (`src/server/feed-hub.ts`), so every visitor shares it; in development and tests it runs per server instance.
 - **Coverage** (`src/lib/coverage.ts`): each source caps a query at 250 nm. The map asks for fixed tiles, so everyone looking at the same area asks for the same tiles and shares the server cache: zoomed-in views use 100 nm or 200 nm tiles, mid-size views one circle with a snapped centre and radius, and views over 250 nm up to six circles of about 247 nm on a fixed grid.
 - **Feed** (`src/hooks/use-aircraft-feed.ts`): fetches circles a few at a time, merges them, keeps the freshest position per ICAO hex, and schedules the next refresh only after the previous one finishes. If every provider fails, the last good aircraft stay on screen for up to 2 minutes (the status chip shows their age), then the list clears.
 - **Categories** (`src/lib/aircraft-kind.ts`): the aircraft kind comes from the ADS-B emitter category when present, then from ICAO type-code rules, and falls back to a generic plane. It is assigned server-side so the map, panel and future features read one value.
-- **Map** (`src/components/skydeck/FlightMap.tsx`): MapLibre is lazy-loaded on the client only. Overlays are re-added after every basemap change, because switching styles replaces the whole style.
+- **Map** (`src/components/skydeck/FlightMap.tsx`): MapLibre is lazy-loaded on the client only, after the first paint. Overlays are re-added after every basemap change, because switching styles replaces the whole style. Aircraft are redrawn only when one has moved or turned by a visible amount, and if the basemap style cannot be fetched the map falls back to a plain background so aircraft and camera moves still work.
+- **Scheduled jobs** (`src/server/`): the Worker has two cron triggers. A daily one keeps the free Supabase project from pausing (`keepalive.plugin.ts`); one every two minutes runs the closed-page alert check in the `PushHub` Durable Object (`push-cron.ts`, `push-hub.ts`), which reads the saved rules, loads their areas through `FeedHub` and sends encrypted web push messages (`src/lib/web-push.ts`, Web Crypto only). The service worker (`public/sw.js`) shows them.
 
 ### Project layout
 
 ```
 src/
-  components/skydeck/   map, panels, legends, search, filters
-  hooks/                aircraft feed and polling
+  components/skydeck/   map, panels, legends, search, filters, dialogs
+  hooks/                aircraft feed and polling, alerts, account sync, layout helpers
   lib/                  ADS-B proxy, coverage planner, aircraft types, glide and airport
-                        maths, Mode S decoder, ACARS client, request pacing, units
-  routes/               app routes (the map at /, the message inspector at /inspector)
-  test/                 tests
-scripts/                build-airports.mjs (regenerates the airport list from OurAirports)
+                        maths, Mode S decoder, ACARS client, request pacing, units, AI,
+                        web push, server functions (*.functions.ts)
+  routes/               app routes (the map at /, the message inspector at /inspector, text pages)
+  server/               Cloudflare-only parts: the FeedHub, AiHub and PushHub Durable Objects
+                        and the cron plugins
+  test/                 unit tests (Vitest)
+e2e/                    browser tests (Playwright) and the stub ADS-B provider they use
+public/                 static files, including the service worker (sw.js)
+supabase/migrations/    database migrations (row-level security on every table)
+scripts/                airport list, icons, share image, README images, uptime check
 ```
 
 ## Data sources and attribution
@@ -165,7 +173,8 @@ The same credits, with the wording each source asks for, are shown in the app: o
 - ACARS messages come from a pre-release third-party API: anonymous access, CORS and the rate limit (60 requests a minute per visitor) can change without notice. The messages are received by volunteers, can be incomplete or wrong, and may contain sensitive details. Nothing is stored. Whether and how you may receive, show or republish radio messages depends on your country, so check the law before deploying this publicly. This project is not legal advice.
 - Some flights show "Route not available" because the free route lookup does not know every flight.
 - Wide views still hit provider rate limits. The nearest three circles refresh every poll; farther circles refresh every other poll and keep their last positions. A cold view with nothing cached can come back empty until a provider answers.
-- The in-memory cache, request sharing, pacing and back-off state live per server instance, so they behave differently on serverless hosting.
+- On Cloudflare the feed cache, request sharing, pacing and back-off live in one shared object; other caches (routes, airports, weather) are still per server instance, and without the Durable Object binding (development, tests) everything is per instance.
+- Closed-page alerts depend on the browser's push service and have not been tried with a real one yet; they check only rules with an area, every two minutes, so an alert can arrive a few minutes late.
 - The emergency-squawk banner has been tested automatically but rarely seen with live data.
 
 ## Roadmap
@@ -175,7 +184,7 @@ What is built, open and planned is tracked in [`dev-plan.md`](dev-plan.md); rele
 ## Development notes
 
 - The app name lives in one place: `src/config/brand.ts`.
-- Pull requests are checked by GitHub Actions (`.github/workflows/ci.yml`: install, test, type check, lint, build). Run the same four commands locally before opening one.
+- Pull requests are checked by GitHub Actions (`.github/workflows/ci.yml`: install, test, type check, lint, build, then the browser tests against the dev server and against the production build). Run the four commands from `CONTRIBUTING.md` locally before opening one. An advisory Claude review comments on every pull request.
 - `GET /api/health` answers 200 while the server is running (for uptime checks). Browser errors that reach the root error boundary are written to the server log as `[client-error]` lines.
 - Architecture rules for contributors and coding agents are in `AGENTS.md`. `CONTRIBUTING.md` explains how to set up, test and submit changes, `ARCHITECTURE.md` maps the code, and `CHANGELOG.md` lists changes. The phase plan is in `dev-plan.md`.
 

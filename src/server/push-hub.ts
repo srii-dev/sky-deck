@@ -4,8 +4,10 @@ import type { FeedResponse } from "../lib/aircraft";
 import {
   PUSH_TTL_S,
   restoreCooldowns,
+  restoreMatching,
   runPushCheck,
   serializeCooldowns,
+  serializeMatching,
   type PushCheckReport,
 } from "../lib/push-alerts";
 import { deletePushSubscription, loadPushData } from "../lib/push-store.server";
@@ -17,9 +19,9 @@ import type { RuleState } from "../lib/alert-rules";
  * Closed-page alerts (Phase 10f). One global Durable Object runs the scheduled check, so two overlapping cron runs
  * never send the same alert twice and the per-rule cooldowns are shared. The Worker's cron trigger
  * (src/server/push-cron.ts) calls `check()` every two minutes. Aircraft come from the shared FeedHub, so the check
- * spends the same cache and request budget as the map. Only the cooldowns (rule and aircraft code, time) are saved
- * to storage; which aircraft currently match is kept in memory. Nothing runs until the VAPID keys and the
- * service role key are set. Exported from the Worker entry by exports.cloudflare.ts.
+ * spends the same cache and request budget as the map. The cooldowns (rule and aircraft code, time) and which
+ * aircraft matched each rule at the last check are saved to storage, because the object is usually evicted between
+ * two cron runs. Nothing runs until the VAPID keys and the service role key are set. Exported from the Worker entry by exports.cloudflare.ts.
  */
 
 const SEND_TIMEOUT_MS = 10_000;
@@ -37,7 +39,10 @@ export class PushHub extends DurableObject<Record<string, unknown>> {
   constructor(ctx: ConstructorParameters<typeof DurableObject>[0], env: Record<string, unknown>) {
     super(ctx, env);
     void ctx.blockConcurrencyWhile(async () => {
-      this.state = restoreCooldowns(await ctx.storage.get("cooldowns"));
+      this.state = {
+        ...restoreCooldowns(await ctx.storage.get("cooldowns")),
+        matching: restoreMatching(await ctx.storage.get("matching"), Date.now()),
+      };
     });
   }
 
@@ -82,6 +87,7 @@ export class PushHub extends DurableObject<Record<string, unknown>> {
     };
 
     this.running = true;
+    const startedAt = Date.now();
     try {
       const { state, report } = await runPushCheck(this.state, {
         loadData: () => loadPushData(store),
@@ -105,7 +111,13 @@ export class PushHub extends DurableObject<Record<string, unknown>> {
         now: () => Date.now(),
       });
       this.state = state;
-      await this.ctx.storage.put("cooldowns", serializeCooldowns(state));
+      // Matches too: the object is usually evicted between two cron runs (see serializeMatching).
+      // One atomic write, so the cooldowns and the matches always come from the same check. The matches are dated
+      // from the start of the check, when the feed was read.
+      await this.ctx.storage.put({
+        cooldowns: serializeCooldowns(state),
+        matching: serializeMatching(state, startedAt),
+      });
       return report;
     } finally {
       this.running = false;

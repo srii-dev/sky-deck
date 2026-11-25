@@ -1,5 +1,6 @@
 import type { Map as MLMap, StyleSpecification } from "maplibre-gl";
 
+import { browserRetryEnv, watchBasemap } from "@/lib/basemap-retry";
 import { serverFlags } from "@/lib/flags";
 import type { Basemap } from "../map-config";
 import type { MapCtx } from "./types";
@@ -37,7 +38,9 @@ export function styleFor(b: Basemap): string | StyleSpecification {
 /**
  * A plain background in the basemap's colours, used when the basemap style cannot be fetched (OpenFreeMap down, or a
  * network that blocks it). Without any loaded style MapLibre draws nothing and runs no camera moves, so no aircraft
- * would show and flying to a saved view, a search result or an airport would do nothing.
+ * would show and flying to a saved view, a search result or an airport would do nothing. The glyphs stay on
+ * OpenFreeMap because MapLibre refuses text layers in a style without `glyphs`; during an outage MapLibre draws the
+ * label characters locally instead.
  */
 export function fallbackStyle(b: Basemap): StyleSpecification {
   return {
@@ -56,7 +59,8 @@ export function fallbackStyle(b: Basemap): StyleSpecification {
 
 /**
  * The basemap style could not be fetched: keep the tracker working on a plain background. Only the style's own
- * address counts (a failed tile, font or weather image is not a reason); the next basemap change tries again.
+ * address counts (a failed tile, font or weather image is not a reason). The style is then checked quietly in the
+ * background (lib/basemap-retry.ts) and put back once it answers; a basemap change also tries again.
  */
 export function installStyleFallback(ctx: MapCtx, map: MLMap): void {
   map.on("error", (e) => {
@@ -68,5 +72,18 @@ export function installStyleFallback(ctx: MapCtx, map: MLMap): void {
     ctx.styleReadyRef.current = false;
     ctx.sceneReadyRef.current = false;
     map.setStyle(fallbackStyle(basemap), { diff: false });
+    ctx.stopBasemapRetryRef.current?.();
+    ctx.stopBasemapRetryRef.current = watchBasemap(
+      url,
+      () => {
+        ctx.stopBasemapRetryRef.current = null;
+        if (map._removed || ctx.propsRef.current.basemap !== basemap) return;
+        console.info(`[map] basemap style is back (${url})`);
+        ctx.styleReadyRef.current = false;
+        ctx.sceneReadyRef.current = false;
+        map.setStyle(url, { diff: false });
+      },
+      browserRetryEnv(),
+    );
   });
 }
