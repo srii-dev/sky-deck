@@ -131,14 +131,14 @@ export function usePersonalData(auth: AuthApi): PersonalData {
       const r = mergeRecentFlights(loadRecentFlights(), remote.data.recent);
       setWatchBoth(w.merged);
       setRecentBoth(r.merged);
+      // Said as soon as the items leave this browser's list (whatever the upload does next): they are gone from it.
+      if (w.didNotFit.length > 0) toast.warning(...watchlistFullNotice(w.didNotFit));
       const [a, b] = await Promise.all([
         upsertWatchItems(sb, userId, w.toUpload),
         upsertRecentFlights(sb, userId, r.toUpload),
       ]);
       if (cancelled) return;
       setSync(a && b ? "synced" : "error");
-      // Only once the upload worked, so a failed sync does not also claim some items "did not fit".
-      if (a && w.didNotFit.length > 0) toast.warning(...watchlistFullNotice(w.didNotFit));
     })();
     return () => {
       cancelled = true;
