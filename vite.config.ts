@@ -65,6 +65,15 @@ export default defineConfig(({ command, mode }) => {
         name: "skydeck:raw-map-worker",
         apply: "serve",
         configureServer(server) {
+          // Resolved once at start-up: a resolve failure (a maplibre-gl update hiding this subpath) leaves Vite's default.
+          let workerFile: string;
+          try {
+            workerFile = fileURLToPath(
+              import.meta.resolve("maplibre-gl/dist/maplibre-gl-worker.mjs"),
+            );
+          } catch {
+            return;
+          }
           server.middlewares.use((req, res, next) => {
             // Only the worker's own request (?worker_file); the ?worker&url import in FlightMap.tsx must still get its URL.
             const [path, query = ""] = (req.url ?? "").split("?");
@@ -75,11 +84,7 @@ export default defineConfig(({ command, mode }) => {
               return next();
             }
             res.setHeader("Content-Type", "text/javascript");
-            res.end(
-              readFileSync(
-                fileURLToPath(import.meta.resolve("maplibre-gl/dist/maplibre-gl-worker.mjs")),
-              ),
-            );
+            res.end(readFileSync(workerFile));
           });
         },
       },
