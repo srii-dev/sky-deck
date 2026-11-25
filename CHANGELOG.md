@@ -6,6 +6,7 @@ All notable changes to SkyDeck. The format follows [Keep a Changelog](https://ke
 
 ### Added
 
+- Closed-page alerts (Phase 10f): signed-in visitors can get their alert rules (those with an area) as notifications while SkyDeck is closed. A cron trigger checks the rules every two minutes in a new `PushHub` Durable Object (migration tag `v3`) over the shared feed; pushes are encrypted for the subscribing browser (VAPID, aes128gcm, Web Crypto only). New Supabase tables `push_subscriptions` and `push_rules` with row-level security. Off until the migration is applied and the VAPID keys and service role key are set (`DEPLOY.md`).
 - README screenshots and banner (Phase 15f): `node scripts/make-readme-images.mjs` draws them from the app with the stub provider's invented aircraft into `.github/images/`. `.github/images/banner.png` is 1280 x 640, the size GitHub uses for a repository's social preview.
 - Supabase keep-alive (plan 18f): a daily Worker cron trigger (04:17 UTC) runs one tiny anonymous read so the free Supabase project is not paused for inactivity. Logs the status only.
 - Tooling and docs (#86 to #90): `dev` is the working branch and `main` is production, with the promote and deploy steps in CONTRIBUTING (#87); an advisory Claude review of every pull request (#88, #89); the old data-credits branch recorded as merged (#86); AGENTS.md updated for the shared AI object and the key quota pacing (#90).

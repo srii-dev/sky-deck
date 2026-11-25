@@ -55,6 +55,7 @@ import { AlertRulesDialog } from "@/components/skydeck/AlertRulesDialog";
 import { EMPTY_DRAFT, type RuleDraft } from "@/lib/alert-rule-draft";
 import type { AlertAreaDrawing } from "@/components/skydeck/alert-area-layers";
 import { useAlertRules } from "@/hooks/use-alert-rules";
+import { usePushAlerts } from "@/hooks/use-push-alerts";
 import { useFlightStages } from "@/hooks/use-flight-stages";
 import { normalizeKey } from "@/lib/watchlist";
 import { resolvePlace } from "@/lib/place-resolver";
@@ -706,6 +707,17 @@ function SkyDeck() {
     onShow: (hex) => onSelect(hex),
   });
   const [rulesOpen, setRulesOpen] = useState(false);
+  const [rulesEverOpened, setRulesEverOpened] = useState(false);
+  useEffect(() => {
+    if (rulesOpen) setRulesEverOpened(true);
+  }, [rulesOpen]);
+  // Closed-page alerts (Phase 10f): asks the server nothing until the rules dialog has been opened.
+  const pushAlerts = usePushAlerts({
+    active: rulesEverOpened,
+    authStatus: auth.status,
+    userId: auth.userId,
+    rules: alertRules.rules,
+  });
   const [ruleDraft, setRuleDraft] = useState<RuleDraft>(EMPTY_DRAFT);
   const [parseNote, setParseNote] = useState<string[] | null>(null);
   const [areaPick, setAreaPick] = useState<{ center: [number, number] | null } | null>(null);
@@ -1366,6 +1378,7 @@ function SkyDeck() {
         alertsOn={alertsOn}
         parseNote={parseNote}
         onParseNote={setParseNote}
+        push={pushAlerts}
       />
       <AccountDialog
         open={accountOpen}

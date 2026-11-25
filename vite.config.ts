@@ -6,6 +6,7 @@ import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import { nitro } from "nitro/vite";
 import react from "@vitejs/plugin-react";
 import { KEEPALIVE_CRON } from "./src/lib/supabase-keepalive.server";
+import { PUSH_CRON } from "./src/server/push-cron";
 
 export default defineConfig(({ command, mode }) => {
   // Every VITE_ variable is also defined for server code, where Vite does not fill import.meta.env itself.
@@ -71,28 +72,34 @@ export default defineConfig(({ command, mode }) => {
         ? [
             nitro({
               defaultPreset: "cloudflare-module",
-              // Runs the daily Supabase keep-alive on the cron trigger below (plan item 18f).
-              plugins: ["./src/server/keepalive.plugin.ts"],
+              // Daily Supabase keep-alive (plan item 18f) and the closed-page alert check (Phase 10f), each on its cron
+              // trigger below. Each plugin ignores the other's cron.
+              plugins: ["./src/server/keepalive.plugin.ts", "./src/server/push-cron.ts"],
               // Workers AI binding for the ACARS descriptions (src/lib/ai.server.ts reads it as AI). CI builds
               // without it (SKYDECK_AI_BINDING=off): wrangler dev needs a Cloudflare token for a remote binding.
               cloudflare: {
-                // FeedHub, the shared feed cache (src/server/feed-hub.ts), and AiHub, the shared AI service
-                // (src/server/ai-hub.ts), are exported from the Worker entry here.
+                // FeedHub, the shared feed cache (src/server/feed-hub.ts), AiHub, the shared AI service
+                // (src/server/ai-hub.ts), and PushHub, the closed-page alert check (src/server/push-hub.ts), are
+                // exported from the Worker entry here.
                 exports: "./src/server/exports.cloudflare.ts",
                 wrangler: {
                   durable_objects: {
                     bindings: [
                       { name: "FEED_HUB", class_name: "FeedHub" },
                       { name: "AI_HUB", class_name: "AiHub" },
+                      { name: "PUSH_HUB", class_name: "PushHub" },
                     ],
                   },
                   // The Workers Free plan only offers SQLite-backed Durable Objects. Never edit a deployed tag.
                   migrations: [
                     { tag: "v1", new_sqlite_classes: ["FeedHub"] },
                     { tag: "v2", new_sqlite_classes: ["AiHub"] },
+                    { tag: "v3", new_sqlite_classes: ["PushHub"] },
                   ],
-                  // Daily Supabase keep-alive (src/server/keepalive.plugin.ts). The Free plan allows 5 cron triggers.
-                  triggers: { crons: [KEEPALIVE_CRON] },
+                  // Daily Supabase keep-alive (src/server/keepalive.plugin.ts) and the closed-page alert check every two
+                  // minutes (src/server/push-cron.ts; it does nothing until the VAPID keys and the service role key are
+                  // set). The Free plan allows 5 cron triggers.
+                  triggers: { crons: [KEEPALIVE_CRON, PUSH_CRON] },
                   ...(process.env["SKYDECK_AI_BINDING"] === "off" ? {} : { ai: { binding: "AI" } }),
                 },
               },
