@@ -67,6 +67,7 @@ import {
   type MotionSample,
   type MotionState,
 } from "@/lib/smooth-motion";
+import { browserRetryEnv, watchBasemap } from "@/lib/basemap-retry";
 import {
   DEFAULT_VIEW,
   type Basemap,
@@ -111,7 +112,9 @@ function styleFor(b: Basemap): string | StyleSpecification {
 /**
  * A plain background in the basemap's colours, used when the basemap style cannot be fetched (OpenFreeMap down, or a
  * network that blocks it). Without any loaded style MapLibre draws nothing and runs no camera moves, so no aircraft
- * would show and flying to a saved view, a search result or an airport would do nothing.
+ * would show and flying to a saved view, a search result or an airport would do nothing. The glyphs stay on
+ * OpenFreeMap because MapLibre refuses text layers in a style without `glyphs`; during an outage MapLibre draws the
+ * label characters locally instead.
  */
 function fallbackStyle(b: Basemap): StyleSpecification {
   return {
@@ -366,6 +369,8 @@ export default function FlightMap(props: FlightMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const rulerLabelRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MLMap | null>(null);
+  // Stops the checks for the real basemap while the plain fallback background is shown.
+  const stopBasemapRetryRef = useRef<(() => void) | null>(null);
   const tracksRef = useRef(new Map<string, Track>());
   const delayRef = useRef<DelayState>(initialDelay("smooth"));
   // Replay (Phase 9a): the recording as tracks in the same shape as live ones.
@@ -1022,7 +1027,8 @@ export default function FlightMap(props: FlightMapProps) {
     };
 
     // The basemap style could not be fetched: keep the tracker working on a plain background. Only the style's own
-    // address counts (a failed tile, font or weather image is not a reason); the next basemap change tries again.
+    // address counts (a failed tile, font or weather image is not a reason). The style is then checked quietly in the
+    // background (lib/basemap-retry.ts) and put back once it answers; a basemap change also tries again.
     map.on("error", (e) => {
       const url = (e.error as { url?: unknown } | undefined)?.url;
       const basemap = propsRef.current.basemap;
@@ -1032,6 +1038,19 @@ export default function FlightMap(props: FlightMapProps) {
       styleReadyRef.current = false;
       sceneReadyRef.current = false;
       map.setStyle(fallbackStyle(basemap), { diff: false });
+      stopBasemapRetryRef.current?.();
+      stopBasemapRetryRef.current = watchBasemap(
+        url,
+        () => {
+          stopBasemapRetryRef.current = null;
+          if (map._removed || propsRef.current.basemap !== basemap) return;
+          console.info(`[map] basemap style is back (${url})`);
+          styleReadyRef.current = false;
+          sceneReadyRef.current = false;
+          map.setStyle(url, { diff: false });
+        },
+        browserRetryEnv(),
+      );
     });
 
     map.on("style.load", () => {
@@ -1312,6 +1331,8 @@ export default function FlightMap(props: FlightMapProps) {
       if (terrainTimer) clearTimeout(terrainTimer);
       terrainGen += 1;
       map.off("sourcedata", onSourceData);
+      stopBasemapRetryRef.current?.();
+      stopBasemapRetryRef.current = null;
       map.remove();
       mapRef.current = null;
     };
@@ -1475,6 +1496,8 @@ export default function FlightMap(props: FlightMapProps) {
       firstStyleRef.current = false;
       return;
     }
+    stopBasemapRetryRef.current?.();
+    stopBasemapRetryRef.current = null;
     styleReadyRef.current = false;
     sceneReadyRef.current = false;
     map.setStyle(styleFor(props.basemap), { diff: false });
