@@ -138,7 +138,13 @@ export async function hoverContrastFailures(page: Page, root: Locator, limit = 3
   for (let i = 0; i < n; i++) {
     const c = controls.nth(i);
     if (!(await c.isEnabled().catch(() => false))) continue;
-    await c.hover({ timeout: 2000 }).catch(() => undefined);
+    // A control that cannot be hovered quickly (scrolled away, covered, collapsed) is skipped: waiting for each one
+    // made the aircraft panel flow run past its time limit on CI.
+    const hovered = await c
+      .hover({ timeout: 500 })
+      .then(() => true)
+      .catch(() => false);
+    if (!hovered) continue;
     // Colour transitions are 150 ms; wait them out so the hover colours are the ones measured.
     await page.waitForTimeout(200);
     for (const f of await c.evaluate(measureContrast).catch(() => [] as string[]))

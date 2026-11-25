@@ -163,6 +163,8 @@ test("the ruler starts at the selected aircraft and a map click finishes the mea
 test("the aircraft panel passes the contrast and target size checks in both themes", async ({
   page,
 }) => {
+  // Two themes, each with a hover pass over the panel's controls: longer than the other flows on CI.
+  test.setTimeout(180_000);
   await openMap(page);
   await pick(page, "SKD711", "SKD711");
   const problems: string[] = [];
