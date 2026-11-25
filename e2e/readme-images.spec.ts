@@ -4,13 +4,13 @@ import { expect as baseExpect, test, type Page } from "@playwright/test";
 
 /*
  * README screenshots and banner (dev-plan 15f). Not a test: it only runs when README_IMAGES=1, through
- * `node scripts/make-readme-images.mjs`, and writes PNG files to docs/images/ for the README.
+ * `node scripts/make-readme-images.mjs`, and writes PNG files to .github/images/ for the README.
  *
  * The aircraft come from the stub provider (e2e/stub-upstream.mjs): invented callsigns such as SKD303, never live data.
  * The map tiles are the real free basemaps (OpenFreeMap, Esri, AWS terrain), so the machine running this needs to reach
  * them; without them the map is blank.
  *
- * docs/images/banner.png is 1280 x 640, the size GitHub asks for, so it can also be uploaded as the repository's social
+ * .github/images/banner.png is 1280 x 640, the size GitHub asks for, so it can also be uploaded as the repository's social
  * preview image (Settings, General, Social preview).
  */
 const STUB = process.env["E2E_STUB_URL"];
@@ -22,7 +22,7 @@ test.skip(
 const expect = baseExpect.configure({ timeout: 30_000 });
 test.describe.configure({ mode: "serial", timeout: 120_000 });
 
-const OUT = join(process.cwd(), "docs", "images");
+const OUT = join(process.cwd(), ".github", "images");
 mkdirSync(OUT, { recursive: true });
 const out = (name: string) => join(OUT, name);
 

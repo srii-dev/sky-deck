@@ -1,4 +1,4 @@
-// Writes the README screenshots and banner to docs/images/ (dev-plan 15f), from the app running against the stub ADS-B
+// Writes the README screenshots and banner to .github/images/ (dev-plan 15f), from the app running against the stub ADS-B
 // provider (invented aircraft, never live data). See e2e/readme-images.spec.ts. Needs the map tile hosts to be reachable.
 // Works the same in Git Bash, PowerShell and CI (no shell variable syntax). Run:  node scripts/make-readme-images.mjs
 import { spawnSync } from "node:child_process";
