@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  isStyleJson,
   PROBE_TIMEOUT_MS,
   retryDelay,
   RETRY_FIRST_MS,
@@ -142,5 +143,13 @@ describe("basemap retry", () => {
     await f.fireOnline();
     expect(calls).toBe(2);
     expect(onBack).toHaveBeenCalledTimes(1);
+  });
+
+  it("accepts only a style as the style's answer", () => {
+    expect(isStyleJson({ version: 8, sources: {}, layers: [] })).toBe(true);
+    expect(isStyleJson({ version: 8 })).toBe(false);
+    expect(isStyleJson({ layers: [] })).toBe(false);
+    expect(isStyleJson("<html>Sign in to the Wi-Fi</html>")).toBe(false);
+    expect(isStyleJson(null)).toBe(false);
   });
 });

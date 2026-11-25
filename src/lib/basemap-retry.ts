@@ -14,6 +14,13 @@ export function retryDelay(attempt: number): number {
   return Math.min(RETRY_MAX_MS, RETRY_FIRST_MS * 2 ** Math.max(0, attempt));
 }
 
+/** A usable answer from a style address: a version 8 style with a list of layers. */
+export function isStyleJson(body: unknown): boolean {
+  if (!body || typeof body !== "object") return false;
+  const b = body as { version?: unknown; layers?: unknown };
+  return b.version === 8 && Array.isArray(b.layers);
+}
+
 export interface RetryEnv {
   /** True when the style answers with a usable response. */
   probe: (url: string, signal: AbortSignal) => Promise<boolean>;
@@ -29,7 +36,9 @@ export function browserRetryEnv(): RetryEnv {
     probe: async (url, signal) => {
       try {
         const res = await fetch(url, { cache: "no-store", signal });
-        return res.ok;
+        if (!res.ok) return false;
+        // A captive portal or proxy can answer 200 with a page of its own: only a style counts.
+        return isStyleJson(await res.json());
       } catch {
         return false;
       }
