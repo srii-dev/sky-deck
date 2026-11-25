@@ -156,7 +156,7 @@ function FrameCard({
       <div className="glass-panel rounded-md p-3">
         <div className="hud-label mb-2">Frame {index + 1}</div>
         <div className="data-value break-all text-xs text-muted-foreground">{line}</div>
-        <p className="mt-2 text-sm font-medium text-destructive">{error}</p>
+        <p className="mt-2 text-sm font-medium text-destructive-text">{error}</p>
       </div>
     );
   }

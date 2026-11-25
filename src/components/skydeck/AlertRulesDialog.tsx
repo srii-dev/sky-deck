@@ -244,7 +244,7 @@ export function AlertRulesDialog(p: Props) {
             "Only in the air". Categories come from the aircraft's own data and can be wrong.
           </p>
           {rangeBad && (
-            <p role="alert" className="text-xs text-destructive">
+            <p role="alert" className="text-xs text-destructive-text">
               The lowest altitude is above the highest.
             </p>
           )}

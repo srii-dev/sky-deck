@@ -131,7 +131,9 @@ export const Route = createFileRoute("/")({
 function MapFallback() {
   return (
     <div className="scanline absolute inset-0 flex items-center justify-center bg-background">
-      <span className="hud-label animate-pulse">Initializing display…</span>
+      <span role="status" className="hud-label animate-pulse">
+        Initializing display…
+      </span>
     </div>
   );
 }
@@ -1047,7 +1049,7 @@ function SkyDeck() {
                   setFiltersOpen(false);
                   setCreditsOpen(true);
                 }}
-                className="mt-2 flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-primary"
+                className="mt-2 flex min-h-6 items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-primary"
               >
                 <Info className="size-4" />
                 Credits and data sources

@@ -137,7 +137,9 @@ export function FiltersPanel({ filters, onChange, aircraft, shown, units }: Prop
       <div className="flex items-center justify-between">
         <Label htmlFor="f-emg" className="text-sm">
           Emergency squawks only
-          <span className="data-value block text-[11px] text-destructive">7500 · 7600 · 7700</span>
+          <span className="data-value block text-[11px] text-destructive-text">
+            7500 · 7600 · 7700
+          </span>
         </Label>
         <Switch
           id="f-emg"

@@ -45,8 +45,13 @@ export function LiveIndicator({
     <div className="flex items-center gap-3">
       <span className={cn("flex items-center gap-2", stale ? "text-warning" : "text-success")}>
         <span className={cn("size-2 rounded-full bg-current", !stale && "live-dot")} />
-        <span className="font-display text-xs font-semibold uppercase tracking-[0.2em]">
-          {label}
+        {/* A polite live region with only the state word, so a screen reader hears "Live", "Delayed" or "Replay" when
+            it changes, never the seconds counter beside it (Phase 5f). */}
+        <span role="status">
+          <span className="sr-only">Feed: </span>
+          <span className="font-display text-xs font-semibold uppercase tracking-[0.2em]">
+            {label}
+          </span>
         </span>
       </span>
       {/* Fixed-width slots (tabular numerals) so the chip does not resize and push the search box around. */}

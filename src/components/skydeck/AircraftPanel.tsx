@@ -165,7 +165,7 @@ export function AircraftPanel(props: Props) {
         style={{ color: emg ? undefined : altitudeColor(a.altFt, a.onGround) }}
       >
         <Plane
-          className={cn("size-5", emg && "text-destructive")}
+          className={cn("size-5", emg && "text-destructive-text")}
           style={{ transform: `rotate(${(a.track ?? 45) - 45}deg)` }}
         />
       </div>
@@ -275,7 +275,7 @@ export function AircraftPanel(props: Props) {
           <span className="text-muted-foreground">{compassPoint(a.track)}</span>
         </Cell>
         <Cell label="Squawk" className={cn(emg && "border-destructive bg-destructive/15")}>
-          <span className={cn(emg && "text-destructive")}>
+          <span className={cn(emg && "text-destructive-text")}>
             {a.reportedSquawk ?? a.squawk ?? "—"}
           </span>
         </Cell>
@@ -418,7 +418,7 @@ export function AircraftPanel(props: Props) {
                   {GLIDE_RATIO_LABEL}
                 </p>
                 {!props.glideStatus?.elevationAvailable && props.glideStatus?.reason && (
-                  <p className="text-[11px] font-medium leading-tight text-destructive">
+                  <p className="text-[11px] font-medium leading-tight text-destructive-text">
                     {props.glideStatus.reason}
                   </p>
                 )}

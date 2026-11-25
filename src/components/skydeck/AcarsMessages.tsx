@@ -158,7 +158,7 @@ export function AcarsMessages({
       )}
 
       {state.status === "done" && !state.result.ok && (
-        <p className="text-xs font-medium text-destructive">{state.result.error}</p>
+        <p className="text-xs font-medium text-destructive-text">{state.result.error}</p>
       )}
 
       <Button variant="hud" size="sm" onClick={run} disabled={loading}>

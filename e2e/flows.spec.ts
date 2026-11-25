@@ -1,6 +1,8 @@
 import { readFile } from "node:fs/promises";
 import { expect as baseExpect, test, type Page } from "@playwright/test";
 
+import { contrastFailures, hoverContrastFailures, smallTargets } from "./a11y-checks";
+
 /*
  * Flows through the map (Phase 16f), against the stub ADS-B provider (e2e/stub-upstream.mjs) and its invented aircraft.
  * Aircraft are drawn on a WebGL canvas, so they are chosen through the search box or the N and P shortcuts, never by
@@ -154,6 +156,31 @@ test("the ruler starts at the selected aircraft and a map click finishes the mea
   await page.getByRole("button", { name: "Clear", exact: true }).click();
   await expect(page.getByText("Click a start point", { exact: true })).toBeVisible();
   await expect(startAtAircraft).toBeVisible();
+});
+
+// Accessibility of the aircraft panel (Phase 5f): it only fills with aircraft data, so e2e/a11y.spec.ts (which never
+// loads a feed) cannot open it. The emergency aircraft shows the most coloured text.
+test("the aircraft panel passes the contrast and target size checks in both themes", async ({
+  page,
+}) => {
+  // Two themes, each with a hover pass over the panel's controls: longer than the other flows on CI.
+  test.setTimeout(180_000);
+  await openMap(page);
+  await pick(page, "SKD711", "SKD711");
+  const problems: string[] = [];
+  for (const light of [false, true]) {
+    await page.evaluate((l) => {
+      document.documentElement.classList.toggle("light", l);
+      document.documentElement.style.colorScheme = l ? "light" : "dark";
+    }, light);
+    // Colour transitions (150 ms) would otherwise be measured half way.
+    await page.waitForTimeout(400);
+    const theme = light ? "light" : "dark";
+    for (const f of await contrastFailures(page, panel(page))) problems.push(`${theme}: ${f}`);
+    for (const f of await smallTargets(page, panel(page))) problems.push(`${theme}: small ${f}`);
+    for (const f of await hoverContrastFailures(page, panel(page))) problems.push(`${theme}: ${f}`);
+  }
+  expect(problems).toEqual([]);
 });
 
 test("N and P step through the aircraft in callsign order", async ({ page }) => {

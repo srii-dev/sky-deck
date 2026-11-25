@@ -381,7 +381,9 @@ export function SettingsDialog(p: SettingsProps) {
             <Button
               type="button"
               variant="outline"
-              className={cn("h-10 w-full text-destructive hover:text-destructive")}
+              className={cn(
+                "h-10 w-full text-destructive-text hover:bg-destructive/15 hover:text-destructive-text",
+              )}
               onClick={() => setConfirmReset(true)}
             >
               <Trash2 /> Delete my saved data

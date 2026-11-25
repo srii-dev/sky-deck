@@ -1,5 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
+import { contrastFailures, hoverContrastFailures, smallTargets } from "./a11y-checks";
+
 /*
  * Structure, keyboard and contrast checks (Phase 5f, 15h) written with Playwright alone: there is no axe-core and no new
  * dependency is allowed. They measure the real pages, so a failing check is either a real defect to fix or a rule to
@@ -107,9 +109,20 @@ for (const path of ALL_PAGES) {
       for (const el of document.querySelectorAll("[tabindex]")) {
         if (Number(el.getAttribute("tabindex")) > 0) out.push(`positive tabindex: ${describe(el)}`);
       }
+      // Landmarks and headings: one main region and one top heading, and each navigation region named apart.
+      const mains = document.querySelectorAll("main, [role=main]").length;
+      if (mains !== 1) out.push(`${mains} main landmarks`);
+      const h1s = [...document.querySelectorAll("h1")].filter(visible).length;
+      if (h1s !== 1) out.push(`${h1s} visible h1 headings`);
+      const navs = [...document.querySelectorAll("nav, [role=navigation]")].map(
+        (n) => n.getAttribute("aria-label") ?? "",
+      );
+      if (navs.length > 1 && new Set(navs).size !== navs.length)
+        out.push(`navigation regions without distinct names: ${navs.join(", ")}`);
       return out;
     });
     expect(problems).toEqual([]);
+    if (path === "/this-page-does-not-exist") await expect(page).toHaveTitle(/^Page not found/);
   });
 }
 
@@ -244,7 +257,97 @@ test.describe("map page dialogs", () => {
         .toBe(name);
     });
   }
+
+  test("map controls are at least 24 by 24 px", async () => {
+    expect(await smallTargets(page), "controls under 24 x 24 px").toEqual([]);
+  });
+
+  // Each dialog and popover in both themes: text contrast at rest and while each of its controls is hovered, and the
+  // size of its controls. The theme is switched in place (the light class), so the one map page serves both.
+  for (const theme of ["dark", "light"] as const) {
+    test(`dialogs and popovers: contrast and target size (${theme})`, async () => {
+      test.setTimeout(120_000);
+      await page.evaluate((light) => {
+        document.documentElement.classList.toggle("light", light);
+        document.documentElement.style.colorScheme = light ? "light" : "dark";
+      }, theme === "light");
+      const problems: string[] = [];
+      for (const name of OPENERS) {
+        const opener = page.getByRole("button", { name, exact: true }).first();
+        const controls = await opener.getAttribute("aria-controls");
+        await opener.click();
+        const surface = controls
+          ? page.locator(`[id="${controls}"]`)
+          : page.getByRole("dialog").last();
+        await expect(surface).toBeVisible();
+        // Let the opening animation finish: half-faded text would measure low.
+        await page.waitForTimeout(400);
+        for (const f of await contrastFailures(page, surface)) problems.push(`${name}: ${f}`);
+        for (const f of await smallTargets(page, surface)) problems.push(`${name}: small ${f}`);
+        for (const f of await hoverContrastFailures(page, surface)) problems.push(`${name}: ${f}`);
+        await page.keyboard.press("Escape");
+        await expect(surface).toBeHidden();
+      }
+      await page.evaluate(() => {
+        document.documentElement.classList.remove("light");
+        document.documentElement.style.colorScheme = "dark";
+      });
+      expect(problems).toEqual([]);
+    });
+  }
+
+  // Live regions: the feed state and the search suggestions are announced without moving focus.
+  test("the feed state and the search suggestions are live regions", async () => {
+    await expect(page.getByRole("status").filter({ hasText: /^Feed: / })).toHaveCount(1);
+    const search = page.getByRole("combobox", { name: "Search flights and airports" });
+    await search.fill("heathrow");
+    await expect(page.getByRole("status").filter({ hasText: /^\d+ suggestions?, / })).toHaveCount(
+      1,
+    );
+    await search.fill("");
+    await page.keyboard.press("Escape");
+  });
 });
+
+// ---------------------------------------------------------------------------------------------------------------
+// Reduced motion
+// ---------------------------------------------------------------------------------------------------------------
+
+for (const reduce of [true, false]) {
+  test(`reduced motion ${reduce ? "stops" : "keeps"} animations and transitions`, async ({
+    page,
+  }) => {
+    await page.emulateMedia({ reducedMotion: reduce ? "reduce" : "no-preference" });
+    await open(page, "/about");
+    // Probes with the app's own animation and transition classes, so the rule is checked against the real stylesheet.
+    const timing = await page.evaluate(() => {
+      const probe = document.createElement("div");
+      probe.className = "animate-pulse transition-colors live-dot";
+      document.body.append(probe);
+      const s = getComputedStyle(probe);
+      const after = getComputedStyle(probe, "::after");
+      const seconds = (v: string) => Math.max(...v.split(",").map((x) => parseFloat(x)));
+      const out = {
+        animation: seconds(s.animationDuration),
+        transition: seconds(s.transitionDuration),
+        dot: seconds(after.animationDuration),
+        repeats: s.animationIterationCount,
+      };
+      probe.remove();
+      return out;
+    });
+    if (reduce) {
+      expect(timing.animation).toBeLessThan(0.001);
+      expect(timing.transition).toBeLessThan(0.001);
+      expect(timing.dot).toBeLessThan(0.001);
+      expect(timing.repeats).toBe("1");
+    } else {
+      expect(timing.animation).toBeGreaterThan(0.1);
+      expect(timing.transition).toBeGreaterThan(0.1);
+      expect(timing.dot).toBeGreaterThan(0.1);
+    }
+  });
+}
 
 // ---------------------------------------------------------------------------------------------------------------
 // Contrast, measured on the real pages
@@ -254,73 +357,7 @@ for (const theme of ["dark", "light"] as const) {
   for (const path of TEXT_PAGES.filter((p) => p !== "/status")) {
     test(`contrast: ${path} (${theme})`, async ({ page }) => {
       await open(page, path, theme);
-      const failures = await page.evaluate(() => {
-        const canvas = document.createElement("canvas");
-        canvas.width = canvas.height = 1;
-        const ctx = canvas.getContext("2d", { willReadFrequently: true })!;
-        const rgba = (css: string): [number, number, number, number] => {
-          ctx.clearRect(0, 0, 1, 1);
-          ctx.fillStyle = "#000";
-          ctx.fillStyle = css;
-          ctx.fillRect(0, 0, 1, 1);
-          const d = ctx.getImageData(0, 0, 1, 1).data;
-          return [d[0], d[1], d[2], d[3] / 255];
-        };
-        const lum = ([r, g, b]: number[]) => {
-          const f = (v: number) => {
-            const c = v / 255;
-            return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
-          };
-          return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
-        };
-        // Walk up to the first fully opaque background, mixing the translucent ones on the way. Give up (null) over an
-        // image or gradient: the real background cannot be read from computed colours.
-        const background = (el: Element): number[] | null => {
-          const layers: [number, number, number, number][] = [];
-          for (let n: Element | null = el; n; n = n.parentElement) {
-            const s = getComputedStyle(n);
-            if (s.backgroundImage !== "none") return null;
-            const c = rgba(s.backgroundColor);
-            if (c[3] > 0) layers.push(c);
-            if (c[3] >= 0.99) break;
-          }
-          let base = [0, 0, 0];
-          const root = rgba(getComputedStyle(document.documentElement).backgroundColor);
-          if (root[3] > 0) base = root.slice(0, 3);
-          for (const c of layers.reverse()) base = base.map((b, i) => c[i] * c[3] + b * (1 - c[3]));
-          return base;
-        };
-        const out: string[] = [];
-        const seen = new Set<string>();
-        const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
-        for (let t = walker.nextNode(); t; t = walker.nextNode()) {
-          const text = (t.textContent ?? "").trim();
-          const el = t.parentElement;
-          if (!text || !el || el.closest("script, style, noscript, canvas, svg")) continue;
-          const s = getComputedStyle(el);
-          if (s.display === "none" || s.visibility === "hidden" || parseFloat(s.opacity) === 0)
-            continue;
-          if (el.getClientRects().length === 0) continue;
-          if (el.closest("[aria-hidden='true']")) continue;
-          const bg = background(el);
-          if (!bg) continue;
-          const fg = rgba(s.color);
-          const fgMixed = fg.slice(0, 3).map((c, i) => c * fg[3] + bg[i] * (1 - fg[3]));
-          const [l1, l2] = [lum(fgMixed), lum(bg)];
-          const ratio = (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
-          const size = parseFloat(s.fontSize);
-          const bold = parseInt(s.fontWeight, 10) >= 700;
-          const large = size >= 24 || (size >= 18.66 && bold);
-          const need = large ? 3 : 4.5;
-          if (ratio < need) {
-            const key = `${el.tagName.toLowerCase()}.${String(el.className).split(/\s+/)[0]}|${s.color}|${s.backgroundColor}`;
-            if (seen.has(key)) continue;
-            seen.add(key);
-            out.push(`${ratio.toFixed(2)}:1 (needs ${need}) "${text.slice(0, 30)}" in ${key}`);
-          }
-        }
-        return out;
-      });
+      const failures = await contrastFailures(page);
       expect(failures, "text under the WCAG AA contrast ratio").toEqual([]);
     });
   }
