@@ -462,11 +462,11 @@ export function AcarsFeedPanel({
   const toList = useRef(false);
   const openedRef = useRef(opened);
   openedRef.current = opened;
+  const focusToolbarButton = () =>
+    document.querySelector<HTMLElement>('button[aria-label="ACARS messages"]')?.focus();
   const closeCard = () => {
     setOpened(null);
-    requestAnimationFrame(() =>
-      document.querySelector<HTMLElement>('button[aria-label="ACARS messages"]')?.focus(),
-    );
+    requestAnimationFrame(focusToolbarButton);
   };
   const aiError = Object.values(briefs).find((b) => b.state === "failed");
 
@@ -484,8 +484,12 @@ export function AcarsFeedPanel({
             e.preventDefault();
             sheetRef.current?.querySelector<HTMLElement>("ul button")?.focus();
           }}
-          // Radix would hand focus back to the toolbar button and take it from the card that is opening.
-          onCloseAutoFocus={(e) => openedRef.current && e.preventDefault()}
+          // Radix returns focus only to a <SheetTrigger>, and this sheet is opened from state: hand it back to the toolbar
+          // button ourselves, unless a card is opening and takes it.
+          onCloseAutoFocus={(e) => {
+            e.preventDefault();
+            if (!openedRef.current) focusToolbarButton();
+          }}
         >
           <SheetHeader className="px-4 pt-4">
             <SheetTitle>ACARS messages</SheetTitle>

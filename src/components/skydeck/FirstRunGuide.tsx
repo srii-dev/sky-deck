@@ -10,6 +10,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { clampStep, GUIDE_STEPS } from "@/lib/first-run";
+import { returnFocus } from "@/lib/return-focus";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -35,7 +36,7 @@ export function FirstRunGuide({ open, onClose }: Props) {
         }
       }}
     >
-      <DialogContent className="glass-panel max-w-md">
+      <DialogContent {...returnFocus} className="glass-panel max-w-md">
         <DialogHeader>
           <p className="hud-label">
             Quick guide · {i + 1} of {GUIDE_STEPS.length}
