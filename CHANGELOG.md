@@ -90,6 +90,7 @@ All notable changes to SkyDeck. The format follows [Keep a Changelog](https://ke
 
 ### Fixed
 
+- Development server cold start (0h): the first page load no longer aborts every module request and reloads (four dependencies Vite found late are now pre-bundled); server function calls made before the server side compiled their file no longer fail with `Invalid server function ID` (those files are compiled at start-up); a page reloaded mid-load now logs one `[request aborted]` line instead of three stack traces.
 - The project's address in the footer, the README clone line and the issue template config is now `https://github.com/srii-dev/sky-deck` (the old account name only worked through a redirect).
 
 - Location said "blocked" when the browser allowed it but Windows had location off for the browser; airspace areas stayed on the map after zooming out past the load limit (#73).
