@@ -27,7 +27,13 @@ export interface VapidKeys {
 
 export interface PushRequest {
   url: string;
-  init: { method: "POST"; headers: Record<string, string>; body: Uint8Array<ArrayBuffer> };
+  init: {
+    method: "POST";
+    headers: Record<string, string>;
+    body: Uint8Array<ArrayBuffer>;
+    /** A push service never redirects; following one would send the request to an address nobody checked. */
+    redirect: "manual";
+  };
 }
 
 /** A push service refuses payloads over 4,096 bytes; ours are a few hundred. */
@@ -216,12 +222,40 @@ export async function vapidAuthorization(
   return `vapid t=${unsigned}.${base64UrlEncode(sig)}, k=${keys.publicKey.trim()}`;
 }
 
+/**
+ * Signed VAPID headers by push service origin, reused until an hour before they expire. Signing is the costliest
+ * step of a send after the encryption, and one check sends to the same few origins. Kept in memory only.
+ */
+export type VapidCache = Map<string, { header: string; until: number }>;
+
+async function cachedAuthorization(
+  endpoint: string,
+  keys: VapidKeys,
+  nowMs: number,
+  cache: VapidCache | undefined,
+): Promise<string> {
+  if (!cache) return vapidAuthorization(endpoint, keys, nowMs);
+  // Keyed by the public key too, so new keys never reuse a token signed with the old ones.
+  const aud = new URL(endpoint).origin + " " + keys.publicKey.trim();
+  const hit = cache.get(aud);
+  if (hit && hit.until > nowMs) return hit.header;
+  const header = await vapidAuthorization(endpoint, keys, nowMs);
+  cache.set(aud, { header, until: nowMs + (VAPID_TTL_S - 60 * 60) * 1000 });
+  return header;
+}
+
 /** Everything needed to `fetch` one push. `ttlS` is how long the push service may hold it for an offline device. */
 export async function buildPushRequest(
   sub: PushSubscriptionKeys,
   payload: string,
   keys: VapidKeys,
-  opts: { ttlS?: number; urgency?: "low" | "normal" | "high"; topic?: string; now?: number } = {},
+  opts: {
+    ttlS?: number;
+    urgency?: "low" | "normal" | "high";
+    topic?: string;
+    now?: number;
+    cache?: VapidCache;
+  } = {},
 ): Promise<PushRequest> {
   const body = await encryptPayload(sub, enc.encode(payload));
   const headers: Record<string, string> = {
@@ -229,11 +263,19 @@ export async function buildPushRequest(
     "Content-Type": "application/octet-stream",
     TTL: String(Math.max(0, Math.round(opts.ttlS ?? 600))),
     Urgency: opts.urgency ?? "normal",
-    Authorization: await vapidAuthorization(sub.endpoint, keys, opts.now),
+    Authorization: await cachedAuthorization(
+      sub.endpoint,
+      keys,
+      opts.now ?? Date.now(),
+      opts.cache,
+    ),
   };
   // A topic replaces an older undelivered push with the same topic (at most 32 base64url characters).
   if (opts.topic && /^[A-Za-z0-9_-]{1,32}$/.test(opts.topic)) headers["Topic"] = opts.topic;
-  return { url: sub.endpoint, init: { method: "POST", headers, body: buf(body) } };
+  return {
+    url: sub.endpoint,
+    init: { method: "POST", headers, body: buf(body), redirect: "manual" },
+  };
 }
 
 /** 404 and 410 mean the browser dropped the subscription: delete it. */
