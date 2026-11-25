@@ -125,7 +125,7 @@ function MarkdownFile({ source, name }: { source: string; name: string }) {
         <span className="font-mono">{name}</span>
         <button
           type="button"
-          className="inline-flex items-center gap-1 text-warning hover:underline"
+          className="inline-flex items-center gap-1 text-amber-300 hover:underline"
           onClick={() => {
             const url = URL.createObjectURL(new Blob([source], { type: "text/markdown" }));
             const a = document.createElement("a");
@@ -147,7 +147,7 @@ function MarkdownFile({ source, name }: { source: string; name: string }) {
             : inCode
               ? "text-emerald-300"
               : line.startsWith("# ")
-                ? "font-bold text-warning"
+                ? "font-bold text-amber-300"
                 : line.startsWith("## ")
                   ? "font-semibold text-sky-300"
                   : line.startsWith("> ")

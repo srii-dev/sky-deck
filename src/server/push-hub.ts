@@ -87,6 +87,7 @@ export class PushHub extends DurableObject<Record<string, unknown>> {
     };
 
     this.running = true;
+    const startedAt = Date.now();
     try {
       const { state, report } = await runPushCheck(this.state, {
         loadData: () => loadPushData(store),
@@ -111,8 +112,12 @@ export class PushHub extends DurableObject<Record<string, unknown>> {
       });
       this.state = state;
       // Matches too: the object is usually evicted between two cron runs (see serializeMatching).
-      await this.ctx.storage.put("cooldowns", serializeCooldowns(state));
-      await this.ctx.storage.put("matching", serializeMatching(state, Date.now()));
+      // One atomic write, so the cooldowns and the matches always come from the same check. The matches are dated
+      // from the start of the check, when the feed was read.
+      await this.ctx.storage.put({
+        cooldowns: serializeCooldowns(state),
+        matching: serializeMatching(state, startedAt),
+      });
       return report;
     } finally {
       this.running = false;
