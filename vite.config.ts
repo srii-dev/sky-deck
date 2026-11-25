@@ -5,6 +5,7 @@ import tsConfigPaths from "vite-tsconfig-paths";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import { nitro } from "nitro/vite";
 import react from "@vitejs/plugin-react";
+import { KEEPALIVE_CRON } from "./src/lib/supabase-keepalive.server";
 
 export default defineConfig(({ command, mode }) => {
   // Every VITE_ variable is also defined for server code, where Vite does not fill import.meta.env itself.
@@ -55,6 +56,8 @@ export default defineConfig(({ command, mode }) => {
         ? [
             nitro({
               defaultPreset: "cloudflare-module",
+              // Runs the daily Supabase keep-alive on the cron trigger below (plan item 18f).
+              plugins: ["./src/server/keepalive.plugin.ts"],
               // Workers AI binding for the ACARS descriptions (src/lib/ai.server.ts reads it as AI). CI builds
               // without it (SKYDECK_AI_BINDING=off): wrangler dev needs a Cloudflare token for a remote binding.
               cloudflare: {
@@ -73,6 +76,8 @@ export default defineConfig(({ command, mode }) => {
                     { tag: "v1", new_sqlite_classes: ["FeedHub"] },
                     { tag: "v2", new_sqlite_classes: ["AiHub"] },
                   ],
+                  // Daily Supabase keep-alive (src/server/keepalive.plugin.ts). The Free plan allows 5 cron triggers.
+                  triggers: { crons: [KEEPALIVE_CRON] },
                   ...(process.env["SKYDECK_AI_BINDING"] === "off" ? {} : { ai: { binding: "AI" } }),
                 },
               },

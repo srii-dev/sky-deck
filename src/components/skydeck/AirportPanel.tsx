@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ExternalLink, Star, X } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
+import { useSheetInset } from "@/hooks/use-sheet-inset";
 import { AirportAiBrief } from "@/components/skydeck/AirportAiBrief";
 import { getAirportAtis, getAirportBrief } from "@/lib/airport.functions";
 import { faaChartsUrl } from "@/lib/airport-charts";
@@ -93,6 +94,8 @@ export function AirportPanel({
   // There is no feed-loaded flag here: an empty list means "not loaded yet" for the first seconds, after
   // that the sky really is empty and the brief may say so.
   const [graceOver, setGraceOver] = useState(false);
+  const panelRef = useRef<HTMLElement>(null);
+  useSheetInset(panelRef);
   useEffect(() => {
     const t = setTimeout(() => setGraceOver(true), 8000);
     return () => clearTimeout(t);
@@ -145,6 +148,8 @@ export function AirportPanel({
 
   return (
     <aside
+      ref={panelRef}
+      data-map-panel
       aria-label="Airport details"
       onKeyDown={(e) => {
         // Only while focus is inside the panel (portalled dialogs and the map are not).
