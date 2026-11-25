@@ -21,9 +21,9 @@ State on 2026-11-24: the site runs on Cloudflare at https://skydeck.sky-deck.wor
 
 ### Open, owner actions (do not decide these in code)
 
-- [ ] **Indexing (R2, R8).** Keep the site out of search engines until the legal pages are approved. Recommendation: `bunx wrangler secret put SITE_INDEXING --name skydeck` and type `off`. Delete the secret at launch.
+- [x] **Indexing (R2, R8): set 2026-11-25.** `SITE_INDEXING=off` keeps the site out of search engines until the legal pages are approved. Delete it at launch: `bunx wrangler secret delete SITE_INDEXING --name skydeck`.
 - [x] **ACARS and Satellite flags (R2): decided 2026-11-24, both ship.** Sri decided to publish with ACARS and the Esri Satellite basemap on while their terms questions (0a, 0c, 0d) are still open; they stay open below and the credits and legal pages say where the data comes from. To switch either off later: `VITE_FLAGS="-acars,-satellite" bun run build` (see `DEPLOY.md`).
-- [ ] **`SITE_URL` repository variable and uptime workflow (R9).** `gh variable set SITE_URL --body https://skydeck.sky-deck.workers.dev` (or the repository Settings, Secrets and variables, Actions, Variables). The scheduled uptime workflow (`.github/workflows/uptime.yml`) needs it and runs only from `main`. Also set the Worker's `SITE_URL` secret once there is a domain (`DEPLOY.md`).
+- [x] **`SITE_URL` repository variable and uptime workflow (R9): set 2026-11-25, the workflow ran green.** `gh variable set SITE_URL --body https://skydeck.sky-deck.workers.dev` (or the repository Settings, Secrets and variables, Actions, Variables). The scheduled uptime workflow (`.github/workflows/uptime.yml`) needs it and runs only from `main`. Also set the Worker's `SITE_URL` secret once there is a domain (`DEPLOY.md`).
 - [ ] **Domain and brand name (15b, Decision 7)**: buy the domain after the product is finished; the name was never checked for clashes.
 - [ ] **Private contact address (23g)**: create it once there is a domain, then replace `CONTACT_NOTE` in `src/lib/legal-content.ts`.
 - [ ] **Legal pages read by the owner (16e).** The AI text on privacy, terms, disclaimer and help is new (2026-11-24); read it before indexing is allowed.
@@ -34,7 +34,7 @@ State on 2026-11-24: the site runs on Cloudflare at https://skydeck.sky-deck.wor
 - [ ] **0d ACARS legal review**: not done.
 - [ ] **0f Credits wording**: matches the code, not checked against each source's current terms. New: the Llama 4 Community License text was not read, so "Built with Llama" is a guess at what it asks for; the Gemini free-tier terms were not read either.
 - [ ] **0h Cold-start console errors**: not reproduced or fixed.
-- [ ] **Monitoring and quota alarms** for the free tiers (21d): not set up. Error reports go to the host's log as `[client-error]` lines; `/api/health` is ready for an uptime checker; no analytics by decision (21e).
+- [ ] **Quota alarms** for the free tiers (21d): not set up; the uptime workflow runs. Error reports go to the host's log as `[client-error]` lines; `/api/health` is ready for an uptime checker; no analytics by decision (21e).
 
 ## 2. Security review (17b)
 
