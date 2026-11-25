@@ -98,6 +98,7 @@ All notable changes to SkyDeck. The format follows [Keep a Changelog](https://ke
 
 ### Fixed
 
+- Map without its basemap, follow-up: after falling back to the plain background, the map now checks quietly whether the OpenFreeMap style is back (after 10 s, doubling up to every 5 minutes, and at once when the browser comes back online) and puts the real basemap back once it answers. Only a successful fetch switches the style, so a still-failing style never clears the map again (`src/lib/basemap-retry.ts`, with unit tests and a flow).
 - Closed-page alerts could stay silent: the `PushHub` object kept which aircraft matched each rule only in memory, and an idle Durable Object is unloaded after 70 to 140 seconds, so most two-minute checks started empty, only learned, and sent nothing. The matches are now saved with the cooldowns (ignored once older than 10 minutes).
 - The shared AI answer cache used a 32-bit FNV hash of the browser-sent prompt as its key, so a crafted prompt could collide with a real message's and have its answer shown to other visitors. The key is now SHA-256.
 - Notification clicks: a tab the service worker does not control could not be navigated and nothing opened; a new tab opens then. A notification address with a backslash ("/\\host" reads as "//host") is refused.

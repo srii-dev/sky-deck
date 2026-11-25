@@ -340,6 +340,48 @@ test("without the basemap style the map still moves to a saved view", async ({ p
     .toBe(true);
 });
 
+test("after falling back, the map puts the real basemap back once its style answers again", async ({
+  page,
+  context,
+}) => {
+  // The style fails first, then answers with a stand-in whose one tile address shows that the map switched to it.
+  let styleUp = false;
+  await page.route("https://tiles.openfreemap.org/**", (route) => {
+    const url = route.request().url();
+    if (styleUp && url.includes("/styles/"))
+      return route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          version: 8,
+          glyphs: "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf",
+          sources: {
+            back: {
+              type: "raster",
+              tiles: ["https://tiles.openfreemap.org/sd-back-tile/{z}/{x}/{y}.png"],
+              tileSize: 256,
+            },
+          },
+          layers: [{ id: "back", type: "raster", source: "back" }],
+        }),
+      });
+    return route.abort();
+  });
+  const fellBack = page.waitForEvent("console", (m) =>
+    m.text().includes("using a plain background"),
+  );
+  await openMap(page);
+  await fellBack;
+
+  styleUp = true;
+  const tile = page.waitForRequest(/\/sd-back-tile\//, { timeout: 15_000 });
+  // Coming back online checks at once instead of waiting for the next try.
+  await context.setOffline(true);
+  await context.setOffline(false);
+  await tile;
+  // The tracker keeps working on the restored style.
+  await expect(count(page, `${COUNT} ac`)).toBeVisible();
+});
+
 test("the address carries the selected aircraft and reopening it selects it again", async ({
   page,
   context,
