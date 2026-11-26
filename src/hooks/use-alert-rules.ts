@@ -19,7 +19,7 @@ import {
 /*
  * Alert rules and their checking (Phase 10). The rules live in this browser. While the page is open, every aircraft
  * update is checked against the switched-on rules and a message appears when an aircraft starts matching one.
- * Nothing runs when the tab is closed (that needs web push and a backend, Phase 10f).
+ * Closed-page alerts (web push, Phase 10f) are separate: see use-push-alerts.ts.
  */
 
 export interface AlertRulesApi {

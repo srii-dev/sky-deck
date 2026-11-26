@@ -71,7 +71,7 @@ export function FlightProgress({
         <span>{STEP_NAMES[6]}</span>
       </div>
       {r.routeMismatch && (
-        <div className="text-xs text-amber-300">
+        <div className="text-xs text-warning">
           The route on file does not match where this aircraft is (route data can be weeks old), so
           the route and distances are not shown.
         </div>

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { useFlag } from "@/hooks/use-flag";
+import { useSheetInset } from "@/hooks/use-sheet-inset";
 import { formatLastSeen } from "@/lib/live-status";
 import { getFlightRoute } from "@/lib/adsb.functions";
 import {
@@ -108,6 +109,8 @@ export function AircraftPanel(props: Props) {
   const [expanded, setExpanded] = useState(false);
   const dragStartY = useRef<number | null>(null);
   const swiped = useRef(false);
+  const sheetRef = useRef<HTMLElement>(null);
+  useSheetInset(sheetRef);
   const status = flightStatus(a);
   const emg = isEmergency(a.squawk);
   const code = airlineCode(a.callsign);
@@ -162,7 +165,7 @@ export function AircraftPanel(props: Props) {
         style={{ color: emg ? undefined : altitudeColor(a.altFt, a.onGround) }}
       >
         <Plane
-          className={cn("size-5", emg && "text-destructive")}
+          className={cn("size-5", emg && "text-destructive-text")}
           style={{ transform: `rotate(${(a.track ?? 45) - 45}deg)` }}
         />
       </div>
@@ -272,7 +275,7 @@ export function AircraftPanel(props: Props) {
           <span className="text-muted-foreground">{compassPoint(a.track)}</span>
         </Cell>
         <Cell label="Squawk" className={cn(emg && "border-destructive bg-destructive/15")}>
-          <span className={cn(emg && "text-destructive")}>
+          <span className={cn(emg && "text-destructive-text")}>
             {a.reportedSquawk ?? a.squawk ?? "—"}
           </span>
         </Cell>
@@ -415,7 +418,7 @@ export function AircraftPanel(props: Props) {
                   {GLIDE_RATIO_LABEL}
                 </p>
                 {!props.glideStatus?.elevationAvailable && props.glideStatus?.reason && (
-                  <p className="text-[11px] font-medium leading-tight text-destructive">
+                  <p className="text-[11px] font-medium leading-tight text-destructive-text">
                     {props.glideStatus.reason}
                   </p>
                 )}
@@ -466,6 +469,7 @@ export function AircraftPanel(props: Props) {
   return (
     <>
       <section
+        ref={sheetRef}
         aria-label="Aircraft details"
         onKeyDown={closeOnEscape}
         className="pointer-events-auto fixed inset-x-0 bottom-0 z-40 flex flex-col rounded-t-xl border border-panel-border bg-card pb-[env(safe-area-inset-bottom)] shadow-[var(--shadow-panel)] md:hidden"
@@ -513,6 +517,7 @@ export function AircraftPanel(props: Props) {
         {expanded && <div className="overflow-y-auto px-4 pb-5">{body}</div>}
       </section>
       <aside
+        data-map-panel
         aria-label="Aircraft details"
         onKeyDown={closeOnEscape}
         className="glass-panel scanline pointer-events-auto absolute bottom-4 right-14 z-30 hidden w-[360px] flex-col overflow-hidden rounded-lg md:flex"

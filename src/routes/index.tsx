@@ -7,6 +7,7 @@ import { Info, Mountain, Radio, SlidersHorizontal, Box } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { returnFocus } from "@/lib/return-focus";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { LiveIndicator } from "@/components/skydeck/LiveIndicator";
 import { SearchBox } from "@/components/skydeck/SearchBox";
@@ -43,6 +44,7 @@ import type { GlideStatus } from "@/components/skydeck/FlightMap";
 import { useAircraftFeed } from "@/hooks/use-aircraft-feed";
 import { useFlagPref } from "@/hooks/use-flag-pref";
 import { useFlag } from "@/hooks/use-flag";
+import { useAfterPaint } from "@/hooks/use-after-paint";
 import { serverFlags } from "@/lib/flags";
 import { usePersonalData } from "@/hooks/use-personal-data";
 import { useWatchAlerts } from "@/hooks/use-watch-alerts";
@@ -55,6 +57,7 @@ import { AlertRulesDialog } from "@/components/skydeck/AlertRulesDialog";
 import { EMPTY_DRAFT, type RuleDraft } from "@/lib/alert-rule-draft";
 import type { AlertAreaDrawing } from "@/components/skydeck/alert-area-layers";
 import { useAlertRules } from "@/hooks/use-alert-rules";
+import { usePushAlerts } from "@/hooks/use-push-alerts";
 import { useFlightStages } from "@/hooks/use-flight-stages";
 import { normalizeKey } from "@/lib/watchlist";
 import { resolvePlace } from "@/lib/place-resolver";
@@ -90,6 +93,8 @@ import { useNotifyPrefs } from "@/hooks/use-notify-prefs";
 import { sunTimes } from "@/lib/sun";
 
 const FlightMap = lazy(() => import("@/components/skydeck/FlightMap"));
+/** The dialog fade-in (components/ui/dialog.tsx, duration-200) plus a frame or two. */
+const GUIDE_FADE_MS = 300;
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -126,12 +131,21 @@ export const Route = createFileRoute("/")({
 function MapFallback() {
   return (
     <div className="scanline absolute inset-0 flex items-center justify-center bg-background">
-      <span className="hud-label animate-pulse">Initializing display…</span>
+      <span role="status" className="hud-label animate-pulse">
+        Initializing display…
+      </span>
     </div>
   );
 }
 
 function SkyDeck() {
+  // The map waits for the first paint. When the first-run guide opens, it also waits for the guide's 200 ms
+  // fade-in, so a slow phone shows the guide before it starts building the map.
+  const mapAfterPaint = useAfterPaint(() =>
+    shouldAutoShowGuide(readFlagPref(STORAGE_KEYS.guideSeen, false), window.location.search)
+      ? GUIDE_FADE_MS
+      : 0,
+  );
   const satelliteOn = useFlag("satellite");
   const [viewport, setViewport] = useState<Viewport | null>(null);
   const [selectedHex, setSelectedHex] = useState<string | null>(null);
@@ -152,6 +166,7 @@ function SkyDeck() {
   const [airspacePickId, setAirspacePickId] = useState<string | null>(null);
   const [showTrail, setShowTrail] = useState(true);
   const [rulerActive, setRulerActive] = useState(false);
+  const [rulerBarH, setRulerBarH] = useState(0);
   const [rulerPoints, setRulerPoints] = useState<LngLat[]>([]);
   const [follow, setFollow] = useState(false);
   const [chase, setChase] = useState(false);
@@ -243,13 +258,15 @@ function SkyDeck() {
     }
   }, []);
 
+  const mockLat = viewport?.lat;
+  const mockLon = viewport?.lon;
   useEffect(() => {
-    if (import.meta.env.DEV && isMock && viewport) {
+    if (import.meta.env.DEV && isMock && mockLat != null && mockLon != null) {
       void import("@/lib/mock-fixture.dev").then(({ generateDevMockAircraft }) => {
-        setMockAircraft(generateDevMockAircraft(viewport.lat, viewport.lon));
+        setMockAircraft(generateDevMockAircraft(mockLat, mockLon));
       });
     }
-  }, [isMock, viewport?.lat, viewport?.lon]);
+  }, [isMock, mockLat, mockLon]);
 
   useEffect(() => {
     const el = hudRef.current;
@@ -464,6 +481,30 @@ function SkyDeck() {
   const emergencies = useMemo(
     () => feed.aircraft.filter((a) => isEmergency(a.squawk)),
     [feed.aircraft],
+  );
+  // Feed status notices ("Live data is busy", missing areas, partial view). Phones show them under the top bar, below
+  // the emergency banner, because at 375 px the bottom is taken by the altitude legend, the map credit and the zoom
+  // buttons (design QA 15h); from md up the same element is fixed above the bottom edge. One copy in the DOM, placed
+  // with CSS, not JS, so SSR matches.
+  const hasFeedNotice = !!(feed.error || feed.areasMissing || feed.partial);
+  const feedNotices = (
+    <>
+      {feed.error && (
+        <div className="glass-panel rounded-md px-3 py-1.5 text-center text-xs text-warning">
+          {feed.error}
+        </div>
+      )}
+      {feed.areasMissing && (
+        <div className="glass-panel rounded-md px-3 py-1.5 text-center text-xs text-muted-foreground">
+          Some areas may be missing
+        </div>
+      )}
+      {feed.partial && (
+        <div className="glass-panel rounded-md px-3 py-1.5 text-center text-xs text-muted-foreground">
+          Showing part of this view. Zoom in for full coverage.
+        </div>
+      )}
+    </>
   );
   const selected = useMemo(
     () => allAircraft.find((a) => a.hex === selectedHex) ?? null,
@@ -681,6 +722,17 @@ function SkyDeck() {
     onShow: (hex) => onSelect(hex),
   });
   const [rulesOpen, setRulesOpen] = useState(false);
+  const [rulesEverOpened, setRulesEverOpened] = useState(false);
+  useEffect(() => {
+    if (rulesOpen) setRulesEverOpened(true);
+  }, [rulesOpen]);
+  // Closed-page alerts (Phase 10f): asks the server nothing until the rules dialog has been opened.
+  const pushAlerts = usePushAlerts({
+    active: rulesEverOpened,
+    authStatus: auth.status,
+    userId: auth.userId,
+    rules: alertRules.rules,
+  });
   const [ruleDraft, setRuleDraft] = useState<RuleDraft>(EMPTY_DRAFT);
   const [parseNote, setParseNote] = useState<string[] | null>(null);
   const [areaPick, setAreaPick] = useState<{ center: [number, number] | null } | null>(null);
@@ -801,44 +853,49 @@ function SkyDeck() {
         {APP_NAME} — {APP_TAGLINE}
       </h1>
       <ClientOnly fallback={<MapFallback />}>
-        <Suspense fallback={<MapFallback />}>
-          <FlightMap
-            aircraft={visible}
-            selectedHex={selectedHex}
-            onSelect={onSelect}
-            trail={feed.trail}
-            trail3d={trail3d}
-            nightShade={nightOn}
-            colorBy={colorBy}
-            basemap={basemap}
-            terrain={terrain}
-            follow={follow}
-            flyTarget={flyTarget}
-            onViewportChange={setPendingViewport}
-            glideRing={glideRing}
-            glideRatio={glideRatio}
-            onGlideStatus={setGlideStatus}
-            showTrail={showTrail}
-            receivedAt={feed.fetchedAt}
-            presentHexes={presentHexes}
-            smoothMotion={smoothMotion}
-            chase={chase && follow}
-            replay={replay.source}
-            alertAreas={alertAreas}
-            pickMode={!!areaPick}
-            onPick={onAreaPick}
-            onMotionDelay={setMotionDelaySec}
-            onSelectedMotion={(hex, m) => setSelectedMotion({ hex, m })}
-            weather={weather.state}
-            onWeatherPick={setWeatherPickId}
-            routeAirspace={routeAirspace}
-            onAirspacePick={setAirspacePickId}
-            rulerActive={rulerActive}
-            rulerPoints={rulerPoints}
-            onRulerPoint={(p) => setRulerPoints((pts) => nextRulerPoints(pts, p))}
-            rulerUnits={units}
-          />
-        </Suspense>
+        {/* The map library (about 1 MB) loads after the first paint, so the page and the guide appear first. */}
+        {!mapAfterPaint ? (
+          <MapFallback />
+        ) : (
+          <Suspense fallback={<MapFallback />}>
+            <FlightMap
+              aircraft={visible}
+              selectedHex={selectedHex}
+              onSelect={onSelect}
+              trail={feed.trail}
+              trail3d={trail3d}
+              nightShade={nightOn}
+              colorBy={colorBy}
+              basemap={basemap}
+              terrain={terrain}
+              follow={follow}
+              flyTarget={flyTarget}
+              onViewportChange={setPendingViewport}
+              glideRing={glideRing}
+              glideRatio={glideRatio}
+              onGlideStatus={setGlideStatus}
+              showTrail={showTrail}
+              receivedAt={feed.fetchedAt}
+              presentHexes={presentHexes}
+              smoothMotion={smoothMotion}
+              chase={chase && follow}
+              replay={replay.source}
+              alertAreas={alertAreas}
+              pickMode={!!areaPick}
+              onPick={onAreaPick}
+              onMotionDelay={setMotionDelaySec}
+              onSelectedMotion={(hex, m) => setSelectedMotion({ hex, m })}
+              weather={weather.state}
+              onWeatherPick={setWeatherPickId}
+              routeAirspace={routeAirspace}
+              onAirspacePick={setAirspacePickId}
+              rulerActive={rulerActive}
+              rulerPoints={rulerPoints}
+              onRulerPoint={(p) => setRulerPoints((pts) => nextRulerPoints(pts, p))}
+              rulerUnits={units}
+            />
+          </Suspense>
+        )}
       </ClientOnly>
 
       {/* Top HUD */}
@@ -963,7 +1020,13 @@ function SkyDeck() {
                 )}
               </Button>
             </PopoverTrigger>
-            <PopoverContent align="end" className="glass-panel w-80">
+            {/* Records the opener so Credits, opened from here, can give focus back to the Filters button. Closing stays
+                with Radix, which leaves focus alone after a click outside. */}
+            <PopoverContent
+              onOpenAutoFocus={returnFocus.onOpenAutoFocus}
+              align="end"
+              className="glass-panel w-80"
+            >
               <FiltersPanel
                 filters={filters}
                 onChange={setFilters}
@@ -986,7 +1049,7 @@ function SkyDeck() {
                   setFiltersOpen(false);
                   setCreditsOpen(true);
                 }}
-                className="mt-2 flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-primary"
+                className="mt-2 flex min-h-6 items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-primary"
               >
                 <Info className="size-4" />
                 Credits and data sources
@@ -1054,6 +1117,7 @@ function SkyDeck() {
             summary: rulerSummary(rulerPoints, units),
             hasPoints: rulerPoints.length > 0,
             onClear: () => setRulerPoints([]),
+            onBarHeight: setRulerBarH,
             onStartAtAircraft: selected
               ? () => {
                   const p = pointAtAircraft(selected);
@@ -1076,31 +1140,23 @@ function SkyDeck() {
         )}
       </div>
 
-      {/* Emergency alert */}
-      {emergencies.length > 0 && (
+      {/* Emergency alert, and the feed notices (under it on phones, at the bottom from md up; see feedNotices).
+          It sits on the same row as the ruler bar beside the map tools, so it moves below the bar
+          (measured, as it wraps on a phone) while the ruler is on; otherwise it would cover the ruler's buttons. */}
+      {(emergencies.length > 0 || hasFeedNotice) && (
         <div
-          className={`pointer-events-none absolute inset-x-0 z-30 flex justify-center pl-16 pr-3 md:px-3 ${selected ? "md:pr-[428px]" : ""}`}
-          style={{ top: "calc(var(--hud-h, 76px) + 8px)" }}
+          // Keep clear of the map tools: one column (pl-16), or two on a phone with an aircraft selected, where it wraps.
+          className={`pointer-events-none absolute inset-x-0 z-30 flex flex-col items-center gap-1.5 pr-3 md:pl-16 ${selected ? "pl-[7.5rem] md:pr-[428px]" : "pl-16"}`}
+          style={{
+            top: `calc(var(--hud-h, 76px) + ${rulerActive && rulerBarH ? rulerBarH + 16 : 8}px)`,
+          }}
         >
-          <EmergencyBanner aircraft={emergencies} onPick={pickAircraft} />
-        </div>
-      )}
-
-      {(feed.error || feed.areasMissing || feed.partial) && (
-        <div className="pointer-events-none absolute inset-x-0 bottom-16 z-20 flex flex-col items-center gap-1.5">
-          {feed.error && (
-            <div className="glass-panel rounded-md px-3 py-1.5 text-xs text-warning">
-              {feed.error}
-            </div>
+          {emergencies.length > 0 && (
+            <EmergencyBanner aircraft={emergencies} onPick={pickAircraft} />
           )}
-          {feed.areasMissing && (
-            <div className="glass-panel rounded-md px-3 py-1.5 text-xs text-muted-foreground">
-              Some areas may be missing
-            </div>
-          )}
-          {feed.partial && (
-            <div className="glass-panel rounded-md px-3 py-1.5 text-xs text-muted-foreground">
-              Showing part of this view. Zoom in for full coverage.
+          {hasFeedNotice && (
+            <div className="flex flex-col items-center gap-1.5 md:fixed md:inset-x-0 md:bottom-16">
+              {feedNotices}
             </div>
           )}
         </div>
@@ -1161,7 +1217,8 @@ function SkyDeck() {
         replay.source ||
         areaPick) && (
         <div
-          className={`pointer-events-none absolute inset-x-0 bottom-[max(5.5rem,env(safe-area-inset-bottom))] z-20 flex-col items-center gap-2 pl-14 pr-3 md:px-3 md:bottom-3 ${kiosk ? "hidden" : (selected || airport) && !replay.source ? "hidden xl:flex" : "flex"}`}
+          // On a tablet this row sits between the legends (bottom left) and the zoom buttons, which it would cover.
+          className={`pointer-events-none absolute inset-x-0 bottom-[max(5.5rem,env(safe-area-inset-bottom))] z-20 flex-col items-center gap-2 pl-14 pr-3 md:bottom-3 md:pl-[13.5rem] md:pr-16 lg:px-3 ${kiosk ? "hidden" : (selected || airport) && !replay.source ? "hidden xl:flex" : "flex"}`}
         >
           {weatherNotice && (
             <div className="glass-panel pointer-events-auto rounded-md px-3 py-1.5 text-xs text-muted-foreground">
@@ -1347,6 +1404,7 @@ function SkyDeck() {
         alertsOn={alertsOn}
         parseNote={parseNote}
         onParseNote={setParseNote}
+        push={pushAlerts}
       />
       <AccountDialog
         open={accountOpen}

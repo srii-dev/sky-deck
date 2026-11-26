@@ -1,6 +1,6 @@
 import "./lib/error-capture";
 
-import { consumeLastCapturedError } from "./lib/error-capture";
+import { consumeLastCapturedError, isClientDisconnect } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
 import {
   httpsRedirectTarget,
@@ -33,7 +33,11 @@ async function normalizeCatastrophicSsrResponse(response: Response): Promise<Res
   const body = await response.clone().text();
   if (!isH3SwallowedErrorBody(body)) return response;
 
-  console.error(consumeLastCapturedError() ?? new Error(`h3 swallowed SSR error: ${body}`));
+  const captured = consumeLastCapturedError();
+  // A request the browser dropped was already logged as one line; nobody is left to read this response.
+  if (!isClientDisconnect(captured)) {
+    console.error(captured ?? new Error(`h3 swallowed SSR error: ${body}`));
+  }
   return new Response(renderErrorPage(), {
     status: 500,
     headers: { "content-type": "text/html; charset=utf-8" },

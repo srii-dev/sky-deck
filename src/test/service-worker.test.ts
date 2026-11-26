@@ -19,17 +19,32 @@ function load() {
     }),
     match: async (r: Request | string) =>
       store.get(typeof r === "string" ? r : new URL(r.url).pathname),
-    keys: async () => ["old-cache", "skydeck-shell-v1", "skydeck-shell-v2"],
+    keys: async () => ["old-cache", "skydeck-shell-v1", "skydeck-shell-v2", "skydeck-shell-v3"],
     delete: async (k: string) => {
       deleted.push(k);
       return true;
     },
   };
+  const shown: { title: string; options: Record<string, unknown> }[] = [];
+  const opened: string[] = [];
+  const windows: {
+    url: string;
+    navigate: (u: string) => Promise<void>;
+    focus: () => Promise<void>;
+  }[] = [];
   const self = {
     location: { origin: "https://app.test" },
     addEventListener: (n: string, l: Listener) => void (listeners[n] = l),
     skipWaiting: () => Promise.resolve(),
-    clients: { claim: () => Promise.resolve() },
+    clients: {
+      claim: () => Promise.resolve(),
+      matchAll: async () => windows,
+      openWindow: async (u: string) => void opened.push(u),
+    },
+    registration: {
+      showNotification: async (title: string, options: Record<string, unknown>) =>
+        void shown.push({ title, options }),
+    },
   };
   let netCalls = 0;
   let netFails = false;
@@ -55,6 +70,9 @@ function load() {
     setOffline: (v: boolean) => (netFails = v),
     net: () => netCalls,
     listeners,
+    shown,
+    opened,
+    windows,
   };
 }
 
@@ -113,7 +131,84 @@ describe("service worker", () => {
       }),
     );
     expect(done).toBe(true);
-    expect(sw.deleted.sort()).toEqual(["old-cache", "skydeck-shell-v1"]);
+    expect(sw.deleted.sort()).toEqual(["old-cache", "skydeck-shell-v1", "skydeck-shell-v2"]);
+  });
+});
+
+describe("closed-page alerts (web push)", () => {
+  const push = async (sw: ReturnType<typeof load>, json: unknown) => {
+    let waited: Promise<unknown> | null = null;
+    sw.listeners["push"]!({
+      data: { json: () => (json === "bad" ? JSON.parse("{") : json) },
+      waitUntil: (p: Promise<unknown>) => void (waited = p),
+    });
+    await waited;
+  };
+  const click = async (sw: ReturnType<typeof load>, url: unknown) => {
+    let waited: Promise<unknown> | null = null;
+    let closed = false;
+    sw.listeners["notificationclick"]!({
+      notification: { data: { url }, close: () => (closed = true) },
+      waitUntil: (p: Promise<unknown>) => void (waited = p),
+    });
+    await waited;
+    return closed;
+  };
+
+  it("shows the alert from the push payload", async () => {
+    const sw = load();
+    await push(sw, {
+      title: "Heavies at JFK: UAL1",
+      body: "B77W, 3,000 ft",
+      tag: "rule-r1",
+      url: "/?hex=a1b2c3",
+    });
+    expect(sw.shown).toHaveLength(1);
+    expect(sw.shown[0]!.title).toBe("Heavies at JFK: UAL1");
+    expect(sw.shown[0]!.options["body"]).toBe("B77W, 3,000 ft");
+    expect(sw.shown[0]!.options["tag"]).toBe("rule-r1");
+    expect(sw.shown[0]!.options["data"]).toEqual({ url: "/?hex=a1b2c3" });
+  });
+
+  it("still shows something for an empty or broken payload, and never keeps another site's address", async () => {
+    const sw = load();
+    await push(sw, "bad");
+    await push(sw, { title: "x", url: "https://evil.example/" });
+    await push(sw, { title: "y", url: "//evil.example/" });
+    expect(sw.shown[0]!.title).toBe("SkyDeck alert");
+    expect(sw.shown[1]!.options["data"]).toEqual({ url: "/" });
+    expect(sw.shown[2]!.options["data"]).toEqual({ url: "/" });
+    // "/\\host" parses as "//host".
+    await push(sw, { title: "z", url: "/\\evil.example/" });
+    expect(sw.shown[3]!.options["data"]).toEqual({ url: "/" });
+  });
+
+  it("opens a new tab when the open one cannot be navigated (not controlled by the worker)", async () => {
+    const sw = load();
+    sw.windows.push({
+      url: "https://app.test/",
+      focus: async () => undefined,
+      navigate: async () => {
+        throw new TypeError("not controlled");
+      },
+    });
+    await click(sw, "/?hex=a1b2c3");
+    expect(sw.opened).toEqual(["https://app.test/?hex=a1b2c3"]);
+  });
+
+  it("opens the aircraft on this site when clicked, reusing an open tab", async () => {
+    const sw = load();
+    expect(await click(sw, "/?hex=a1b2c3")).toBe(true);
+    expect(sw.opened).toEqual(["https://app.test/?hex=a1b2c3"]);
+    const went: string[] = [];
+    sw.windows.push({
+      url: "https://app.test/",
+      focus: async () => undefined,
+      navigate: async (u: string) => void went.push(u),
+    });
+    await click(sw, "https://evil.example/");
+    expect(went).toEqual(["https://app.test/"]);
+    expect(sw.opened).toHaveLength(1);
   });
 });
 

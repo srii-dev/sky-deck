@@ -158,6 +158,7 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-destructive-text: var(--destructive-text);
   --color-success: var(--success);
   --color-warning: var(--warning);
   --color-panel: var(--panel);
@@ -201,6 +202,9 @@
   --accent-foreground: oklch(0.16 0.03 220);
   --destructive: oklch(0.56 0.22 25);
   --destructive-foreground: oklch(0.98 0.01 25);
+  /* Red used as text. The button red above is dark enough for white text on it, which leaves it at 3.7:1 as text on
+     the dark panels, so text gets a lighter red (6.2:1 on the background, Phase 5f). */
+  --destructive-text: oklch(0.68 0.19 25);
   --success: oklch(0.78 0.18 150);
   --warning: oklch(0.82 0.16 75);
   --panel: oklch(0.17 0.02 240 / 0.86);
@@ -269,6 +273,7 @@
   --accent-foreground: oklch(0.99 0 0);
   --destructive: oklch(0.5 0.21 27);
   --destructive-foreground: oklch(0.99 0.005 25);
+  --destructive-text: oklch(0.5 0.21 27);
   --success: oklch(0.45 0.13 150);
   --warning: oklch(0.5 0.13 65);
   --panel: oklch(1 0 0 / 0.88);
@@ -421,6 +426,25 @@
   .maplibregl-ctrl-attrib.maplibregl-compact.maplibregl-compact-show {
     box-sizing: border-box;
     max-width: calc(100vw - 224px);
+  }
+}
+/* Design QA 15h. Desktop: the aircraft and airport side panels (right-14, w-[360px]) leave a gutter for the zoom
+   buttons, but the scale bar is wider than that gutter and would sit half behind the panel, so while a panel is open it
+   moves to the bottom edge just left of the panel (56 + 360 px from the right). Phones: the bottom sheets publish their height as --sheet-h (useSheetInset), and the zoom buttons,
+   scale and credit sit above the sheet; when the sheet is pulled up too far to leave room, they hide until it closes. */
+@media (min-width: 768px) {
+  html:has([data-map-panel]) .maplibregl-ctrl-bottom-right .maplibregl-ctrl-scale {
+    position: absolute;
+    right: 416px;
+    bottom: 0;
+  }
+}
+@media (max-width: 767.98px) {
+  .maplibregl-map .maplibregl-ctrl-bottom-right {
+    bottom: var(--sheet-h, 0px);
+  }
+  html[data-sheet-tall] .maplibregl-map .maplibregl-ctrl-bottom-right {
+    visibility: hidden;
   }
 }
 /* Touch screens: the zoom and compass buttons are 29 px by default, too small for a thumb. */

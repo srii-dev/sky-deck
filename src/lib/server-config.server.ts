@@ -21,6 +21,15 @@ export const CONFIG_GROUPS = {
     required: ["ADSBLOL_API_KEY"],
     optional: [],
   },
+  /**
+   * Web push (Phase 10f). VAPID keys from `npx web-push generate-vapid-keys`; the public key also goes to browsers.
+   * The subject is a mailto: or https: contact address for push services. The scheduled check also needs
+   * SUPABASE_SERVICE_ROLE_KEY (group supabase) to read every user's push rules.
+   */
+  push: {
+    required: ["VAPID_PUBLIC_KEY", "VAPID_PRIVATE_KEY", "VAPID_SUBJECT"],
+    optional: [],
+  },
   /** AI provider, Gemini first (Phase 18g). */
   gemini: {
     required: ["GEMINI_API_KEY"],

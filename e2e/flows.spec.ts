@@ -1,6 +1,8 @@
 import { readFile } from "node:fs/promises";
 import { expect as baseExpect, test, type Page } from "@playwright/test";
 
+import { contrastFailures, hoverContrastFailures, smallTargets } from "./a11y-checks";
+
 /*
  * Flows through the map (Phase 16f), against the stub ADS-B provider (e2e/stub-upstream.mjs) and its invented aircraft.
  * Aircraft are drawn on a WebGL canvas, so they are chosen through the search box or the N and P shortcuts, never by
@@ -121,6 +123,64 @@ test("the route comes from the stub's route lookup", async ({ page }) => {
   // The airport codes also appear in the terrain profile under the route, so take the first of each.
   await expect(panel(page).getByText("JFK", { exact: true }).first()).toBeVisible();
   await expect(panel(page).getByText("BOS", { exact: true }).first()).toBeVisible();
+});
+
+test("the ruler starts at the selected aircraft and a map click finishes the measurement", async ({
+  page,
+}) => {
+  await openMap(page);
+  // Wait for the stub's 7700 aircraft: the emergency banner shares the ruler bar's row and used to cover its buttons.
+  await expect(page.getByRole("alert").filter({ hasText: "Emergency squawk" })).toBeVisible({
+    timeout: 30_000,
+  });
+  const ruler = page.getByRole("button", { name: "Measure distance" });
+  const startAtAircraft = page.getByRole("button", { name: "Start at the selected aircraft" });
+
+  // With nothing selected the ruler only asks for a start point.
+  await ruler.click();
+  await expect(page.getByText("Click a start point", { exact: true })).toBeVisible();
+  await expect(startAtAircraft).toHaveCount(0);
+
+  await pick(page, "SKD303", "SKD303");
+  await startAtAircraft.click();
+  await expect(page.getByText("Click a second point", { exact: true })).toBeVisible();
+  await expect(startAtAircraft).toHaveCount(0);
+
+  // The second point is an ordinary map click; the readout then shows distance and bearing.
+  const map = page.locator("canvas.maplibregl-canvas");
+  const box = await map.boundingBox();
+  if (!box) throw new Error("map canvas has no size");
+  await page.mouse.click(box.x + box.width * 0.3, box.y + box.height * 0.7);
+  await expect(page.getByRole("status").getByText(/ · \d{3}° [NESW]{1,3}$/)).toBeVisible();
+
+  await page.getByRole("button", { name: "Clear", exact: true }).click();
+  await expect(page.getByText("Click a start point", { exact: true })).toBeVisible();
+  await expect(startAtAircraft).toBeVisible();
+});
+
+// Accessibility of the aircraft panel (Phase 5f): it only fills with aircraft data, so e2e/a11y.spec.ts (which never
+// loads a feed) cannot open it. The emergency aircraft shows the most coloured text.
+test("the aircraft panel passes the contrast and target size checks in both themes", async ({
+  page,
+}) => {
+  // Two themes, each with a hover pass over the panel's controls: longer than the other flows on CI.
+  test.setTimeout(180_000);
+  await openMap(page);
+  await pick(page, "SKD711", "SKD711");
+  const problems: string[] = [];
+  for (const light of [false, true]) {
+    await page.evaluate((l) => {
+      document.documentElement.classList.toggle("light", l);
+      document.documentElement.style.colorScheme = l ? "light" : "dark";
+    }, light);
+    // Colour transitions (150 ms) would otherwise be measured half way.
+    await page.waitForTimeout(400);
+    const theme = light ? "light" : "dark";
+    for (const f of await contrastFailures(page, panel(page))) problems.push(`${theme}: ${f}`);
+    for (const f of await smallTargets(page, panel(page))) problems.push(`${theme}: small ${f}`);
+    for (const f of await hoverContrastFailures(page, panel(page))) problems.push(`${theme}: ${f}`);
+  }
+  expect(problems).toEqual([]);
 });
 
 test("N and P step through the aircraft in callsign order", async ({ page }) => {
@@ -257,6 +317,71 @@ test("saved views: save, go to and delete", async ({ page }) => {
   await expect(page.getByText(/^Saved views stay in this browser/)).toBeVisible();
 });
 
+test("without the basemap style the map still moves to a saved view", async ({ page }) => {
+  // OpenFreeMap down, or a network that blocks it (as in some cloud containers). Without a loaded style MapLibre ran no
+  // camera moves at all, so going to a saved view, a search result or an airport did nothing.
+  await page.route("https://tiles.openfreemap.org/styles/**", (route) => route.abort());
+  await page.addInitScript(() =>
+    localStorage.setItem(
+      "skydeck:saved-views",
+      JSON.stringify([{ name: "Harbour", lat: 40.72, lon: -73.95, zoom: 9 }]),
+    ),
+  );
+  await openMap(page, "/?lat=42.36&lon=-71.01&z=8");
+  await page.getByRole("button", { name: "Saved views" }).click();
+  await page.getByRole("button", { name: "Harbour", exact: true }).click();
+  // Within the rounding the address uses, as in the saved views flow above.
+  await expect
+    .poll(() => {
+      const p = new URL(page.url()).searchParams;
+      const [lat, lon] = [Number(p.get("lat")), Number(p.get("lon"))];
+      return Math.abs(lat - 40.72) < 0.02 && Math.abs(lon + 73.95) < 0.02 && p.get("z") === "9";
+    })
+    .toBe(true);
+});
+
+test("after falling back, the map puts the real basemap back once its style answers again", async ({
+  page,
+  context,
+}) => {
+  // The style fails first, then answers with a stand-in whose one tile address shows that the map switched to it.
+  let styleUp = false;
+  await page.route("https://tiles.openfreemap.org/**", (route) => {
+    const url = route.request().url();
+    if (styleUp && url.includes("/styles/"))
+      return route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          version: 8,
+          glyphs: "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf",
+          sources: {
+            back: {
+              type: "raster",
+              tiles: ["https://tiles.openfreemap.org/sd-back-tile/{z}/{x}/{y}.png"],
+              tileSize: 256,
+            },
+          },
+          layers: [{ id: "back", type: "raster", source: "back" }],
+        }),
+      });
+    return route.abort();
+  });
+  const fellBack = page.waitForEvent("console", (m) =>
+    m.text().includes("using a plain background"),
+  );
+  await openMap(page);
+  await fellBack;
+
+  styleUp = true;
+  const tile = page.waitForRequest(/\/sd-back-tile\//, { timeout: 15_000 });
+  // Coming back online checks at once instead of waiting for the next try.
+  await context.setOffline(true);
+  await context.setOffline(false);
+  await tile;
+  // The tracker keeps working on the restored style.
+  await expect(count(page, `${COUNT} ac`)).toBeVisible();
+});
+
 test("the address carries the selected aircraft and reopening it selects it again", async ({
   page,
   context,
@@ -303,6 +428,143 @@ test("alert rules: plain English and the form both make rules that fit the stub 
   await rules.getByRole("button", { name: "Create rule" }).click();
   await expect(yours.getByRole("listitem")).toHaveCount(2);
   await expect(yours.getByRole("listitem").nth(1)).toContainText("1 matching now");
+});
+
+/** Must match SUPABASE_URL in playwright.config.ts. */
+const SUPABASE = "https://stub.supabase.test";
+const PUSH_ENDPOINT = "https://fcm.googleapis.com/fcm/send/e2e-browser";
+type Row = Record<string, unknown>;
+
+/** The two push tables in memory, behind the part of Supabase's REST API the page uses; other reads are empty. */
+async function stubAccount(page: Page) {
+  const db: Record<string, Row[]> = { push_subscriptions: [], push_rules: [] };
+  await page.route(`${SUPABASE}/**`, async (route) => {
+    const request = route.request();
+    const headers = {
+      "access-control-allow-origin": "*",
+      "access-control-allow-headers": request.headers()["access-control-request-headers"] ?? "",
+      "access-control-allow-methods": "GET, HEAD, POST, PATCH, DELETE",
+    };
+    const method = request.method();
+    if (method === "OPTIONS") return route.fulfill({ status: 204, headers });
+    const url = new URL(request.url());
+    const table = url.pathname.replace("/rest/v1/", "");
+    const rows = db[table];
+    if (!rows) return route.fulfill({ headers, json: [] });
+    const matches = (row: Row) =>
+      [...url.searchParams].every(([column, filter]) => {
+        if (filter.startsWith("eq.")) return row[column] === filter.slice(3);
+        if (!filter.startsWith("in.(")) return true;
+        return filter.slice(4, -1).replaceAll('"', "").split(",").includes(String(row[column]));
+      });
+    if (method === "GET") return route.fulfill({ headers, json: rows.filter(matches) });
+    if (method === "POST") rows.push(...[request.postDataJSON() as Row | Row[]].flat());
+    if (method === "PATCH")
+      for (const row of rows.filter(matches)) Object.assign(row, request.postDataJSON());
+    if (method === "DELETE") db[table] = rows.filter((row) => !matches(row));
+    return route.fulfill({ status: method === "POST" ? 201 : 204, headers });
+  });
+  return db;
+}
+
+/**
+ * A signed-in visitor with two saved rules (one with an area), and a stand-in for the browser's push service: the
+ * dev server registers no service worker, and a real subscription would call the browser maker's server.
+ */
+async function signedInWithFakePush(page: Page, permission: "granted" | "denied") {
+  await page.addInitScript(
+    ({ endpoint, answer }) => {
+      const user = { id: "e2e-user", aud: "authenticated", email: "e2e@example.test" };
+      localStorage.setItem(
+        "sb-stub-auth-token",
+        JSON.stringify({
+          access_token: "e2e.e2e.e2e",
+          refresh_token: "e2e",
+          token_type: "bearer",
+          expires_in: 3600,
+          expires_at: Math.floor(Date.now() / 1000) + 3600,
+          user,
+        }),
+      );
+      const rule = { enabled: true, createdAt: 1 };
+      const area = { lat: 40.7, lon: -74, radiusNm: 40, label: "New York" };
+      localStorage.setItem(
+        "skydeck:alert-rules",
+        JSON.stringify([
+          { ...rule, id: "near", name: "Near me", conditions: { kinds: ["helicopter"], area } },
+          { ...rule, id: "anywhere", name: "Anywhere", conditions: { kinds: ["helicopter"] } },
+        ]),
+      );
+      let current: object | null = null;
+      const pushManager = {
+        getSubscription: async () => current,
+        subscribe: async () =>
+          (current = {
+            toJSON: () => ({ endpoint, keys: { p256dh: "e2e-p256dh", auth: "e2e-auth" } }),
+            unsubscribe: async () => {
+              current = null;
+              return true;
+            },
+          }),
+      };
+      navigator.serviceWorker.getRegistration = async () =>
+        ({ pushManager }) as unknown as ServiceWorkerRegistration;
+      class FakeNotification {
+        static permission = "default";
+        static requestPermission = async () => (FakeNotification.permission = answer);
+      }
+      Object.defineProperty(window, "Notification", {
+        configurable: true,
+        value: FakeNotification,
+      });
+    },
+    { endpoint: PUSH_ENDPOINT, answer: permission },
+  );
+}
+
+async function openPushSwitch(page: Page) {
+  await openMap(page);
+  await page.getByRole("button", { name: "Watchlist", exact: true }).click();
+  await page.getByRole("button", { name: /^Alert rules/ }).click();
+  const rules = page.getByRole("dialog", { name: "Alert rules" });
+  const section = rules.getByRole("region", { name: "Alerts while SkyDeck is closed" });
+  const toggle = section.getByRole("switch");
+  await expect(toggle).toBeEnabled();
+  await expect(toggle).not.toBeChecked();
+  return { section, toggle };
+}
+
+test("closed-page alerts: on saves this browser and its area rules, off removes both", async ({
+  page,
+}) => {
+  const db = await stubAccount(page);
+  await signedInWithFakePush(page, "granted");
+  const { section, toggle } = await openPushSwitch(page);
+
+  await toggle.click();
+  await expect(toggle).toBeChecked();
+  await expect(section).toContainText("On for this browser.");
+  expect(db["push_subscriptions"]).toEqual([
+    { user_id: "e2e-user", endpoint: PUSH_ENDPOINT, p256dh: "e2e-p256dh", auth: "e2e-auth" },
+  ]);
+  // The rule without an area cannot be checked while the page is closed, so it is not uploaded.
+  await expect.poll(() => db["push_rules"]!.map((r) => r["rule_id"])).toEqual(["near"]);
+
+  await toggle.click();
+  await expect(section).toContainText("Off for this browser.");
+  await expect(toggle).not.toBeChecked();
+  expect(db).toEqual({ push_subscriptions: [], push_rules: [] });
+});
+
+test("closed-page alerts: blocked notifications save nothing and say why", async ({ page }) => {
+  const db = await stubAccount(page);
+  await signedInWithFakePush(page, "denied");
+  const { section, toggle } = await openPushSwitch(page);
+
+  await toggle.click();
+  await expect(section.getByRole("alert")).toContainText("Notifications are blocked");
+  await expect(toggle).toBeDisabled();
+  expect(db).toEqual({ push_subscriptions: [], push_rules: [] });
 });
 
 test("opening aircraft adds their types to the collection", async ({ page }) => {

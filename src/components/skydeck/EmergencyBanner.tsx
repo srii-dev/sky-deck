@@ -24,7 +24,7 @@ export function EmergencyBanner({
             <button
               key={a.hex}
               onClick={() => onPick(a)}
-              className="data-value text-xs text-destructive-foreground underline-offset-2 hover:underline"
+              className="data-value min-h-6 text-left text-xs text-destructive-foreground underline-offset-2 hover:underline"
             >
               {a.callsign ?? a.registration ?? a.hex.toUpperCase()} · {a.squawk}{" "}
               {EMERGENCY_SQUAWKS[a.squawk ?? ""]}

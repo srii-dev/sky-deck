@@ -25,7 +25,7 @@ function NotFoundComponent() {
   return (
     <div className="flex h-full flex-col overflow-y-auto bg-background">
       <SiteHeader />
-      <div className="flex flex-1 items-center justify-center px-4 py-10">
+      <main className="flex flex-1 items-center justify-center px-4 py-10">
         <div className="max-w-md text-center">
           <h1 className="text-7xl font-bold text-foreground">404</h1>
           <h2 className="mt-4 text-xl font-semibold text-foreground">Page not found</h2>
@@ -41,7 +41,7 @@ function NotFoundComponent() {
             </Link>
           </div>
         </div>
-      </div>
+      </main>
       <SiteFooter />
     </div>
   );
@@ -75,7 +75,7 @@ function ErrorComponent({ error, reset }: ErrorComponentProps) {
           </button>
           <a
             href="/"
-            className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
+            className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
           >
             Go home
           </a>
@@ -92,8 +92,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     // exist matches only the root, so it gets no canonical or share address.
     const last = matches[matches.length - 1];
     const pathname = last && last.routeId !== "__root__" ? last.pathname : null;
-    // The map's title belongs to real pages; an address that matches no page gets its own.
-    const title = pathname ? "SkyDeck — Live 3D flight tracker" : "Page not found — SkyDeck";
+    // A page that does not exist matches only the root: its tab, screen-reader and share titles say so.
+    const title = pathname ? "SkyDeck — Live 3D flight tracker" : `Page not found — ${APP_NAME}`;
     return {
       meta: [
         { charSet: "utf-8" },

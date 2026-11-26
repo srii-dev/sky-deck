@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { toRuleAircraft } from "@/hooks/use-alert-rules";
+import type { PushAlertsApi } from "@/hooks/use-push-alerts";
 import type { Aircraft } from "@/lib/aircraft";
 import type { AircraftKind } from "@/lib/aircraft-kind";
 import { KIND_LABELS } from "@/lib/aircraft-kind";
@@ -23,7 +24,9 @@ import {
   countMatches,
   describeConditions,
   hasConditions,
+  isPushEligible,
   MAX_ALERT_RULES,
+  PUSH_MAX_AREA_NM,
   type AlertRule,
   type RuleConditions,
 } from "@/lib/alert-rules";
@@ -48,6 +51,49 @@ interface Props {
   alertsOn: boolean;
   parseNote: string[] | null;
   onParseNote: (notes: string[] | null) => void;
+  push: PushAlertsApi;
+}
+
+const PUSH_NOTES: Record<PushAlertsApi["status"], string> = {
+  loading: "Checking…",
+  unsupported: "This browser cannot show notifications while the site is closed.",
+  unavailable: "Not available on this site yet.",
+  "signed-out": "Sign in (Settings, Account) to get alerts while SkyDeck is closed.",
+  off: "Off for this browser.",
+  on: "On for this browser. Rules with an area are checked every few minutes.",
+  working: "Working…",
+  denied: "Notifications are blocked for this site in the browser's settings.",
+};
+
+function PushSection({ push }: { push: PushAlertsApi }) {
+  const canToggle = push.status === "on" || push.status === "off";
+  return (
+    <section
+      className="space-y-1 rounded-md border border-border/60 p-2"
+      aria-label="Alerts while SkyDeck is closed"
+    >
+      <div className="flex items-center gap-2">
+        <Label htmlFor="push-switch" className="flex-1">
+          Also alert me when SkyDeck is closed
+        </Label>
+        <Switch
+          id="push-switch"
+          checked={push.status === "on"}
+          disabled={!canToggle}
+          onCheckedChange={(v) => void (v ? push.enable() : push.disable())}
+        />
+      </div>
+      <p className="text-xs text-muted-foreground" aria-live="polite">
+        {PUSH_NOTES[push.status]} Only rules with an area up to {PUSH_MAX_AREA_NM} nm are checked
+        while the page is closed; your rules are then saved to your account.
+      </p>
+      {push.error && (
+        <p role="alert" className="text-xs text-warning">
+          {push.error}
+        </p>
+      )}
+    </section>
+  );
 }
 
 function numberOrUndefined(v: string): number | undefined {
@@ -99,6 +145,8 @@ export function AlertRulesDialog(p: Props) {
             is open, and only for aircraft the map has loaded.
           </DialogDescription>
         </DialogHeader>
+
+        <PushSection push={p.push} />
 
         <section className="space-y-2" aria-label="Describe a rule">
           <Label htmlFor="rule-text">Describe it in plain English</Label>
@@ -200,7 +248,7 @@ export function AlertRulesDialog(p: Props) {
             "Only in the air". Categories come from the aircraft's own data and can be wrong.
           </p>
           {rangeBad && (
-            <p role="alert" className="text-xs text-destructive">
+            <p role="alert" className="text-xs text-destructive-text">
               The lowest altitude is above the highest.
             </p>
           )}
@@ -251,9 +299,7 @@ export function AlertRulesDialog(p: Props) {
             Your rules ({p.rules.length} of {MAX_ALERT_RULES})
           </h3>
           {!p.alertsOn && (
-            <p className="text-xs text-amber-300">
-              Alerts are switched off in the Watchlist dialog.
-            </p>
+            <p className="text-xs text-warning">Alerts are switched off in the Watchlist dialog.</p>
           )}
           {p.rules.length === 0 ? (
             <p className="text-sm text-muted-foreground">No rules yet.</p>
@@ -269,6 +315,10 @@ export function AlertRulesDialog(p: Props) {
                     <div className="truncate text-xs text-muted-foreground">
                       {describeConditions(r.conditions)} · {countMatches(r.conditions, rows)}{" "}
                       matching now
+                      {p.push.status === "on" &&
+                        (isPushEligible(r.conditions)
+                          ? " · also when closed"
+                          : " · only while open")}
                     </div>
                   </div>
                   <Switch

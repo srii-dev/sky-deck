@@ -156,15 +156,18 @@ export function providerErrorKind(e: unknown): "daily" | "rate" | "other" {
   return "other";
 }
 
-/** A short stable key for a task and prompt (FNV-1a, 32 bit, plus the length). Not a security measure. */
-export function cacheKey(task: string, prompt: string): string {
-  let h = 0x811c9dc5;
-  const text = task + "\u0000" + prompt;
-  for (let i = 0; i < text.length; i++) {
-    h ^= text.charCodeAt(i);
-    h = Math.imul(h, 0x01000193) >>> 0;
-  }
-  return task + ":" + h.toString(16) + ":" + text.length;
+/**
+ * A stable key for a task and prompt: SHA-256 of both, in hex. Answers are cached and shared between visitors and
+ * the prompt text comes from the browser, so the key must not collide on purpose: with a short hash (this was FNV-1a,
+ * 32 bit) a visitor could craft a prompt with the same key as a real message's and have their answer shown to
+ * everyone who opens that message.
+ */
+export async function cacheKey(task: string, prompt: string): Promise<string> {
+  const bytes = new TextEncoder().encode(task + "\u0000" + prompt);
+  const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", bytes));
+  let hex = "";
+  for (const b of digest) hex += b.toString(16).padStart(2, "0");
+  return task + ":" + hex;
 }
 
 export interface AiServiceOptions {
@@ -202,7 +205,7 @@ export function createAiService(opts: AiServiceOptions) {
     }
     const limit = req.maxOutputChars ?? DEFAULT_MAX_OUTPUT_CHARS;
     const t = now();
-    const key = cacheKey(req.task, prompt);
+    const key = await cacheKey(req.task, prompt);
     const hit = cache.get(key, t);
     if (hit) {
       return { ...hit, cached: true, label: AI_LABEL };
@@ -232,9 +235,16 @@ export function createAiService(opts: AiServiceOptions) {
       times.push(t);
       budgets.add(name, day, 1);
       const ctrl = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      // Raced, not only signalled: the Workers AI binding takes no signal and a hung call would never fall back.
+      const timedOut = new Promise<never>((_, reject) => {
+        timer = setTimeout(() => {
+          ctrl.abort();
+          reject(new Error("AI provider timed out"));
+        }, timeoutMs);
+      });
       try {
-        const raw = await provider.generate(prompt, ctrl.signal);
+        const raw = await Promise.race([provider.generate(prompt, ctrl.signal), timedOut]);
         const text = raw.trim().slice(0, limit);
         if (!text) {
           failed += 1;

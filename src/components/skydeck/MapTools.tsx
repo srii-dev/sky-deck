@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useFlag } from "@/hooks/use-flag";
 import {
   Bookmark,
@@ -72,6 +72,8 @@ export interface RulerControls {
   onClear: () => void;
   /** Start the measurement at the selected aircraft; undefined when none is selected (Phase 22d). */
   onStartAtAircraft?: (() => void) | undefined;
+  /** Called with the ruler bar's height in pixels whenever it changes, and 0 when it closes. */
+  onBarHeight?: (height: number) => void;
 }
 
 interface Props {
@@ -153,6 +155,27 @@ export function MapTools({
   const [fullscreen, setFullscreen] = useState(false);
   // Read after hydration so the first render matches the server.
   useEffect(() => setViews(loadViews()), []);
+  // Report the ruler bar's height so the emergency banner can sit below it, also when the bar wraps on a phone.
+  const onBarHeight = ruler.onBarHeight;
+  const barObserver = useRef<ResizeObserver | null>(null);
+  const rulerBarRef = useCallback(
+    (el: HTMLDivElement | null) => {
+      barObserver.current?.disconnect();
+      barObserver.current = null;
+      if (!onBarHeight) return;
+      if (!el) {
+        onBarHeight(0);
+        return;
+      }
+      onBarHeight(Math.round(el.getBoundingClientRect().height));
+      if (typeof ResizeObserver === "undefined") return;
+      barObserver.current = new ResizeObserver(() =>
+        onBarHeight(Math.round(el.getBoundingClientRect().height)),
+      );
+      barObserver.current.observe(el);
+    },
+    [onBarHeight],
+  );
   useEffect(() => {
     const onChange = () => setFullscreen(!!document.fullscreenElement);
     onChange();
@@ -220,12 +243,13 @@ export function MapTools({
   };
 
   return (
-    <div className="pointer-events-auto flex items-start gap-2">
+    // Only the buttons and the ruler chip take clicks: this row's box also spans the map beside the column.
+    <div className="pointer-events-none flex items-start gap-2">
       {/* In a short window (a phone on its side) the column wraps into a second column instead of running off the screen. */}
       {/* On a phone with an aircraft selected the column is shorter and wraps, so the last button stays above the collapsed bottom sheet (about 215 px). */}
       <div
         className={cn(
-          "flex flex-col flex-wrap content-start gap-2 md:max-h-[calc(100dvh-var(--hud-h,76px)-148px)]",
+          "pointer-events-auto flex flex-col flex-wrap content-start gap-2 md:max-h-[calc(100dvh-var(--hud-h,76px)-148px)]",
           layers.hasSelection
             ? "max-h-[calc(100dvh-var(--hud-h,76px)-240px)]"
             : "max-h-[calc(100dvh-var(--hud-h,76px)-84px)]",
@@ -419,7 +443,7 @@ export function MapTools({
                     <button
                       type="button"
                       aria-label={`Delete saved view ${v.name}`}
-                      className="rounded p-1.5 text-muted-foreground hover:text-destructive"
+                      className="rounded p-1.5 text-muted-foreground hover:text-destructive-text"
                       onClick={() => remove(v.name)}
                     >
                       <Trash2 className="size-4" />
@@ -503,7 +527,8 @@ export function MapTools({
       </div>
       {ruler.active && (
         <div
-          className="glass-panel flex items-center gap-2 rounded-md px-3 py-2 text-sm"
+          ref={rulerBarRef}
+          className="glass-panel pointer-events-auto flex items-center gap-2 rounded-md px-3 py-2 text-sm"
           role="status"
         >
           <span className="data-value text-primary">

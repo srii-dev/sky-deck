@@ -26,7 +26,9 @@ export function RadarTimeline({ radar, now }: Props) {
       {radar.error ? (
         <p className="text-sm text-muted-foreground">Radar is not available right now.</p>
       ) : radar.loading || frames.length === 0 ? (
-        <p className="hud-label animate-pulse">Loading radar…</p>
+        <p role="status" className="hud-label animate-pulse">
+          Loading radar…
+        </p>
       ) : (
         <>
           <div className="flex items-center gap-2">

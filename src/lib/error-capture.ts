@@ -49,11 +49,36 @@ function isErrorLike(value: unknown): value is Error {
   return value instanceof Error;
 }
 
+// Node's HTTP server raises Error("aborted") with code ECONNRESET when the browser drops a request it has not
+// finished receiving, for example when the page is reloaded mid-load; h3 then logs it wrapped in a 500 HTTPError.
+// Nothing failed on our side, so it is logged as one short line instead of three stacks (dev-plan 0h). It was seen
+// on the Node development server; the match is narrow, so a real error is never hidden by it.
+export function isClientDisconnect(error: unknown): boolean {
+  let current: unknown = error;
+  for (let depth = 0; depth < CAUSE_DEPTH_LIMIT && current instanceof Error; depth++) {
+    if (current.message === "aborted" && (current as { code?: unknown }).code === "ECONNRESET") {
+      return true;
+    }
+    current = current.cause;
+  }
+  return false;
+}
+
 // Wrap console.error so errors logged by any layer — including h3's internal
 // unhandled-error logging, which this file cannot hook directly — are both
 // recorded for consumeLastCapturedError and expanded before serialization.
 const originalConsoleError = console.error.bind(console);
 console.error = (...args: unknown[]) => {
+  // Only when every error in the call is a dropped request, so a real error logged alongside is never hidden.
+  const errors = args.filter(isErrorLike);
+  if (errors.length > 0 && errors.every(isClientDisconnect)) {
+    // Recorded so server.ts finds it and does not log a second "h3 swallowed SSR error" for the same request.
+    record(errors[0]);
+    console.warn(
+      "[request aborted] the browser closed the connection before the response finished",
+    );
+    return;
+  }
   const expanded = args.map((arg) => {
     if (!isErrorLike(arg)) return arg;
     record(arg);

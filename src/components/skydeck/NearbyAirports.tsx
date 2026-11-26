@@ -42,7 +42,7 @@ export function NearbyAirports({ items, units, onPick, onClose }: Props) {
           {items.map((n) => (
             <li key={n.airport.icao}>
               <button
-                className="flex w-full items-baseline justify-between gap-2 rounded px-1 py-1 text-left text-sm hover:bg-accent"
+                className="flex w-full items-baseline justify-between gap-2 rounded px-1 py-1 text-left text-sm hover:bg-accent/15"
                 onClick={() => onPick(n.airport)}
               >
                 <span className="truncate">

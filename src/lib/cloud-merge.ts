@@ -16,10 +16,14 @@ const watchId = (w: Pick<WatchItem, "kind" | "key">) => w.kind + ":" + w.key;
 
 export interface WatchMerge {
   merged: WatchItem[];
-  /** Items the account does not have yet. */
+  /** Items the account does not have yet and that fit under its limit. */
   toUpload: WatchItem[];
-  /** Items beyond the limit that were left out (the oldest). */
-  dropped: number;
+  /**
+   * Items from this browser that the account had no room for (newest first). The account's list is the one kept,
+   * because the database refuses an upload that would take it over the limit: uploading more than fits would fail
+   * as a whole and save nothing.
+   */
+  didNotFit: WatchItem[];
 }
 
 export function mergeWatchlists(
@@ -28,18 +32,22 @@ export function mergeWatchlists(
 ): WatchMerge {
   const byId = new Map<string, WatchItem>();
   for (const w of remote) byId.set(watchId(w), w);
-  const remoteIds = new Set(byId.keys());
+  const fresh = new Map<string, WatchItem>();
   for (const w of local) {
-    const have = byId.get(watchId(w));
+    const id = watchId(w);
+    const have = byId.get(id);
     // The earlier addedAt wins, so the "added on" date stays stable across devices.
-    if (!have || (w.addedAt > 0 && w.addedAt < have.addedAt))
-      byId.set(watchId(w), have ? { ...have, addedAt: w.addedAt } : w);
+    if (have) {
+      if (w.addedAt > 0 && w.addedAt < have.addedAt) byId.set(id, { ...have, addedAt: w.addedAt });
+    } else if (!fresh.has(id)) fresh.set(id, w);
   }
-  const all = [...byId.values()].sort((a, b) => b.addedAt - a.addedAt);
-  const merged = all.slice(0, MAX_WATCH_ITEMS);
-  const keptIds = new Set(merged.map(watchId));
-  const toUpload = local.filter((w) => keptIds.has(watchId(w)) && !remoteIds.has(watchId(w)));
-  return { merged, toUpload, dropped: all.length - merged.length };
+  const room = Math.max(0, MAX_WATCH_ITEMS - byId.size);
+  const newestFirst = (a: WatchItem, b: WatchItem) => b.addedAt - a.addedAt;
+  const candidates = [...fresh.values()].sort(newestFirst);
+  const toUpload = candidates.slice(0, room);
+  const didNotFit = candidates.slice(room);
+  const merged = [...byId.values(), ...toUpload].sort(newestFirst).slice(0, MAX_WATCH_ITEMS);
+  return { merged, toUpload, didNotFit };
 }
 
 export interface RecentMerge {
