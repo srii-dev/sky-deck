@@ -49,7 +49,7 @@ export function LiveIndicator({
             it changes, never the seconds counter beside it (Phase 5f). */}
         <span role="status">
           <span className="sr-only">Feed: </span>
-          <span className="font-display text-xs font-semibold uppercase tracking-[0.2em]">
+          <span className="inline-block min-w-[4.3rem] font-display text-xs font-semibold uppercase tracking-[0.2em]">
             {label}
           </span>
         </span>
@@ -58,18 +58,25 @@ export function LiveIndicator({
       <span className="data-value inline-block min-w-[9ch] whitespace-nowrap text-[11px] tabular-nums text-muted-foreground">
         {age == null ? "—" : isFetching && age > 6 ? "updating…" : `${age}s ago`}
       </span>
-      {behind && fetchedAt != null && (
-        <span className="data-value hidden whitespace-nowrap text-[11px] text-muted-foreground lg:inline">
-          {behind}
-        </span>
-      )}
-      {/* No count before the first response: "0 ac" is not data yet, and the extra
-          width pushed the Filters button onto a second row at ~1280 px. */}
-      {fetchedAt != null && (
-        <span className="data-value hidden min-w-[10ch] whitespace-nowrap text-[11px] tabular-nums text-muted-foreground sm:inline-block">
-          {shown === total ? `${total} ac` : `${shown}/${total} ac`}
-        </span>
-      )}
+      {/* The delay and count slots are always in the layout (invisible until there is something to show), so the
+          chip is as wide while loading as when live and nothing next to it moves when the first answer arrives.
+          There is still no "0 ac" before the first response: the slot is empty, not a number. */}
+      <span
+        className={cn(
+          "data-value hidden min-w-[11ch] whitespace-nowrap text-[11px] tabular-nums text-muted-foreground lg:inline-block",
+          !(behind && fetchedAt != null) && "invisible",
+        )}
+      >
+        {behind && fetchedAt != null ? behind : ""}
+      </span>
+      <span
+        className={cn(
+          "data-value hidden min-w-[10ch] whitespace-nowrap text-[11px] tabular-nums text-muted-foreground sm:inline-block",
+          fetchedAt == null && "invisible",
+        )}
+      >
+        {fetchedAt == null ? "" : shown === total ? `${total} ac` : `${shown}/${total} ac`}
+      </span>
     </div>
   );
 }

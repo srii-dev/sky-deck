@@ -62,4 +62,7 @@ test("an unknown address shows the not-found page", async ({ page }) => {
   const response = await page.goto("/this-page-does-not-exist");
   expect(response?.status()).toBe(404);
   await expect(page.getByText(/not found|404/i).first()).toBeVisible();
+  // The map's title belongs to the map page, not to an address that matches nothing.
+  await expect(page).toHaveTitle(/not found/i);
+  await expect(page).toHaveTitle(/SkyDeck/);
 });

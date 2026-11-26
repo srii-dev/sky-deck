@@ -92,15 +92,16 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     // exist matches only the root, so it gets no canonical or share address.
     const last = matches[matches.length - 1];
     const pathname = last && last.routeId !== "__root__" ? last.pathname : null;
+    // A page that does not exist matches only the root: its tab, screen-reader and share titles say so.
+    const title = pathname ? "SkyDeck — Live 3D flight tracker" : `Page not found — ${APP_NAME}`;
     return {
       meta: [
         { charSet: "utf-8" },
         { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
         { name: "theme-color", content: "#0f161d" },
-        // A page that does not exist matches only the root: its tab and screen-reader title say so.
-        { title: pathname ? "SkyDeck — Live 3D flight tracker" : `Page not found — ${APP_NAME}` },
+        { title },
         { name: "description", content: "Live ADS-B flight tracking on a 3D map." },
-        { property: "og:title", content: "SkyDeck — Live 3D flight tracker" },
+        { property: "og:title", content: title },
         { property: "og:description", content: "Live ADS-B flight tracking on a 3D map." },
         ...shareMeta({ site: loaderData ?? null, pathname, siteName: APP_NAME }),
       ],
